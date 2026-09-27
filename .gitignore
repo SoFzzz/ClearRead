@@ -1,0 +1,53 @@
+# --- Entornos virtuales ---
+.venv/
+venv/
+env/
+
+# --- Build / empaquetado (PyInstaller, §6.3) ---
+build/
+dist/
+*.spec.bak
+
+# --- Python cache ---
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- Cobertura / logs ---
+.coverage
+htmlcov/
+*.log
+
+# --- Binarios generados ---
+*.exe
+
+# --- IDE ---
+.vscode/
+.idea/
+
+# --- Claude Code (local, no versionado) ---
+.claude/settings.local.json
+
+# --- Sistema (Windows) ---
+Thumbs.db
+desktop.ini
+
+# --- Secretos y configuración local (NFR-SEC01) ---
+.env
+.env.*
+secrets.*
+*.local.json
+
+# --- Caché local del asistente IA (§4.10), si llegara a vivir en el repo ---
+.ai_cache/
+**/ai_cache/
+
+# --- Documentos/fotos de prueba con datos personales ---
+# Deja fuera de git cualquier muestra real (fotos de apuntes propios, PDFs
+# con datos personales). Las muestras sintéticas/anonimizadas para el spike
+# y la suite de calibración (§6.4) van en tests/samples/ y SÍ se versionan.
+tests/samples/private/
