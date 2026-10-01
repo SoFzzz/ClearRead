@@ -1,9 +1,10 @@
 # ClearRead Desktop — Documentación Técnica de Arquitectura, Requisitos y Diseño
 
-> **Versión:** 1.4.0 (Núcleo Offline + Asistente IA Opcional — Entrega Académica / Portafolio)  
-> **Fecha de Actualización:** 2026-09-27  
+> **Versión:** 1.5.0 (Núcleo Offline + Asistente IA vía Backend Propio Desplegado — Entrega Académica / Portafolio)  
+> **Fecha de Actualización:** 2026-10-01  
 > **Estado:** Aprobado para Implementación con Spikes Técnicos  
-> **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~11 días calendario | Distribución: `.exe` standalone Windows  
+> **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~13 días calendario (2026-10-02 → 2026-10-14) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
+> **Cambios v1.5.0:** la materia exige el proyecto **desplegado**, por lo que el asistente de IA pasa a llamar a un backend propio (§4.11) en lugar de a DeepSeek directamente; la API key sale de la app.  
 > **Idioma UI:** Español | **Idioma de Código y Nombres Técnicos:** Inglés  
 
 ---
@@ -18,11 +19,20 @@ Los estudiantes con dislexia o dificultades específicas de decodificación fono
 - **Falta de Refuerzo Bimodal:** Ausencia de sincronización audiovisual estricta que ancle el estímulo fonético con el estímulo grafémico simultáneamente.
 
 ### 1.2 Propuesta de Solución: ClearRead Desktop
-**ClearRead Desktop** es una aplicación de escritorio local para Windows con **núcleo 100% offline** una vez provisionados sus modelos locales: la ingesta, el OCR, el silabeo, la lectura en voz alta y la interfaz funcionan sin conexión. Sobre ese núcleo se ofrece un **asistente de IA generativa opcional con conexión** (explicación de palabras y simplificación de párrafos vía DeepSeek), que se deshabilita de forma transparente cuando no hay red. El sistema transforma documentos escaneados en una superficie de lectura de alta ergonomía cognitiva con:
+**ClearRead Desktop** es un sistema de tres piezas:
+
+| Pieza | Qué es | Red |
+|:---|:---|:---|
+| **`ClearRead.exe`** | Aplicación de escritorio Windows (frontend). Ingesta, OCR, silabeo, lectura en voz alta e interfaz. | **Núcleo 100% offline**: los modelos ONNX y las fuentes viajan dentro del `.exe`. |
+| **Backend propio** | API FastAPI (`backend/`, §4.11) desplegada en Render (plan gratuito). Guarda la API key, aplica límites de costo y habla con DeepSeek. | Recibe solo el texto que el usuario selecciona, por HTTPS. |
+| **DeepSeek** | Modelo de IA generativa externo. | Solo lo llama el backend. |
+
+Sobre el núcleo offline se ofrece un **asistente de IA generativa opcional con conexión** (explicación de palabras y simplificación de párrafos): `ClearRead.exe` → HTTPS → backend propio → DeepSeek. Sin red, el asistente se deshabilita de forma transparente y el resto de la app funciona igual. El sistema transforma documentos escaneados en una superficie de lectura de alta ergonomía cognitiva con:
 1. **OCR con Inteligencia Artificial de Visión:** Núcleo de Deep Learning no negociable para extraer texto legible desde imágenes y PDFs sin intervención de servicios de nube.
 2. **Segmentación Silábica Fonética Determinista:** Coloración alternada de sílabas conforme a la normativa ortográfica de la Real Academia Española (RAE).
 3. **Lectura Aumentada Bimodal Sincronizada:** Síntesis de voz local vinculada a una regleta visual y resaltado por palabra con tolerancia perceptible mínima, incorporando soporte de pausa y reanudación en la oración activa.
 4. **Entorno Visual de Bajo Estrés:** Paletas cromáticas suaves de contraste validado y tipografía OpenDyslexic.
+5. **Asistente de IA Opcional vía Backend Propio:** Explicar una palabra en contexto y simplificar un párrafo, a través de nuestro backend desplegado; la app nunca contiene la API key de DeepSeek.
 
 ---
 
@@ -38,7 +48,7 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 
 | Capa / Módulo | Tecnología Principal | Versión | Licencia | Plan B (Contingencia de Riesgo Alto) |
 |:---|:---|:---:|:---:|:---|
-| **Plataforma Base** | Python | 3.11+ | PSF | Mantener Python 3.11 x64 para compatibilidad binaria con PyInstaller. |
+| **Plataforma Base** | Python | **3.11 x64 (exacto)** | PSF | Versión fija en la app y en el backend por compatibilidad binaria con PyInstaller; venv creado con `py -3.11 -m venv .venv`. |
 | **Framework GUI** | PySide6 | ≥ 6.7.0 | LGPL v3 | Si PySide6 presenta problemas de tamaño en el bundle, mantener `--onedir` sin compresión UPX. |
 | **Renderizado PDF** | **pypdfium2** | ≥ 4.28.0 | Apache 2.0 / BSD-3 | Renderizado C nativo sin Poppler; libre de riesgos copyleft AGPL. |
 | **Visión e IA (OCR Principal)** | **RapidOCR (ONNX Runtime)** | ≥ 1.3.0 | Apache 2.0 | **Plan B IA:** Si la precisión de reconocimiento de RapidOCR es insuficiente en tipografías degradadas del set de calibración, ajustar umbrales de detección (`box_thresh`, `unclip_ratio`) o incorporar preprocesamiento de contraste adaptativo en OpenCV. Mantiene 100% el uso de IA de Deep Learning con inferencia local ágil y huella mínima (~16 MB). |
@@ -46,7 +56,10 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | ≥ 2.98 | MPL 2.0 / PSF | **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
 | **Segmentación Fonética** | silabeador | ≥ 1.1.0 | MIT | Algoritmo determinista RAE. Plan B: módulo interno de reglas regex fonológicas. |
 | **Tipografía Accesible** | OpenDyslexic | Open Font | SIL OFL | Empaquetada localmente en recursos del proyecto. |
-| **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | Solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. |
+| **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
+| **Backend API** *(solo `backend/`)* | FastAPI (incluye pydantic, MIT) | ≥ 0.115.0 | MIT | Proyecto aparte con su propio `pyproject.toml`; nunca entra en el `.exe`. Genera `/docs` (OpenAPI) automáticamente. |
+| **Servidor ASGI** *(solo `backend/`)* | uvicorn | ≥ 0.30.0 | BSD-3 | Arranque en Render con `uvicorn ... --host 0.0.0.0 --port $PORT`. |
+| **Hosting del backend** | Render — Web Service, plan **Free** | — | Servicio (no es dependencia) | **Condiciones consultadas el 2026-10-01** en https://render.com/docs/free: se duerme tras 15 min sin tráfico y tarda ~1 min en despertar; 750 h de instancia/mes; sin disco persistente; una sola instancia. **Plan B: Hugging Face Spaces** — a la misma fecha (https://huggingface.co/docs/hub/spaces-overview), los Spaces Docker/Gradio requieren plan de pago para crearse (los gratuitos solo admiten Static o hasta 2 Gradio sobre ZeroGPU), así que el Plan B **no es gratuito** para FastAPI; ver §8. |
 
 > [!NOTE]
 > **Alternativa Evaluada y Descartada:** Se evaluó formalmente **PaddleOCR / PPStructure** y se resolvió **descartarlo definitivamente** del proyecto debido al alto riesgo comprobado de empaquetado en Windows mediante PyInstaller (conflictos de DLLs de PaddlePaddle, dependencias de MKL/OneDNN y tamaño de bundle > 1.5 GB). Su sustitución por **RapidOCR sobre ONNX Runtime** erradica el principal punto de falla de despliegue preservando al 100% el núcleo de visión artificial por Deep Learning.
@@ -56,7 +69,7 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 ## 3. Arquitectura del Sistema y Flujo de Datos
 
 ### 3.1 Diagrama de Arquitectura Simplificada
-Para minimizar el riesgo de sobreingeniería en un proyecto universitario de 3 semanas, se elimina el bus global `AppState` complejo en favor de **comunicación directa desacoplada por Señales y Slots de Qt** entre vistas y workers:
+Para minimizar el riesgo de sobreingeniería en un proyecto universitario de ~13 días (§6.5), se elimina el bus global `AppState` complejo en favor de **comunicación directa desacoplada por Señales y Slots de Qt** entre vistas y workers. El diagrama muestra las tres piezas del sistema: la app de escritorio (núcleo offline), el backend propio desplegado y DeepSeek:
 
 ```mermaid
 graph TB
@@ -79,6 +92,18 @@ graph TB
         TTS["TTSWorker (SAPI5 Engine)"]
     end
 
+    subgraph AI_Worker["Capa de IA Opcional (QThreadPool dedicado, maxThreadCount=1)"]
+        AIW["ExplainWordWorker / SimplifyParagraphWorker"]
+        AIC["BackendAIClient (httpx + caché local)"]
+    end
+
+    subgraph Backend["Backend propio (FastAPI en Render, backend/)"]
+        API["POST /v1/explain · POST /v1/simplify · GET /health"]
+        GUARD["Token de cliente + límites de tamaño + tope diario + caché en memoria"]
+    end
+
+    DS["DeepSeek API"]
+
     HV -->|Solicitar Procesamiento| Processing_Worker
     Processing_Worker -->|Error de Archivo / OCR| MSG
     Processing_Worker -->|Documento Formateado| RV
@@ -86,7 +111,15 @@ graph TB
     RV -->|speak(script, start_offset)| TTS
     TTS -->|word_spoken(index)| RV
     RV -->|highlight_token()| RW
+    RV -->|clic derecho: explicar / simplificar| AIW
+    AIW --> AIC
+    AIC -->|HTTPS + X-Client-Token| API
+    API --> GUARD
+    GUARD -->|HTTPS + API key (variable de entorno)| DS
+    AIW -->|finished / failed / waking| RV
 ```
+
+> La flecha `BackendAIClient → backend` es la **única** salida de red de `ClearRead.exe`, y solo ocurre cuando el usuario pide ayuda de IA. Todo el resto del diagrama funciona sin conexión.
 
 ### 3.2 Diagrama de Secuencia y Calibración con Datos Reales
 
@@ -777,6 +810,10 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from clearread.core.paths import get_user_data_dir
 
+# The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
+# Placeholder until the real Render URL exists (Day 10, §6.5).
+DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
+
 
 @dataclass
 class AppConfig:
@@ -785,6 +822,7 @@ class AppConfig:
     syllables_enabled: bool = True
     reading_speed_wpm: int = 150
     voice_volume: float = 1.0
+    backend_url: str = DEFAULT_BACKEND_URL  # editable in "Ajustes avanzados" (CFG-F02)
 
     @classmethod
     def load(cls) -> "AppConfig":
@@ -1232,50 +1270,73 @@ class HomeView(QWidget):
 
 ---
 
-### 4.10 Asistente IA (`services/ai_client.py`)
-**Propósito:** Ofrecer dos capacidades de asistencia con IA generativa (explicar una palabra en contexto y simplificar un párrafo) como capa **opcional** sobre el núcleo 100% offline (§1.2, NFR-OFF01), con control estricto de costo y sin exponer la API key en el repositorio ni en el binario. Las llamadas de red se ejecutan fuera del hilo de UI (AI-F04) y todo el código de este módulo está en inglés; los textos en español al usuario viven en la capa de UI.
+### 4.10 Asistente IA en la App (`services/ai_client.py`)
+**Propósito:** Ofrecer dos capacidades de asistencia con IA generativa (explicar una palabra en contexto y simplificar un párrafo) como capa **opcional** sobre el núcleo 100% offline (§1.2, NFR-OFF01). Desde v1.5.0 la app **no habla con DeepSeek**: llama a **nuestro backend** (§4.11), que guarda la API key, aplica los límites de costo y reenvía la petición a DeepSeek. Las llamadas de red se ejecutan fuera del hilo de UI (AI-F04) y todo el código de este módulo está en inglés; los textos en español al usuario viven en `ui/strings.py`.
 
-**Proveedor:** DeepSeek, vía su API compatible con el formato OpenAI (*OpenAI-compatible*). El identificador de modelo y el endpoint base **se toman de la documentación oficial de DeepSeek** (https://api-docs.deepseek.com/) y deben verificarse contra esa fuente antes de fijarlos en `AppConfig`; no se inventan en esta especificación. La API key, el `model_id` y el `base_url` se introducen en la pantalla de Ajustes (CFG-F02, §5.1, §6.5 Día 7) y se persisten mediante `AppConfig` (§4.6).
+**Qué cambia respecto a v1.4.0:**
+- `DeepSeekClient` se reemplaza por `BackendAIClient(AIClient)`, que llama a `POST /v1/explain` y `POST /v1/simplify` del backend.
+- La app ya no contiene API key, `model_id` ni `base_url` de DeepSeek, ni los *system prompts* (pasan al backend).
+- Se mantienen `AIClient`, `AIErrorKind`, el `QThreadPool` dedicado con `maxThreadCount=1`, la caché local en disco y el tope de 30 llamadas por sesión.
+- `BackendAIClient` recibe por inyección la URL del backend (`AppConfig.backend_url`, valor por defecto `DEFAULT_BACKEND_URL` de `core/config.py`, §4.6) y el token de cliente (constante en `core/config.py`).
 
 #### Requisitos de Ingeniería
-- **AI-F01:** `explain_word(word, context_sentence)` — explica el significado de una palabra usando la oración como contexto.
-- **AI-F02:** `simplify_paragraph(text)` — reescribe un párrafo en lenguaje más simple, preservando el sentido.
-- **AI-F03:** Degradación elegante sin red: la app detecta conectividad **sin generar tráfico de red** mediante `QNetworkInformation` (Qt ≥ 6.1, backend de *reachability* del sistema operativo). Si `QNetworkInformation` no está disponible en el SO, el botón de IA permanece habilitado y, ante el primer fallo real de la llamada, se informa con un mensaje amable en vez de deshabilitarse preventivamente.
-- **AI-F04:** Toda llamada a `AIClient` se ejecuta en un worker (`QThread`/`QRunnable`) dedicado; la UI nunca invoca `httpx` en el hilo principal y solo recibe el resultado (texto u error) a través de señales Qt.
-- **NFR-SEC01:** La API key se guarda únicamente en el archivo de configuración del usuario (`%APPDATA%`), nunca en el repositorio ni embebida en el `.exe`; solo se envía a la API el texto explícitamente seleccionado por el usuario, con aviso de privacidad visible antes del primer uso.
+- **AI-F01:** `explain_word(word, context_sentence)` — explica el significado de una palabra usando la oración como contexto, vía `POST /v1/explain`.
+- **AI-F02:** `simplify_paragraph(text)` — reescribe un párrafo en lenguaje más simple, vía `POST /v1/simplify`.
+- **AI-F03:** Degradación elegante sin red y con el backend dormido:
+  - Sin red: la app detecta conectividad **sin generar tráfico de red** mediante `QNetworkInformation` (Qt ≥ 6.1, backend de *reachability* del sistema operativo) y deshabilita el botón de IA. Si `QNetworkInformation` no está disponible en el SO, el botón permanece habilitado y, ante el primer fallo real de la llamada, se informa con un mensaje amable en vez de deshabilitarse preventivamente.
+  - Backend dormido (arranque en frío): el plan gratuito de Render duerme el backend tras 15 min sin tráfico (§2.2). Antes de cada llamada, el worker comprueba `GET /health` con un *timeout* corto; si no responde a tiempo, emite `waking` (la UI muestra "Despertando el asistente…") y espera hasta **60 s**. Si no despierta en ese plazo, falla con `AIErrorKind.SERVER_WAKING`.
+- **AI-F04:** Toda llamada a `AIClient` se ejecuta en un worker (`QRunnable`) del `QThreadPool` dedicado; la UI nunca invoca `httpx` en el hilo principal y solo recibe el resultado (texto, error o aviso de "despertando") a través de señales Qt.
+- **NFR-SEC01:** La API key de DeepSeek **no existe en la app**: solo vive en las variables de entorno del hosting (y en `backend/.env`, ignorado por git, para desarrollo). Solo se envía el texto explícitamente seleccionado por el usuario, con aviso de privacidad visible antes del primer uso.
 
-#### Control de Costo (presupuesto total: $1.99 USD)
+#### Control de Costo en la App
 | Control | Valor |
 |:---|:---|
-| `max_tokens` en `explain_word` | ~80 tokens |
-| `max_tokens` en `simplify_paragraph` | ~250 tokens |
 | Alcance del texto enviado | Solo el texto seleccionado por el usuario, nunca el documento completo |
-| Caché | Local en disco, por clave `(función, texto normalizado)`, evita reconsultar la API |
-| Tope de llamadas | 30 llamadas por sesión de la aplicación |
-| Timeout de red | 15 s por llamada |
-| Longitud de respuesta al usuario | Máx. 2 frases en `explain_word`, máx. 4 frases en `simplify_paragraph`; si `finish_reason == "length"`, se recorta a la última frase completa |
+| Caché local | En disco, por clave `(función, texto normalizado)`; evita reconsultar el backend |
+| Tope por sesión | 30 llamadas por sesión de la aplicación (`AIErrorKind.SESSION_LIMIT`) |
+| Timeout de petición al backend | 30 s (mayor que los 20 s del backend hacia DeepSeek, §4.11) |
+| Espera máxima de arranque en frío | 60 s (`AIErrorKind.SERVER_WAKING`) |
+| Topes globales | Los aplica el backend: límites de tamaño (413) y tope diario (429), §4.11 |
+
+#### Mapeo de Respuestas del Backend a `AIErrorKind`
+| Situación | `AIErrorKind` | Mensaje en `ui/strings.py` (ejemplo) |
+|:---|:---|:---|
+| Sin conexión (`httpx.ConnectError` y similares) | `NO_NETWORK` | "No pudimos conectar con el asistente. Verifica tu conexión a internet." |
+| `/health` no responde en 60 s | `SERVER_WAKING` | Aviso mientras espera: "Despertando el asistente…"; si falla: "El asistente está tardando en despertar. Inténtalo de nuevo en un minuto." |
+| Timeout de la petición | `TIMEOUT` | "El asistente tardó demasiado en responder. Inténtalo de nuevo." |
+| Tope por sesión alcanzado (local) | `SESSION_LIMIT` | "Alcanzaste el máximo de consultas de IA para esta sesión." |
+| `429 daily_limit_reached` | `DAILY_LIMIT` | "El asistente alcanzó su límite de hoy. Vuelve a intentarlo mañana." |
+| `413 input_too_long` | `INPUT_TOO_LONG` | "El texto seleccionado es demasiado largo. Selecciona un fragmento más corto." |
+| `401 invalid_client_token`, `502 upstream_*` | `SERVICE_UNAVAILABLE` | "El asistente no está disponible en este momento." |
+| `504 upstream_timeout` | `TIMEOUT` | (mismo mensaje que `TIMEOUT`) |
+| Cualquier otra respuesta o JSON inesperado | `BAD_RESPONSE` | "No pudimos entender la respuesta del asistente." |
+
+El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings.py` (junto con el resto de textos de la UI) y lo consume `AccessibleErrorDialog`. `INVALID_KEY` y `NO_BALANCE` de v1.4.0 desaparecen de la app: esos fallos ocurren entre el backend y DeepSeek y llegan como `502 upstream_*`.
 
 #### Contrato de Interfaz y Código
-
 ```python
-"""Optional generative-AI assistant client (English-only code; Spanish user-facing
-strings live in the UI layer). The only module allowed to import network HTTP
-libraries (see AI-F04 / NFR-SEC01 / NFR-OFF01). Must only be invoked from a
-worker thread/runnable, never from the UI thread (AI-F04)."""
+"""Optional generative-AI assistant client. Talks only to the ClearRead
+backend (§4.11), never to DeepSeek. The only app module allowed to import
+httpx (NFR-OFF01). Must run inside a worker, never on the UI thread (AI-F04)."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+import time
+
+import httpx
 
 
 class AIErrorKind(Enum):
-    """Machine-readable error kind. Spanish messages are mapped in the UI
-    strings module (e.g. ui/strings.py), not here."""
+    """Machine-readable error kind; Spanish messages live in ui/strings.py."""
     NO_NETWORK = "no_network"
-    INVALID_KEY = "invalid_key"
-    NO_BALANCE = "no_balance"
+    SERVER_WAKING = "server_waking"
     TIMEOUT = "timeout"
     SESSION_LIMIT = "session_limit"
+    DAILY_LIMIT = "daily_limit"
+    INPUT_TOO_LONG = "input_too_long"
+    SERVICE_UNAVAILABLE = "service_unavailable"
     BAD_RESPONSE = "bad_response"
 
 
@@ -1292,132 +1353,114 @@ class AIResponse:
 
 
 class AIClient(ABC):
-    """Abstract interface so the UI never depends on a concrete provider.
-    Allows swapping DeepSeek for a future proxy backend without touching callers."""
+    """Abstract interface so the UI never depends on a concrete transport."""
 
     @abstractmethod
-    def explain_word(self, word: str, context_sentence: str) -> AIResponse:
-        ...
+    def ensure_awake(self, on_waking: Callable[[], None]) -> None: ...
 
     @abstractmethod
-    def simplify_paragraph(self, text: str) -> AIResponse:
-        ...
+    def explain_word(self, word: str, context_sentence: str) -> AIResponse: ...
+
+    @abstractmethod
+    def simplify_paragraph(self, text: str) -> AIResponse: ...
 
 
-class DeepSeekClient(AIClient):
-    """DeepSeek implementation over its OpenAI-compatible API (httpx).
+_STATUS_TO_KIND = {
+    401: AIErrorKind.SERVICE_UNAVAILABLE,
+    413: AIErrorKind.INPUT_TOO_LONG,
+    429: AIErrorKind.DAILY_LIMIT,
+    502: AIErrorKind.SERVICE_UNAVAILABLE,
+    503: AIErrorKind.SERVICE_UNAVAILABLE,
+    504: AIErrorKind.TIMEOUT,
+}
 
-    Model id and base endpoint: confirm against the official DeepSeek docs
-    (https://api-docs.deepseek.com/) before deploying; not hardcoded here.
-    Must only run inside a worker (see AIExplainWorker below), never on the UI thread.
-    """
 
+class BackendAIClient(AIClient):
     MAX_CALLS_PER_SESSION = 30
-    TIMEOUT_SECONDS = 15.0
-    EXPLAIN_MAX_TOKENS = 80
-    SIMPLIFY_MAX_TOKENS = 250
+    REQUEST_TIMEOUT_SECONDS = 30.0
+    HEALTH_PROBE_SECONDS = 5.0
+    WAKE_TIMEOUT_SECONDS = 60.0
+    WAKE_POLL_SECONDS = 2.0
 
-    # Short, simple Spanish system prompts targeted at a dyslexic reader.
-    EXPLAIN_SYSTEM_PROMPT = (
-        "Explica en español simple, en máximo 2 frases cortas, "
-        "para una persona con dislexia."
-    )
-    SIMPLIFY_SYSTEM_PROMPT = (
-        "Reescribe en español simple, en máximo 4 frases cortas, "
-        "para una persona con dislexia."
-    )
-
-    def __init__(self, api_key: str, base_url: str, model_id: str, cache) -> None:
-        self._api_key = api_key
-        self._base_url = base_url
-        self._model_id = model_id
+    def __init__(self, base_url: str, client_token: str, cache) -> None:
+        self._base_url = base_url.rstrip("/")
+        self._headers = {"X-Client-Token": client_token}
         self._cache = cache
         self._calls_this_session = 0
 
+    def ensure_awake(self, on_waking: Callable[[], None]) -> None:
+        if self._health_ok(self.HEALTH_PROBE_SECONDS):
+            return
+        on_waking()
+        deadline = time.monotonic() + self.WAKE_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            if self._health_ok(self.HEALTH_PROBE_SECONDS):
+                return
+            time.sleep(self.WAKE_POLL_SECONDS)
+        raise AIUnavailableError(AIErrorKind.SERVER_WAKING)
+
     def explain_word(self, word: str, context_sentence: str) -> AIResponse:
-        cache_key = ("explain_word", word.strip().lower(), context_sentence.strip().lower())
-        return self._call_or_cache(
-            cache_key, self.EXPLAIN_MAX_TOKENS, self.EXPLAIN_SYSTEM_PROMPT,
-            f"Palabra: '{word}'. Oración: {context_sentence}",
-        )
+        payload = {"word": word, "context_sentence": context_sentence}
+        return self._call_or_cache("/v1/explain", payload)
 
     def simplify_paragraph(self, text: str) -> AIResponse:
-        cache_key = ("simplify_paragraph", text.strip().lower())
-        return self._call_or_cache(
-            cache_key, self.SIMPLIFY_MAX_TOKENS, self.SIMPLIFY_SYSTEM_PROMPT, text,
-        )
+        return self._call_or_cache("/v1/simplify", {"text": text})
 
-    def _call_or_cache(self, cache_key: tuple, max_tokens: int,
-                        system_prompt: str, user_prompt: str) -> AIResponse:
+    def _health_ok(self, timeout: float) -> bool:
+        try:
+            return httpx.get(f"{self._base_url}/health", timeout=timeout).status_code == 200
+        except httpx.TimeoutException:
+            return False  # A sleeping Render service holds the request open.
+        except httpx.RequestError as exc:
+            raise AIUnavailableError(AIErrorKind.NO_NETWORK) from exc
+
+    def _call_or_cache(self, path: str, payload: dict[str, str]) -> AIResponse:
+        cache_key = (path, *(v.strip().lower() for v in payload.values()))
         cached = self._cache.get(cache_key)
         if cached is not None:
             return AIResponse(text=cached, from_cache=True)
-
         if self._calls_this_session >= self.MAX_CALLS_PER_SESSION:
             raise AIUnavailableError(AIErrorKind.SESSION_LIMIT)
 
-        import httpx
         try:
             response = httpx.post(
-                f"{self._base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                json={
-                    "model": self._model_id,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "max_tokens": max_tokens,
-                },
-                timeout=self.TIMEOUT_SECONDS,
+                f"{self._base_url}{path}", json=payload,
+                headers=self._headers, timeout=self.REQUEST_TIMEOUT_SECONDS,
             )
-            response.raise_for_status()
-            choice = response.json()["choices"][0]
-            content = choice["message"]["content"]
-            result_text = (content or "").strip()
-            if not result_text:
-                raise AIUnavailableError(AIErrorKind.BAD_RESPONSE)
-            if choice.get("finish_reason") == "length":
-                result_text = self._trim_to_last_sentence(result_text)
         except httpx.TimeoutException as exc:
             raise AIUnavailableError(AIErrorKind.TIMEOUT) from exc
         except httpx.RequestError as exc:
-            # Base class for ConnectError, ReadError, etc.: treated as no-network.
             raise AIUnavailableError(AIErrorKind.NO_NETWORK) from exc
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 401:
-                raise AIUnavailableError(AIErrorKind.INVALID_KEY) from exc
-            if exc.response.status_code == 402:
-                raise AIUnavailableError(AIErrorKind.NO_BALANCE) from exc
-            raise AIUnavailableError(AIErrorKind.BAD_RESPONSE) from exc
-        except (KeyError, ValueError, IndexError, TypeError, AttributeError) as exc:
-            # Malformed/unexpected JSON payload: never let it escape uncaught.
-            raise AIUnavailableError(AIErrorKind.BAD_RESPONSE) from exc
 
         self._calls_this_session += 1
-        self._cache.set(cache_key, result_text)
-        return AIResponse(text=result_text, from_cache=False)
+        if response.status_code != 200:
+            kind = _STATUS_TO_KIND.get(response.status_code, AIErrorKind.BAD_RESPONSE)
+            raise AIUnavailableError(kind)
+        try:
+            text = str(response.json()["text"]).strip()
+        except (KeyError, ValueError, TypeError) as exc:
+            raise AIUnavailableError(AIErrorKind.BAD_RESPONSE) from exc
+        if not text:
+            raise AIUnavailableError(AIErrorKind.BAD_RESPONSE)
 
-    @staticmethod
-    def _trim_to_last_sentence(text: str) -> str:
-        last_stop = max(text.rfind("."), text.rfind("!"), text.rfind("?"))
-        return text[: last_stop + 1] if last_stop > 0 else text
+        self._cache.set(cache_key, text)
+        return AIResponse(text=text)
 ```
 
 ```python
-"""Worker that runs AIClient calls off the UI thread (AI-F04).
+"""Workers that run AIClient calls off the UI thread (AI-F04).
 
-Both ExplainWordWorker and SimplifyParagraphWorker are dispatched onto a
-dedicated QThreadPool with maxThreadCount=1 (owned by the caller, e.g. the AI
-panel controller), so calls are serialized and never race on
-DeepSeekClient._calls_this_session or the on-disk cache.
+Both workers are dispatched onto a dedicated QThreadPool with
+maxThreadCount=1 (owned by the AI panel controller), so calls are serialized
+and never race on _calls_this_session or the on-disk cache.
 """
 
 from PySide6.QtCore import QObject, QRunnable, Signal
-from clearread.services.ai_client import AIClient, AIUnavailableError, AIErrorKind
+from clearread.services.ai_client import AIClient, AIErrorKind, AIUnavailableError
 
 
 class AIWorkerSignals(QObject):
+    waking = Signal()           # UI shows the cold-start notice (AI-F03)
     finished = Signal(str)      # AIResponse.text
     # object, not AIErrorKind: PySide6 signal typing does not handle
     # plain Python Enum members reliably across threads.
@@ -1425,8 +1468,6 @@ class AIWorkerSignals(QObject):
 
 
 class ExplainWordWorker(QRunnable):
-    """Runs on the dedicated AI QThreadPool; the UI thread only connects to `signals`."""
-
     def __init__(self, client: AIClient, word: str, context_sentence: str) -> None:
         super().__init__()
         self.signals = AIWorkerSignals()
@@ -1436,6 +1477,7 @@ class ExplainWordWorker(QRunnable):
 
     def run(self) -> None:
         try:
+            self._client.ensure_awake(self.signals.waking.emit)
             response = self._client.explain_word(self._word, self._context)
             self.signals.finished.emit(response.text)
         except AIUnavailableError as exc:
@@ -1445,13 +1487,221 @@ class ExplainWordWorker(QRunnable):
             self.signals.failed.emit(AIErrorKind.BAD_RESPONSE)
 
 
-# SimplifyParagraphWorker follows the exact same pattern (calls
-# client.simplify_paragraph and the same try/except/except Exception shape).
+# SimplifyParagraphWorker follows the exact same pattern
+# (calls client.simplify_paragraph).
 ```
 
-El mapeo `AIErrorKind → texto en español` vive en un módulo centralizado de la capa UI (p. ej. `ui/ai_error_messages.py`), consumido por `AccessibleErrorDialog`; por ejemplo `NO_NETWORK` → "No pudimos conectar con el asistente de IA. Verifica tu conexión a internet.", `INVALID_KEY` → "La clave de API no es válida. Revísala en Ajustes.", `SESSION_LIMIT` → "Alcanzaste el máximo de consultas de IA para esta sesión.".
+> **Hipótesis a verificar (§8):** que un servicio dormido de Render mantenga abierta la petición a `/health` hasta despertar (y por eso se manifieste como *timeout* y no como error de conexión). Se comprueba en el Día 10 midiendo el arranque en frío real (BE-NF01).
 
-Ambos workers se despachan sobre un `QThreadPool` **dedicado** a IA con `maxThreadCount=1` (independiente del pool general de la app), de modo que las llamadas a `DeepSeekClient` quedan serializadas y no hay condiciones de carrera sobre `_calls_this_session` ni sobre la caché en disco.
+---
+
+### 4.11 Backend Propio (`backend/`)
+**Propósito:** Ser la pieza **desplegada** del sistema (requisito de la materia): recibir las peticiones de IA de `ClearRead.exe`, protegerlas con límites de tamaño y un tope diario de costo, guardar la API key de DeepSeek fuera de la app y traducir los errores de DeepSeek a códigos propios estables. Es un **proyecto aparte**: tiene su propio `backend/pyproject.toml` y su venv `backend\.venv`, y **nada del backend entra en el `pyproject.toml` de la app ni en el `.exe`**.
+
+#### Estructura y Dependencias
+```
+backend/
+  pyproject.toml          # fastapi, uvicorn, pydantic, httpx; dev: pytest, ruff
+  .env                    # solo desarrollo, ignorado por git (regla ".env" de .gitignore)
+  src/clearread_backend/
+    main.py               # app FastAPI, endpoints y manejadores de error
+    settings.py           # lectura de variables de entorno
+    deepseek.py           # llamada a DeepSeek y traducción de errores
+    quota.py              # tope diario global
+  tests/                  # pytest + TestClient, DeepSeek simulado
+```
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clearread-backend"
+version = "1.5.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "pydantic>=2.7.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4.0", "ruff>=0.1.9"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clearread_backend"]
+```
+
+#### Endpoints
+| Método y ruta | Cuerpo | Respuesta 200 | Errores propios |
+|:---|:---|:---|:---|
+| `POST /v1/explain` | `{"word": str ≤ 40, "context_sentence": str ≤ 300}` | `{"text": str}` (máx. 2 frases) | 401, 413, 422, 429, 502, 504 |
+| `POST /v1/simplify` | `{"text": str ≤ 1500}` | `{"text": str}` (máx. 4 frases) | 401, 413, 422, 429, 502, 504 |
+| `GET /health` | — | `{"status": "ok"}` | — |
+| `GET /docs` | — | Documentación OpenAPI automática de FastAPI | — |
+
+Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos **códigos propios estables** (la app depende de ellos, no del texto de DeepSeek):
+
+| HTTP | Código | Causa |
+|:---:|:---|:---|
+| 401 | `invalid_client_token` | Falta la cabecera `X-Client-Token` o no coincide |
+| 413 | `input_too_long` | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres |
+| 422 | `invalid_request` | Cuerpo mal formado o campos vacíos |
+| 429 | `daily_limit_reached` | Se alcanzó el tope global diario de llamadas a DeepSeek |
+| 502 | `upstream_auth_failed` | DeepSeek respondió 401 (key inválida) |
+| 502 | `upstream_no_balance` | DeepSeek respondió 402 (saldo agotado) |
+| 502 | `upstream_bad_response` | Otro error de DeepSeek, JSON inesperado o respuesta vacía |
+| 504 | `upstream_timeout` | DeepSeek no respondió en 20 s |
+
+#### Configuración (variables de entorno)
+| Variable | Contenido | Dónde vive |
+|:---|:---|:---|
+| `DEEPSEEK_API_KEY` | API key de DeepSeek | Solo en el panel de Render y en `backend/.env` (desarrollo) |
+| `DEEPSEEK_MODEL_ID` | `deepseek-flash` | Render / `.env` |
+| `CLIENT_TOKEN` | Token que envía la app en `X-Client-Token` | Render / `.env` y constante en `core/config.py` de la app |
+| `DAILY_CALL_LIMIT` | `45` (ver cálculo abajo) | Render / `.env` |
+
+**Fuente del proveedor (consultada el 2026-10-01, https://api-docs.deepseek.com/):** API compatible con el formato OpenAI; *base URL* `https://api.deepseek.com`, ruta `POST /chat/completions`; nombre de modelo indicado por la documentación: `deepseek-flash` (los nombres heredados `deepseek-v4-flash` siguen aceptándose, pero sus modelos fueron retirados). El *base URL* es una constante del backend; el `model_id` se lee de `DEEPSEEK_MODEL_ID` para poder cambiarlo sin redesplegar código si DeepSeek renombra modelos.
+
+#### Control de Costo y Límites
+| Control | Valor |
+|:---|:---|
+| `max_tokens` en `/v1/explain` | 80 |
+| `max_tokens` en `/v1/simplify` | 250 |
+| Límites de entrada | Palabra ≤ 40, contexto ≤ 300, párrafo ≤ 1500 caracteres → si se superan, `413` |
+| Tope global diario | `DAILY_CALL_LIMIT = 45` llamadas a DeepSeek por día UTC → si se alcanza, `429` |
+| Caché | En memoria, por `(endpoint, texto normalizado)`, máx. 500 entradas; un acierto de caché no consume tope |
+| Timeout hacia DeepSeek | 20 s |
+| Longitud de respuesta | Si `finish_reason == "length"`, se recorta a la última frase completa |
+
+**Cálculo del tope diario** (precios de https://api-docs.deepseek.com/quick_start/pricing, consultados el 2026-10-01, USD por 1M de tokens para `deepseek-flash` en horario pico, el caso más caro: entrada sin caché $0.30, salida $1.20; fuera de pico cuestan la mitad):
+
+| Paso | Valor |
+|:---|:---|
+| Supuesto conservador de tokens | 1 token cada 2 caracteres de entrada + ~120 tokens de *system prompt* y formato |
+| Peor caso `/v1/simplify` | 1500 car. → ~870 tokens de entrada + 250 de salida = 870 × 0.30/10⁶ + 250 × 1.20/10⁶ ≈ **$0.00056** |
+| Peor caso `/v1/explain` | 340 car. → ~305 tokens de entrada + 80 de salida ≈ **$0.00019** |
+| Presupuesto | $1.99 → ≈ 3 547 llamadas en el peor caso (todas `simplify` en hora pico) |
+| Horizonte supuesto | 60 días de servicio (desde el despliegue hasta la evaluación; **supuesto a confirmar**, §8) |
+| Tope sin margen | 3 547 / 60 ≈ 59 llamadas/día |
+| **Tope elegido** | **45 llamadas/día** (~24 % de margen): 45 × 60 × $0.00056 ≈ **$1.51** en el peor caso |
+
+> [!WARNING]
+> **Límite honesto de esta protección:**
+> - **El token no es un secreto.** `X-Client-Token` viaja dentro del `.exe` (y en el repositorio si este es público); cualquiera puede extraerlo. Solo filtra el tráfico casual o los escáneres automáticos. La protección real del presupuesto son los **límites de tamaño** y el **tope diario**.
+> - **El contador diario vive en memoria.** El plan gratuito de Render no tiene disco persistente y duerme el servicio tras 15 min sin tráfico (§2.2): al dormirse o redesplegar, el contador vuelve a 0. Un abuso deliberado podría superar 45 llamadas en un día. El **tope duro final** es el saldo prepagado de DeepSeek ($1.99, sin recarga automática): al agotarse, DeepSeek responde 402 y el backend devuelve `502 upstream_no_balance`; la app sigue funcionando sin IA.
+
+#### Privacidad y Logs (BE-F03)
+- El backend **nunca registra** los textos recibidos ni las respuestas de DeepSeek: no hay `print` ni `logger` con el cuerpo de las peticiones o respuestas.
+- El *access log* de uvicorn solo registra método, ruta y código HTTP. Los errores se registran por su código propio (`upstream_timeout`), nunca con el texto.
+- La API key nunca aparece en logs, respuestas de error ni en `/docs`.
+
+#### Código de Referencia (breve)
+```python
+"""ClearRead backend: proxies AI requests to DeepSeek with cost guards.
+Never logs request or response texts (BE-F03)."""
+
+import secrets
+
+from fastapi import Depends, FastAPI, Header, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from clearread_backend.deepseek import DeepSeekGateway, UpstreamError
+from clearread_backend.quota import DailyQuota
+from clearread_backend.settings import Settings
+
+EXPLAIN_SYSTEM_PROMPT = (
+    "Explica en español simple, en máximo 2 frases cortas, para una persona con dislexia."
+)
+SIMPLIFY_SYSTEM_PROMPT = (
+    "Reescribe en español simple, en máximo 4 frases cortas, para una persona con dislexia."
+)
+
+settings = Settings.from_env()
+gateway = DeepSeekGateway(settings.deepseek_api_key, settings.deepseek_model_id)
+quota = DailyQuota(settings.daily_call_limit)
+app = FastAPI(title="ClearRead API", version="1.5.0")
+
+
+class ApiError(Exception):
+    def __init__(self, status_code: int, code: str) -> None:
+        self.status_code = status_code
+        self.code = code
+
+
+class ExplainRequest(BaseModel):
+    word: str = Field(min_length=1, max_length=40)
+    context_sentence: str = Field(min_length=1, max_length=300)
+
+
+class SimplifyRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1500)
+
+
+class AIText(BaseModel):
+    text: str
+
+
+@app.exception_handler(ApiError)
+async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.code})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    # Over-length input maps to 413 per BE-F02; anything else is a malformed request.
+    too_long = any(err["type"] == "string_too_long" for err in exc.errors())
+    if too_long:
+        return JSONResponse(status_code=413, content={"error": "input_too_long"})
+    return JSONResponse(status_code=422, content={"error": "invalid_request"})
+
+
+def require_client_token(x_client_token: str = Header(default="")) -> None:
+    if not secrets.compare_digest(x_client_token, settings.client_token):
+        raise ApiError(401, "invalid_client_token")
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/v1/explain", dependencies=[Depends(require_client_token)])
+async def explain(body: ExplainRequest) -> AIText:
+    user_prompt = f"Palabra: '{body.word}'. Oración: {body.context_sentence}"
+    return AIText(text=await _complete(EXPLAIN_SYSTEM_PROMPT, user_prompt, max_tokens=80))
+
+
+@app.post("/v1/simplify", dependencies=[Depends(require_client_token)])
+async def simplify(body: SimplifyRequest) -> AIText:
+    return AIText(text=await _complete(SIMPLIFY_SYSTEM_PROMPT, body.text, max_tokens=250))
+
+
+async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
+    cache_key = (system_prompt, user_prompt.strip().lower())
+    cached = gateway.cache.get(cache_key)
+    if cached is not None:
+        return cached
+    # Reserve before awaiting: asyncio cannot interleave between check and increment.
+    if not quota.try_consume():
+        raise ApiError(429, "daily_limit_reached")
+    try:
+        text = await gateway.complete(system_prompt, user_prompt, max_tokens)
+    except UpstreamError as exc:
+        raise ApiError(exc.status_code, exc.code) from None  # never chain upstream text
+    gateway.cache.put(cache_key, text)
+    return text
+```
+
+`DeepSeekGateway.complete()` usa `httpx.AsyncClient` con *timeout* de 20 s contra `https://api.deepseek.com/chat/completions` y traduce: `httpx.TimeoutException` → `UpstreamError(504, "upstream_timeout")`; 401 → `(502, "upstream_auth_failed")`; 402 → `(502, "upstream_no_balance")`; cualquier otro error, JSON inesperado o texto vacío → `(502, "upstream_bad_response")`; si `finish_reason == "length"`, recorta a la última frase completa. `DailyQuota.try_consume()` reinicia el contador cuando cambia la fecha UTC. La caché es un diccionario acotado a 500 entradas (descarta la más antigua).
+
+#### Pruebas
+- **Automáticas** (`backend/tests/`, pytest + `TestClient` de FastAPI, **DeepSeek simulado**, sin red ni key real): 200 en `/health`; respuesta correcta de `/v1/explain` y `/v1/simplify`; 401 sin token; 413 con 41/301/1501 caracteres; 422 con cuerpo inválido; 429 al superar `DAILY_CALL_LIMIT` (configurado a un valor bajo en el test) y reinicio al cambiar de día; acierto de caché sin consumir tope; traducción 401/402/timeout/JSON roto de DeepSeek a los códigos propios; ningún texto de entrada aparece en los logs capturados (`caplog`).
+- **Manual real** contra el despliegue (skill `deploy-backend`): `/health`, `/docs`, una petición real a `/v1/explain` que responde en español, 429 con un tope temporal de 1, y medición del arranque en frío (BE-NF01).
 
 ---
 
@@ -1473,16 +1723,19 @@ Ambos workers se despachan sobre un `QThreadPool` **dedicado** a IA con `maxThre
 | **SYL-F01** | Syllabifier | Segmentación fonética conforme a normativas de hiatos y diptongos RAE. | Palabras con hiato acentual (`dí-a`) se separan; diptongos (`puer-ta`) permanecen unidos. |
 | **FMT-F01** | Formatter | Generación de tabla de correspondencia `TokenPositionMap` y escape HTML riguroso. | Cero inyecciones o etiquetas rotas; cada palabra tiene coordenadas `(start, end)` exactas en Qt. |
 | **TTS-F01** | TTS | Aislamiento de SAPI5 en hilo permanente STA con soporte de reanudación por `start_offset`. | Pausa y reanudación sin reiniciar desde el inicio ni lanzar excepciones COM. |
-| **UI-F01** | ReaderWidget | Resaltado superpuesto mediante `QTextEdit.ExtraSelection` a 60 FPS. | Ausencia total de parpadeos (*flicker*) durante la lectura a 200 WPM. *(Meta de FPS fuera de alcance de medición en v1.4, ver §6.5.)* |
+| **UI-F01** | ReaderWidget | Resaltado superpuesto mediante `QTextEdit.ExtraSelection` a 60 FPS. | Ausencia total de parpadeos (*flicker*) durante la lectura a 200 WPM. *(Meta de FPS fuera de alcance de medición en esta entrega, ver §6.5.)* |
 | **UI-F02** | ReaderWidget | Clic en una palabra del `ReaderWidget` inicia la lectura desde el `WordToken` correspondiente (`start_offset`). | Al hacer clic en la palabra N, la síntesis de voz y el resaltado arrancan exactamente en N, no desde el inicio del documento. |
 | **UI-F03** | ReadingView | Atajos de teclado: `Espacio` alterna reproducir/pausar, `Esc` detiene la lectura. | Ambos atajos funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones. |
 | **CFG-F01** | Config | Escritura atómica a disco para persistencia de configuraciones de usuario. | El archivo `config.json` no se corrompe ante terminaciones forzadas del proceso. |
-| **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz TTS y API key de IA. | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app. |
+| **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura y voz TTS. **Sin campo de API key** (la key vive solo en el backend). La URL del backend es un valor por defecto en `AppConfig` (`DEFAULT_BACKEND_URL`), editable en "Ajustes avanzados". | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app; no existe ningún campo para introducir una API key. |
 | **HOME-F01** | HomeView | Lista de documentos recientes con caché local del `FormattedDocument` ya procesado. | Reabrir un documento reciente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. |
-| **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra usando DeepSeek. | Respuesta ≤ ~80 tokens (máx. 2 frases); solo disponible con conexión y API key configurada. |
-| **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple. | Respuesta ≤ ~250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario. |
-| **AI-F03** | AI Assistant | Degradación sin red, detectada sin tráfico mediante `QNetworkInformation` (Qt ≥6.1). | Con `QNetworkInformation` disponible y sin red, el botón de IA aparece deshabilitado; si no está disponible en el SO, el botón queda habilitado y el primer fallo real se informa con un mensaje amable. |
-| **AI-F04** | AI Assistant | Las llamadas a `AIClient` corren en un worker (`QThread`/`QRunnable`); la UI solo recibe resultados por señales Qt. | Inspección de código: ningún módulo de `ui/` importa ni invoca `httpx` directamente. |
+| **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra vía `POST /v1/explain` de nuestro backend (§4.11). | Respuesta en español, ≤ 80 tokens (máx. 2 frases); solo disponible con conexión; la app no contiene API key. |
+| **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple vía `POST /v1/simplify` de nuestro backend. | Respuesta en español, ≤ 250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario (≤ 1500 caracteres). |
+| **AI-F03** | AI Assistant | Degradación sin red (detectada sin tráfico mediante `QNetworkInformation`, Qt ≥ 6.1) y con el backend dormido (`GET /health` + espera de hasta 60 s). | Sin red, el botón de IA aparece deshabilitado (o, si `QNetworkInformation` no está disponible, el primer fallo real se informa con un mensaje amable). Con el backend dormido, la UI muestra "Despertando el asistente…" y, si no despierta en 60 s, un mensaje amable (`SERVER_WAKING`). |
+| **AI-F04** | AI Assistant | Las llamadas a `BackendAIClient` corren en un `QRunnable` del `QThreadPool` dedicado (`maxThreadCount=1`); la UI solo recibe resultados por señales Qt. | Inspección de código (skill `offline-audit`): ningún módulo de `ui/` importa `httpx` ni llama directamente a `explain_word`/`simplify_paragraph`. |
+| **BE-F01** | Backend | Endpoints `POST /v1/explain`, `POST /v1/simplify`, `GET /health` y `/docs` automático (§4.11). | Tests con `TestClient` (DeepSeek simulado) en verde; en el despliegue, `/health` → 200, `/docs` accesible y una petición real a `/v1/explain` responde en español. |
+| **BE-F02** | Backend | Token de cliente, límites de tamaño y tope global diario de llamadas a DeepSeek. | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres → 413; superar `DAILY_CALL_LIMIT` → 429; sin `X-Client-Token` válido → 401. Verificado por tests y por la checklist de `deploy-backend`. |
+| **BE-F03** | Backend | Sin logs de textos: el backend nunca registra los textos recibidos ni las respuestas de DeepSeek. | Test con `caplog` sin el texto de entrada en los logs; revisión de los logs de Render tras una petición real. |
 
 ### 5.2 Requisitos No Funcionales (NFRs Calibrados)
 
@@ -1491,16 +1744,18 @@ Ambos workers se despachan sobre un `QThreadPool` **dedicado** a IA con `maxThre
 | **NFR-MEM01** | Consumo RAM | Meta de diseño estimada: Residencia $\le 450\text{ MB}$ procesando un PDF estándar de 100 páginas a 300 DPI. | Medición de `WorkingSet` en Windows Resource Monitor durante el procesamiento en streaming. |
 | **NFR-LAT01** | Latencia Ingesta | Meta estimada: Renderizado de página $\le 1.2\text{ s}$ en Intel Core i5-8250U / 8GB RAM (o equivalente). | Benchmark interno mediante `time.perf_counter()` en pruebas de carga controlada. |
 | **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en todos los temas visuales (Sepia, Alto Contraste, Noche). | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa. *(Ver pendiente de colores de sílabas en §4.4.)* |
-| **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (DeepSeek) son opcionales: solo se habilitan con conexión a internet y API key configurada; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría: solo `services/ai_client.py` importa librerías de red. |
+| **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
 | **OCR-NF01** | Latencia OCR | Meta de diseño estimada: tiempo de inferencia $\le 2.5\text{ s}$ por página en CPU de 4 núcleos. *(Estimación a medir.)* | Benchmark interno mediante `time.perf_counter()` en el set de calibración de 10 imágenes reales. |
-| **NFR-SEC01** | Seguridad de Credenciales | API key de DeepSeek fuera del repositorio y del binario `.exe`; solo se envía a la API el texto seleccionado por el usuario, con aviso de privacidad visible. | Auditoría: grep de la key en repositorio/binario da 0 resultados; revisión manual del aviso de privacidad antes del primer uso de IA. |
+| **NFR-SEC01** | Seguridad de Credenciales | La API key de DeepSeek existe **solo** en las variables de entorno del hosting (y en `backend/.env`, ignorado por git, para desarrollo): nunca en el repositorio, en la app ni en el `.exe`. Solo se envía el texto seleccionado por el usuario, con aviso de privacidad visible. El `X-Client-Token` **no** se considera secreto (§4.11). | Auditoría: grep de la key en el repositorio (incluido el historial de git) y en `dist/` da 0 resultados; revisión manual del aviso de privacidad antes del primer uso de IA. |
+| **BE-NF01** | Arranque en Frío | *Estimación a medir:* tras ≥ 15 min sin tráfico, el backend en Render Free responde a `/health` en ~1 min (cifra de la documentación de Render, consultada el 2026-10-01). | Medición real con `curl.exe -w "%{time_total}"` o cronómetro desde el `.exe`, anotando fecha, hora y equipo (Días 10 y 12). |
 
 ---
 
 ## 6. Procedimiento de Ejecución y Validación Local
 
 ### 6.1 Dependencias del Proyecto (`pyproject.toml`)
+`pyproject.toml` de la **app** (raíz del repo). El backend tiene el suyo en `backend/pyproject.toml` (§4.11); fastapi y uvicorn **nunca** aparecen aquí.
 
 ```toml
 [build-system]
@@ -1509,9 +1764,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clearread-desktop"
-version = "1.4.0"
+version = "1.5.0"
 description = "Neuroeducational augmented reading assistant for dyslexia"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "PySide6>=6.7.0",
     "pypdfium2>=4.28.0",
@@ -1532,6 +1787,9 @@ dev = [
     "pytest-qt>=4.2.0",
     "ruff>=0.1.9",
 ]
+build = [
+    "pyinstaller>=6.0",   # packaging only (§6.3); never imported by the app
+]
 
 [project.scripts]
 clearread = "clearread.__main__:main"
@@ -1542,24 +1800,25 @@ packages = ["src/clearread"]
 
 ### 6.2 Despliegue y Ejecución desde Código Fuente
 
+Requisito: **Python 3.11 x64 exacto** instalado (`py -3.11 --version` debe responder). Todos los comandos usan el Python del venv, sin activar el entorno:
+
 ```powershell
-# 1. Creación del entorno virtual aislado
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# 1. Creación del entorno virtual aislado (Python 3.11 x64)
+py -3.11 -m venv .venv
 
 # 2. Instalación de dependencias en modo editable
-pip install --upgrade pip
-pip install -e ".[dev]"
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install -e ".[dev]"
 
 # 3. Verificación de modelos offline de RapidOCR
 # RapidOCR incluye modelos ONNX embebidos (~16 MB) o permite cargarlos desde resources/models
-python -c "from rapidocr_onnxruntime import RapidOCR; engine = RapidOCR(); print('RapidOCR inicializado con éxito')"
+.\.venv\Scripts\python -c "from rapidocr_onnxruntime import RapidOCR; engine = RapidOCR(); print('RapidOCR OK')"
 
 # 4. Ejecución de la suite de pruebas unitarias y lingüísticas
-pytest tests/ -v
+.\.venv\Scripts\python -m pytest tests/ -v
 
-# 5. Ejecución del asistente en entorno local
-python -m clearread
+# 5. Ejecución de la app en entorno local
+.\.venv\Scripts\python -m clearread
 ```
 
 ---
@@ -1651,14 +1910,17 @@ coll = COLLECT(
 )
 ```
 
-**Comando de compilación:**
+**Comando de compilación** (con el PyInstaller del venv, extra `build`):
 ```powershell
-pyinstaller clearread.spec --clean --noconfirm
+.\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
 ```
+
+> [!WARNING]
+> **Spec pendiente de validar contra PyInstaller ≥ 6.** El `.spec` de arriba usa argumentos de la época de PyInstaller 5 (`block_cipher`/`cipher`, `win_private_assemblies`, `win_no_prefer_redirects`) que pueden estar obsoletos o eliminados en PyInstaller 6. Tampoco está confirmado que `collect_data_files('pypdfium2')` recoja la DLL de pdfium (en pypdfium2 ≥ 4 vive en el paquete `pypdfium2_raw`). Lo confirma el *packager* en el **Día 1** al compilar el spike, y cualquier ajuste se documenta como desviación de este `.spec`. El `.exe` tampoco debe contener `fastapi` ni `uvicorn` (verificación de la skill `package-exe`).
 
 ---
 
-### 6.4 Spike Técnico Inicial (Días 1–2: Validación Previa de Factibilidad)
+### 6.4 Spike Técnico Inicial (Día 1: Validación Previa de Factibilidad)
 Para evitar descubrir incompatibilidades críticas al final del proyecto, **antes de programar cualquier pantalla de la interfaz**, se ejecutará un *Technical Spike* de ~30 líneas (`tests/spike_pipeline.py`) que valida la cadena fundamental de dependencias en un entorno mínimo:
 
 ```python
@@ -1705,74 +1967,123 @@ if __name__ == "__main__":
 
 ---
 
-### 6.5 Cronograma Realista de Desarrollo (~11 Días Calendario)
-Cronograma de **11 días**, dado el plazo real disponible indicado en la cabecera del documento. Se antepone el documento de design system (Día 2) a cualquier pantalla de UI, y se deja la capa de IA e interacciones avanzadas para el tramo final, sobre un núcleo offline ya funcional:
+### 6.5 Cronograma Realista de Desarrollo (~13 Días Calendario)
+Cronograma de **13 días**, del **2026-10-02** al **2026-10-14** (replanificado en v1.5.0 al incorporar el backend obligatorio). Se antepone el documento de design system (Día 2) a cualquier pantalla de UI, y se deja la capa de IA (backend, despliegue y panel) para el tramo final, sobre un núcleo offline ya funcional:
 
 ```mermaid
 gantt
-    title Cronograma ClearRead Desktop (~11 Días Calendario)
+    title Cronograma ClearRead (~13 Días Calendario)
     dateFormat  YYYY-MM-DD
     section Núcleo y Diseño
-    D1 Estructura, .gitignore, CLAUDE.md, Spike (venv + .exe) :active, d1, 2026-09-28, 1d
-    D2 Design System (documento aparte, previo a la UI)       :d2, after d1, 1d
-    D3 Ingestor + Preprocesado + OCR                            :d3, after d2, 1d
-    D4 Silabeador + Formateador                                :d4, after d3, 1d
-    D5 TTS + Vista de Lectura con Resaltado                     :d5, after d4, 1d
+    D1 Estructura + Spike (venv + .exe)                  :active, d1, 2026-10-02, 1d
+    D2 Design System (documento aparte, previo a la UI)  :d2, after d1, 1d
+    D3 Ingestor + Preprocesado + OCR                     :d3, after d2, 1d
+    D4 Silabeador + Formateador                          :d4, after d3, 1d
+    D5 TTS + Vista de Lectura con Resaltado              :d5, after d4, 1d
     section UI y Ajustes
-    D6 Home (drag&drop, cancelar, recientes con caché)         :d6, after d5, 1d
-    D7 Ajustes (temas x3, tamaño, interlineado, velocidad, voz, API key) + Config Atómica :d7, after d6, 1d
-    D8 Interacción de Lectura (clic en palabra, atajos)         :d8, after d7, 1d
-    section IA y Cierre
-    D9 Panel de IA (clic derecho: explicar / simplificar)       :d9, after d8, 1d
-    D10 .exe en Máquina Limpia sin Red                          :d10, after d9, 1d
-    D11 Buffer + Video                                          :crit, d11, after d10, 1d
+    D6 Home (drag&drop, cancelar, recientes con caché)   :d6, after d5, 1d
+    D7 Ajustes + Config Atómica                          :d7, after d6, 1d
+    D8 Interacción de Lectura (clic en palabra, atajos)  :d8, after d7, 1d
+    section Backend, IA y Cierre
+    D9 Backend local + tests                             :d9, after d8, 1d
+    D10 Despliegue en Render + BackendAIClient           :d10, after d9, 1d
+    D11 Panel de IA (clic derecho)                       :d11, after d10, 1d
+    D12 .exe en Máquina Limpia (sin red y con red)       :d12, after d11, 1d
+    D13 Buffer + Video                                   :crit, d13, after d12, 1d
 ```
 
-| Día | Entregables Principales |
-|:---:|:---|
-| **D1** | Estructura del proyecto, `.gitignore`, `CLAUDE.md`, spike técnico validado en `venv` y compilado a `.exe`. |
-| **D2** | Documento de design system (jerarquía, navegación, UI/UX), previo a cualquier pantalla. |
-| **D3** | `DocumentIngestor`, `OCRPreprocessor` y `ClearReadOCR` integrados y calibrados con el set de 10 fotos reales. |
-| **D4** | Silabeador RAE y `TextFormatter` con `TokenPositionMap`. |
-| **D5** | `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. |
-| **D6** | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
-| **D7** | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz, API key de IA (CFG-F02); `AppConfig` atómico. |
-| **D8** | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado Espacio/Esc (UI-F03). |
-| **D9** | Panel de IA: clic derecho sobre una palabra o párrafo → explicar / simplificar (AI-F01–AI-F04). |
-| **D10** | Compilación `.exe` con `clearread.spec`, prueba en máquina limpia sin Python y sin red. |
-| **D11** | Buffer de contingencia y video de entrega. |
+| Día | Fecha | Entregables Principales |
+|:---:|:---:|:---|
+| **D1** | 2026-10-02 | Estructura del proyecto, `pyproject.toml` de la app, spike técnico (§6.4) validado en el venv **y** compilado a `.exe` (`spike.spec`); confirmación del `.spec` contra PyInstaller ≥ 6 (§6.3). |
+| **D2** | 2026-10-03 | Documento de design system (jerarquía, navegación, UI/UX, temas con contraste ≥ 7:1), previo a cualquier pantalla. |
+| **D3** | 2026-10-04 | `DocumentIngestor`, `OCRPreprocessor` y `ClearReadOCR` integrados y calibrados con el set de 10 fotos reales. |
+| **D4** | 2026-10-05 | Silabeador RAE y `TextFormatter` con `TokenPositionMap`. |
+| **D5** | 2026-10-06 | `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. |
+| **D6** | 2026-10-07 | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
+| **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz; "Ajustes avanzados" con la URL del backend (CFG-F02); `AppConfig` atómico. |
+| **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado Espacio/Esc (UI-F03). |
+| **D9** | 2026-10-10 | Backend en local (`backend/`, §4.11): endpoints, límites, tope diario, caché, sin logs de textos; tests con `TestClient` y DeepSeek simulado (BE-F01–BE-F03). |
+| **D10** | 2026-10-11 | Despliegue en Render (§6.6, lo ejecuta o autoriza la usuaria) con la checklist de `deploy-backend`; medición del arranque en frío (BE-NF01); `BackendAIClient` en la app con la URL real en `core/config.py`. |
+| **D11** | 2026-10-12 | Panel de IA: clic derecho sobre una palabra o párrafo → explicar / simplificar, aviso "Despertando el asistente…" y aviso de privacidad (AI-F01–AI-F04). |
+| **D12** | 2026-10-13 | Compilación `.exe` con `clearread.spec`; prueba en máquina limpia sin Python **sin red** (NFR-OFF01) y **con red contra el backend desplegado**; `.zip` en GitHub Releases (§6.6). |
+| **D13** | 2026-10-14 | Buffer de contingencia y video de entrega. |
 
 > [!NOTE]
 > **Si da tiempo (stretch, fuera del compromiso base):** exportar el documento procesado a TXT/PDF, modo foco (oscurece todas las líneas excepto la activa, sin ocultar los controles), recordar la posición de lectura entre sesiones.
 >
-> **Fuera de alcance v1.4 (no se hará en esta entrega):** medición formal de consumo de RAM procesando 100 páginas (NFR-MEM01 queda como estimación no verificada) y métricas de FPS del resaltado (UI-F01 queda como estimación no verificada).
+> **Fuera de alcance (no se hará en esta entrega):** medición formal de consumo de RAM procesando 100 páginas (NFR-MEM01 queda como estimación no verificada) y métricas de FPS del resaltado (UI-F01 queda como estimación no verificada).
+
+---
+
+### 6.6 Backend: Ejecución Local, Despliegue y Distribución
+El detalle operativo (comandos, checklist y evidencias) vive en la skill `.claude/skills/deploy-backend/SKILL.md`; aquí se fija el procedimiento.
+
+#### Ejecución local
+```powershell
+py -3.11 -m venv backend\.venv
+.\backend\.venv\Scripts\python -m pip install -e ".\backend[dev]"
+.\backend\.venv\Scripts\python -m pytest backend/tests -v
+# Con las variables de backend/.env cargadas en la sesión
+# (DEEPSEEK_API_KEY, DEEPSEEK_MODEL_ID, CLIENT_TOKEN, DAILY_CALL_LIMIT):
+.\backend\.venv\Scripts\python -m uvicorn clearread_backend.main:app --host 127.0.0.1 --port 8000
+```
+`backend/.env` queda fuera de git por la regla `.env` del `.gitignore`.
+
+#### Despliegue en Render desde GitHub
+Pasos tomados de la documentación oficial de Render, **consultada el 2026-10-01** (https://render.com/docs/deploy-fastapi, https://render.com/docs/monorepo-support, https://render.com/docs/python-version, https://render.com/docs/configure-environment-variables, https://render.com/docs/health-checks):
+
+| Ajuste en Render | Valor |
+|:---|:---|
+| Tipo de servicio | Web Service, conectado al repositorio de GitHub |
+| Language / Instance type | `Python 3` / Free |
+| Root Directory | `backend` (build y start se ejecutan relativos a esa carpeta) |
+| Build Command | `pip install .` (la guía de Render usa `requirements.txt`; aquí se instala desde `backend/pyproject.toml`) |
+| Start Command | `uvicorn clearread_backend.main:app --host 0.0.0.0 --port $PORT` |
+| Variables de entorno | `PYTHON_VERSION` (versión 3.11 completa, igual a la local; Render la exige completa con esta variable), `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL_ID`, `CLIENT_TOKEN`, `DAILY_CALL_LIMIT` |
+| Health Check Path | `/health` |
+
+La URL resultante (`https://<servicio>.onrender.com`) reemplaza el *placeholder* `DEFAULT_BACKEND_URL` de `core/config.py` (§4.6). El despliegue y la introducción de la API key los ejecuta o autoriza la usuaria.
+
+#### Distribución del `.exe`
+1. Compilar con `clearread.spec` (§6.3) y pasar la verificación de `package-exe` (recursos presentes, sin `fastapi`/`uvicorn`, sin API key en `dist/`).
+2. Comprimir la carpeta completa `dist\ClearRead\` en `ClearRead-v1.5.0-win64.zip` (no solo el `.exe`).
+3. Publicar el `.zip` como *asset* de una GitHub Release etiquetada `v1.5.0`, con notas que indiquen: requisitos (Windows 10/11 x64), que la IA necesita internet y que el primer uso puede tardar ~1 min por el arranque en frío del backend.
+4. La release la crea la usuaria (implica `git tag` y `push`).
 
 ---
 
 ## 7. Dictamen Final de Ingeniería
 
-Con las refactorizaciones y calibraciones introducidas en la versión `1.4.0`, y manteniendo el **núcleo 100% offline** con **IA generativa opcional con conexión** (§1.2, NFR-OFF01):
+Con la versión `1.5.0`, el sistema queda formado por **tres piezas**: `ClearRead.exe` con **núcleo 100% offline**, un **backend propio FastAPI desplegado en Render** que custodia la API key y limita el costo, y **DeepSeek** como proveedor de IA generativa opcional (§1.2, §3.1, NFR-OFF01):
 
-1. **Riesgo Legal y Empaquetado Mitigado:** Se ha eliminado la dependencia de licencias AGPLv3 incompatibles mediante `pypdfium2` (Apache 2.0 / BSD-3). La selección de **RapidOCR sobre ONNX Runtime** como tecnología central reduce de raíz los conflictos de DLLs y el peso excesivo de dependencias nativas en Windows (como PaddlePaddle), buscando un ejecutable autónomo (`--onedir`) ligero, rápido y predecible.
-2. **Arquitectura Concurrente Diseñada para Estabilidad:** El motor de síntesis de voz SAPI5 se aísla en un `QThread` dedicado con inicialización explícita del apartamento COM STA (`CoInitialize`/`CoUninitialize`); este diseño busca evitar congelamientos de interfaz, carreras críticas y excepciones no controladas, **pendiente de confirmación en el Spike Técnico de Día 1** (ver riesgo de `runAndWait()` en §8).
+1. **Riesgo Legal y Empaquetado Mitigado:** Se ha eliminado la dependencia de licencias AGPLv3 incompatibles mediante `pypdfium2` (Apache 2.0 / BSD-3). La selección de **RapidOCR sobre ONNX Runtime** como tecnología central reduce de raíz los conflictos de DLLs y el peso excesivo de dependencias nativas en Windows (como PaddlePaddle), buscando un ejecutable autónomo (`--onedir`) ligero, rápido y predecible. El backend es un proyecto aparte y no añade peso ni dependencias al `.exe`.
+2. **Arquitectura Concurrente Diseñada para Estabilidad:** El motor de síntesis de voz SAPI5 se aísla en un `QThread` dedicado con inicialización explícita del apartamento COM STA (`CoInitialize`/`CoUninitialize`); este diseño busca evitar congelamientos de interfaz, carreras críticas y excepciones no controladas, **pendiente de confirmación en el Spike Técnico de Día 1** (ver riesgo de `runAndWait()` en §8). Las llamadas de IA se serializan en un `QThreadPool` dedicado y nunca bloquean la UI, tampoco durante el arranque en frío del backend.
 3. **UX Empática y sin Frustración:** 
    - La sincronización bimodal se basa en un mapa de correspondencia ordinal (`WordToken`), diseñado para precisión visual sin derivas de cursor (la meta de 60 FPS queda fuera de alcance de medición en esta entrega, ver §6.5).
    - El soporte de reanudación mediante `start_offset` permite pausar y reanudar la lectura sin reiniciar el documento desde el inicio.
-   - Los diálogos de error (`AccessibleErrorDialog`) evitan tecnicismos incomprensibles y orientan de forma práctica al estudiante.
-4. **Viabilidad Operativa Realista:** Se eliminó la sobreingeniería teórica en favor de pruebas ágiles (banco de 50 palabras complejas, máquina en modo avión) y un *Technical Spike* temprano en el Día 1, dejando la calibración empírica con imágenes reales para el Día 3 (§6.4, §6.5).
+   - Los diálogos de error (`AccessibleErrorDialog`) evitan tecnicismos incomprensibles y orientan de forma práctica al estudiante, incluido el aviso "Despertando el asistente…".
+4. **Seguridad y Costo Acotados con Honestidad:** La API key solo vive en el hosting; el backend aplica límites de tamaño y un tope diario calculado sobre el presupuesto de $1.99. El token de cliente no es un secreto y el contador diario se reinicia si el servicio se duerme: el tope duro final es el saldo prepagado de DeepSeek (§4.11).
+5. **Viabilidad Operativa Realista:** Se eliminó la sobreingeniería teórica en favor de pruebas ágiles (banco de 50 palabras complejas, máquina en modo avión, `TestClient` con DeepSeek simulado) y un *Technical Spike* temprano en el Día 1, dejando la calibración empírica con imágenes reales para el Día 3 (§6.4, §6.5).
 
-**Veredicto Final: APPROVED (Aprobado condicionado a validación en Spike Técnico de Día 1).**  
-La especificación de arquitectura, el diseño de interfaces y el plan de contingencia están **diseñados** para la implementación dentro del plazo académico previsto, quedando su validación efectiva sujeta al resultado del Spike Técnico de Día 1 y a los pendientes listados en §8.
+**Veredicto Final: APPROVED (Aprobado condicionado a validación en Spike Técnico de Día 1 y al despliegue real del Día 10).**  
+La especificación de arquitectura, el diseño de interfaces y el plan de contingencia están **diseñados** para la implementación dentro del plazo académico previsto, quedando su validación efectiva sujeta al resultado del Spike Técnico de Día 1, a la verificación del despliegue y a los pendientes listados en §8.
 
 ---
 
 ## 8. Pendientes Abiertos
 
-- **Requisito de "desplegada":** confirmar con el profesor si la entrega exige un backend accesible remotamente, o si el `.exe` local standalone satisface el criterio de "desplegada" del curso.
+- ~~**Requisito de "desplegada":** confirmar con el profesor si la entrega exige un backend accesible remotamente.~~ **RESUELTO (2026-10-01): sí.** La materia exige el proyecto desplegado; se incorpora el backend propio en Render (§4.11, §6.6).
 - **Riesgos del spike técnico por verificar:**
   - Si la pausa de reproducción SAPI5 queda bloqueada por la naturaleza sincrónica de `engine.runAndWait()` al invocar `stop()` desde otro hilo.
   - Reconocimiento de `ñ` y tildes del español con los modelos `ch_PP-OCRv4` (entrenados primariamente en chino/inglés).
   - Existencia real del atributo `pypdfium2.PdfPasswordError` en la versión de `pypdfium2` fijada en §2.2 (verificar en el spike de Día 1, no asumido).
   - Desfase del `TokenPositionMap` cuando el HTML colapsa espacios múltiples, pudiendo desalinear `doc_start_pos`/`doc_end_pos` respecto al texto hablado.
-  - `QNetworkInformation` (AI-F03) requiere el plugin de backend de *reachability* de Windows de Qt; verificar que `clearread.spec` y PyInstaller lo incluyen en el `.exe` (Día 10). Si falta o no se detecta en tiempo de ejecución, debe aplicarse el mismo comportamiento de *fallback* de AI-F03 (botón habilitado, error informado en el primer fallo real).
-- **Máquina limpia de prueba:** aún no se definió qué equipo (marca/modelo, versión de Windows) se usará para la prueba sin Python y sin red del Día 10.
+  - Validez del `.spec` de §6.3 con PyInstaller ≥ 6 (`cipher`, `win_private_assemblies`, `win_no_prefer_redirects`) y que se recoja la DLL de pdfium (Día 1).
+  - `QNetworkInformation` (AI-F03) requiere el plugin de backend de *reachability* de Windows de Qt; verificar que `clearread.spec` y PyInstaller lo incluyen en el `.exe` (Día 12). Si falta o no se detecta en tiempo de ejecución, debe aplicarse el mismo comportamiento de *fallback* de AI-F03 (botón habilitado, error informado en el primer fallo real).
+- **Condiciones del hosting:** las de Render Free se consultaron el 2026-10-01 (§2.2) y pueden cambiar; revisarlas de nuevo antes del despliegue (Día 10) y de la entrega. **El Plan B (Hugging Face Spaces) no es gratuito** para un backend FastAPI a esa fecha (Docker/Gradio requieren plan de pago): falta decidir un Plan B gratuito o aceptar el costo.
+- **Medir el arranque en frío (BE-NF01):** la cifra de ~1 min es de la documentación de Render, no una medición propia. Verificar también la hipótesis de §4.10 de que un servicio dormido mantiene la petición abierta (se manifiesta como *timeout*, no como error de conexión).
+- **El `.exe` no debe contener FastAPI ni uvicorn:** verificarlo en `dist/` (skill `package-exe`) en los Días 1 y 12.
+- **Horizonte del tope diario:** el cálculo de `DAILY_CALL_LIMIT = 45` supone 60 días de servicio (§4.11); confirmar hasta cuándo debe estar desplegado el backend.
+- **Contador diario en memoria:** se reinicia cuando Render duerme o redespliega el servicio (§4.11); se acepta porque el saldo prepagado de DeepSeek es el tope duro final.
+- **Máquina limpia de prueba:** aún no se definió qué equipo (marca/modelo, versión de Windows) se usará para la prueba sin Python, sin red y con red del Día 12.
+- **Python 3.11 en el equipo de desarrollo:** a 2026-10-01 solo hay Python 3.13 instalado (`py -3.11` falla); hay que instalar Python 3.11 x64 antes del Día 1.

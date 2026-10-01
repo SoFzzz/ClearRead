@@ -29,8 +29,10 @@ htmlcov/
 .vscode/
 .idea/
 
-# --- Claude Code (local, no versionado) ---
-.claude/settings.local.json
+# --- Claude Code (local, no versionado): CLAUDE.md, agentes, skills y ajustes ---
+/CLAUDE.md
+CLAUDE.local.md
+.claude/
 
 # --- Sistema (Windows) ---
 Thumbs.db
