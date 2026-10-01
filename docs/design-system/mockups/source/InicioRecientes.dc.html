@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio con recientes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{width:1280px;height:800px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.topbar{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);box-sizing:border-box}
+.brand{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.lg{height:48px;padding:0 24px;font-size:16px}
+.btn.icon{width:40px;padding:0}
+.btn.ghost{border-color:transparent}
+.btn.hover{background:var(--sechover)}
+.btn.primary.hover{background:var(--phover);border-color:var(--phover)}
+.btn.focus{border:3px solid var(--focus)}
+.btn.disabled{border-style:dashed;border-color:var(--border);background:var(--disbg);color:var(--dis)}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h1{font-size:28px;font-weight:700;line-height:1.3;margin:0}
+.h2{font-size:20px;font-weight:700;line-height:1.35;margin:0}
+.h3{font-size:16px;font-weight:700;margin:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-sizing:border-box}
+.drop{border:2px dashed var(--border);border-radius:16px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.drop.hover{border-color:var(--focus);background:var(--sechover)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;box-sizing:border-box;white-space:nowrap}
+.recent{display:flex;align-items:center;gap:16px;height:72px;padding:0 16px;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.recent.hover{background:var(--sechover)}
+.recent.focus{border:3px solid var(--focus);padding:0 14px}
+.thumb{width:40px;height:40px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+</style>
+</helmet>
+<div class="cr {{theme}}">
+<header class="topbar">
+<div class="brand"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z"></path><path d="M20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6z"></path></svg>ClearRead</div>
+<div class="grow"></div>
+<button class="btn ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"></path><circle cx="15" cy="6" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Ajustes</button>
+</header>
+<main style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 40px 32px">
+<div class="drop" style="width: 820px; height: 168px; flex-direction: row; gap: 24px">
+<svg class="ico" viewBox="0 0 24 24" style="width: 40px; height: 40px; stroke-width: 1.5"><path d="M12 15V4M7 9l5-5 5 5"></path><path d="M4 15v5h16v-5"></path></svg>
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left">
+<p class="h2">Arrastra aquí tu PDF o tu foto</p>
+<p class="muted small" style="margin: 0">Sirven archivos PDF, JPG, PNG, BMP y TIFF</p>
+</div>
+<button class="btn primary lg"><svg class="ico" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"></path></svg>Elegir archivo</button>
+</div>
+<section style="width: 820px; display: flex; flex-direction: column; gap: 12px">
+<h2 class="h2">Documentos recientes</h2>
+<div class="recent focus">
+<div class="thumb"><svg class="ico" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"></path><path d="M14 3v4h4"></path></svg></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column">
+<span class="h3">Guía de Biología · Unidad 3.pdf</span>
+<span class="muted small">PDF · 12 páginas · Abierto hoy</span>
+</div>
+<button class="btn primary">Abrir</button>
+<button class="btn icon ghost" aria-label="Quitar de recientes"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div class="recent hover">
+<div class="thumb"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path></svg></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column">
+<span class="h3">Foto de apuntes de Historia.jpg</span>
+<span class="muted small">Foto · 1 página · Abierto ayer</span>
+</div>
+<button class="btn">Abrir</button>
+<button class="btn icon ghost" aria-label="Quitar de recientes"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div class="recent">
+<div class="thumb"><svg class="ico" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"></path><path d="M14 3v4h4"></path></svg></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column">
+<span class="h3">Lectura de Lengua · El cuento.pdf</span>
+<span class="muted small">PDF · 4 páginas · Abierto el 28 de septiembre</span>
+</div>
+<button class="btn">Abrir</button>
+<button class="btn icon ghost" aria-label="Quitar de recientes"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div class="recent">
+<div class="thumb"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path></svg></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column">
+<span class="h3">Examen de práctica de Física.png</span>
+<span class="muted small">Foto · 1 página · Abierto el 25 de septiembre</span>
+</div>
+<button class="btn">Abrir</button>
+<button class="btn icon ghost" aria-label="Quitar de recientes"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'claro' };
+  }
+}
+</script>
+</body>
+</html>

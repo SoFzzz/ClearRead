@@ -1,0 +1,180 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Ajustes.dc.html": {
+      "h": 800,
+      "title": "6 Ajustes · claro",
+      "w": 1280,
+      "x": 6800,
+      "y": 1200
+    },
+    "AjustesOscuro.dc.html": {
+      "h": 800,
+      "title": "6 Ajustes · oscuro",
+      "w": 1280,
+      "x": 6800,
+      "y": 2400
+    },
+    "ErrorDialogo.dc.html": {
+      "h": 800,
+      "title": "7 Diálogo de error · claro",
+      "w": 1280,
+      "x": 8160,
+      "y": 1200
+    },
+    "ErrorDialogoOscuro.dc.html": {
+      "h": 800,
+      "title": "7 Diálogo de error · oscuro",
+      "w": 1280,
+      "x": 8160,
+      "y": 2400
+    },
+    "InicioRecientes.dc.html": {
+      "h": 800,
+      "title": "2 Inicio con recientes · claro",
+      "w": 1280,
+      "x": 1360,
+      "y": 1200
+    },
+    "InicioRecientesOscuro.dc.html": {
+      "h": 800,
+      "title": "2 Inicio con recientes · oscuro",
+      "w": 1280,
+      "x": 1360,
+      "y": 2400
+    },
+    "InicioVacio.dc.html": {
+      "h": 800,
+      "title": "1 Inicio vacío · claro",
+      "w": 1280,
+      "x": 0,
+      "y": 1200
+    },
+    "InicioVacioOscuro.dc.html": {
+      "h": 800,
+      "title": "1 Inicio vacío · oscuro",
+      "w": 1280,
+      "x": 0,
+      "y": 2400
+    },
+    "Lectura.dc.html": {
+      "h": 800,
+      "title": "4 Lectura reproduciendo · claro",
+      "w": 1280,
+      "x": 4080,
+      "y": 1200
+    },
+    "LecturaIA.dc.html": {
+      "h": 800,
+      "title": "5 Lectura con panel de IA · claro",
+      "w": 1280,
+      "x": 5440,
+      "y": 1200
+    },
+    "LecturaIAOscuro.dc.html": {
+      "h": 800,
+      "title": "5 Lectura con panel de IA · oscuro",
+      "w": 1280,
+      "x": 5440,
+      "y": 2400
+    },
+    "LecturaOscuro.dc.html": {
+      "h": 800,
+      "title": "4 Lectura reproduciendo · oscuro",
+      "w": 1280,
+      "x": 4080,
+      "y": 2400
+    },
+    "Main.dc.html": {
+      "h": 800,
+      "title": "Tokens por tema",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "PanelIAEstados.dc.html": {
+      "h": 640,
+      "title": "5b Estados del panel de IA · claro",
+      "w": 2344,
+      "x": 0,
+      "y": 3600
+    },
+    "PanelIAEstadosOscuro.dc.html": {
+      "h": 640,
+      "title": "5b Estados del panel de IA · oscuro",
+      "w": 2344,
+      "x": 0,
+      "y": 4360
+    },
+    "Procesando.dc.html": {
+      "h": 800,
+      "title": "3 Procesando · claro",
+      "w": 1280,
+      "x": 2720,
+      "y": 1200
+    },
+    "ProcesandoOscuro.dc.html": {
+      "h": 800,
+      "title": "3 Procesando · oscuro",
+      "w": 1280,
+      "x": 2720,
+      "y": 2400
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-01T15:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "rowClaro": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Tema Claro (crema + morado)",
+      "w": 240,
+      "x": 0,
+      "y": 940
+    },
+    "rowEstados": {
+      "kind": "title1",
+      "maxW": 2344,
+      "text": "Estados del panel de IA",
+      "w": 240,
+      "x": 0,
+      "y": 3340
+    },
+    "rowOscuro": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Tema Oscuro (morado + crema, sílabas amarillo/turquesa)",
+      "w": 240,
+      "x": 0,
+      "y": 2140
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "InicioVacio.dc.html",
+    "InicioRecientes.dc.html",
+    "Procesando.dc.html",
+    "Lectura.dc.html",
+    "LecturaIA.dc.html",
+    "Ajustes.dc.html",
+    "ErrorDialogo.dc.html",
+    "InicioVacioOscuro.dc.html",
+    "InicioRecientesOscuro.dc.html",
+    "ProcesandoOscuro.dc.html",
+    "LecturaOscuro.dc.html",
+    "LecturaIAOscuro.dc.html",
+    "AjustesOscuro.dc.html",
+    "ErrorDialogoOscuro.dc.html",
+    "PanelIAEstados.dc.html",
+    "PanelIAEstadosOscuro.dc.html"
+  ],
+  "pages": [],
+  "title": "ClearRead Desktop — Mockups"
+}

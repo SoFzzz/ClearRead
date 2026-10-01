@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ajustes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{width:1280px;height:800px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.topbar{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);box-sizing:border-box}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.ghost{border-color:transparent}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h1{font-size:28px;font-weight:700;line-height:1.3;margin:0}
+.h3{font-size:16px;font-weight:700;margin:0}
+.sect{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;align-items:center;gap:16px;height:44px}
+.lab{width:200px;font-weight:600;flex:0 0 auto}
+.val{width:130px;text-align:right;flex:0 0 auto}
+.slider{position:relative;height:24px;display:flex;align-items:center;flex:1 1 auto}
+.slider.focus{outline:3px solid var(--focus);outline-offset:4px;border-radius:4px}
+.groove{height:6px;width:100%;border-radius:3px;background:var(--border)}
+.done{position:absolute;left:0;height:6px;border-radius:3px;background:var(--pbg)}
+.handle{position:absolute;top:2px;width:20px;height:20px;border-radius:10px;background:var(--pbg);border:2px solid var(--bg);box-sizing:border-box;margin-left:-10px}
+.combo{height:40px;flex:1 1 auto;border:2px solid var(--border);border-radius:8px;background:var(--bg);padding:0 12px;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box}
+.tcard{flex:1 1 0;height:84px;border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;gap:12px;padding:0 12px;box-sizing:border-box;background:var(--bg)}
+.tcard.sel{border:3px solid var(--text);padding:0 11px}
+.tcard .check{display:none}
+.tcard.sel .check{display:flex}
+.mini{width:52px;height:52px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:Verdana,sans-serif;font-weight:700;font-size:18px;flex:0 0 auto}
+.radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--text);box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.radio i{width:10px;height:10px;border-radius:5px;background:var(--text);display:none}
+.tcard.sel .radio i{display:block}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--pbg);position:relative;box-sizing:border-box;flex:0 0 auto}
+.knob{position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:9px;background:var(--pfg)}
+.adv{display:flex;align-items:center;gap:12px;height:48px;padding:0 12px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box}
+.preview{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:20px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box}
+.reader{font-family:OpenDyslexic,Verdana,sans-serif;font-size:21px;line-height:1.8;letter-spacing:1.5px;word-spacing:4px;white-space:nowrap;background:var(--bg);border-radius:8px;padding:12px 0}
+.e{color:var(--se)}.o{color:var(--so)}
+.ln{padding:0 16px}
+.ln.ruler{background:var(--ruler)}
+.hl{background:var(--hlbg);color:var(--hlfg);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;padding:0 2px}
+</style>
+</helmet>
+<div class="cr {{theme}}">
+<header class="topbar">
+<button class="btn ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Volver</button>
+<div class="grow" style="text-align: center; font-weight: 700">Ajustes</div>
+<div style="width: 104px"></div>
+</header>
+<main style="flex-grow: 1; display: flex; justify-content: center; padding: 24px 32px; box-sizing: border-box">
+<div style="width: 1120px; display: flex; gap: 40px">
+<div style="flex: 1 1 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 12px"><h1 class="h1">Ajustes</h1><span class="muted small">Los cambios se guardan solos y se ven al momento.</span></div>
+<section class="sect">
+<h2 class="h3">Tema</h2>
+<div style="display: flex; gap: 12px">
+<div class="tcard {{selClaro}}"><span class="radio"><i></i></span><span class="mini" style="background: #FFF8F0; color: #392F5A">Aa</span><span style="font-weight: 600">Claro</span></div>
+<div class="tcard {{selOscuro}}"><span class="radio"><i></i></span><span class="mini" style="background: #392F5A; color: #F4D06F">Aa</span><span style="font-weight: 600">Oscuro</span></div>
+<div class="tcard {{selAc}}"><span class="radio"><i></i></span><span class="mini" style="background: #000000; color: #FFFFFF">Aa</span><span style="font-weight: 600">Alto contraste</span></div>
+</div>
+</section>
+<section class="sect">
+<h2 class="h3">Texto</h2>
+<div class="row"><span class="lab">Tamaño de letra</span><div class="slider focus"><div class="groove"></div><div class="done" style="width: 40%"></div><div class="handle" style="left: 40%"></div></div><span class="val">16 puntos</span></div>
+<div class="row"><span class="lab">Espacio entre líneas</span><div class="slider"><div class="groove"></div><div class="done" style="width: 55%"></div><div class="handle" style="left: 55%"></div></div><span class="val">1,8</span></div>
+<div class="row"><span class="lab">Espacio entre letras</span><div class="slider"><div class="groove"></div><div class="done" style="width: 37%"></div><div class="handle" style="left: 37%"></div></div><span class="val">1,5 px</span></div>
+<div class="row"><span class="lab">Espacio entre palabras</span><div class="slider"><div class="groove"></div><div class="done" style="width: 50%"></div><div class="handle" style="left: 50%"></div></div><span class="val">4 px</span></div>
+<div class="row"><span class="lab">Sílabas de colores</span><span class="toggle" role="switch" aria-checked="true"><span class="knob"></span></span><span style="font-weight: 600">Sí</span></div>
+</section>
+<section class="sect">
+<h2 class="h3">Voz</h2>
+<div class="row"><span class="lab">Velocidad de lectura</span><div class="slider"><div class="groove"></div><div class="done" style="width: 28%"></div><div class="handle" style="left: 28%"></div></div><span class="val">150 palabras/min</span></div>
+<div class="row"><span class="lab">Voz</span><div class="combo"><span>Sabina · español (México)</span><svg class="ico" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg></div></div>
+</section>
+<div class="adv"><svg class="ico" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><span style="font-weight: 600" class="grow">Ajustes avanzados</span><span class="muted small">Dirección del asistente</span></div>
+</div>
+<aside style="width: 420px; display: flex; flex-direction: column; gap: 16px; padding-top: 52px">
+<div class="preview">
+<h2 class="h3">Vista previa</h2>
+<div class="reader">
+<div class="ln"><span class="e">La</span> <span class="e">fo</span><span class="o">to</span><span class="e">sín</span><span class="o">te</span><span class="e">sis</span> <span class="e">es</span> <span class="e">el</span></div>
+<div class="ln ruler"><span class="e">pro</span><span class="o">ce</span><span class="e">so</span> <span class="hl">que</span> <span class="e">u</span><span class="o">san</span> <span class="e">las</span></div>
+<div class="ln"><span class="e">plan</span><span class="o">tas</span> <span class="e">pa</span><span class="o">ra</span> <span class="e">vi</span><span class="o">vir</span>.</div>
+</div>
+<p class="small muted" style="margin: 0">Así se verá tu lectura: sílabas de dos colores, la palabra que suena resaltada y la línea actual marcada.</p>
+</div>
+<button class="btn" style="align-self: flex-start">Restablecer valores</button>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const theme = this.props.theme ?? 'claro';
+    return {
+      theme,
+      selClaro: theme === 'claro' ? 'sel' : '',
+      selOscuro: theme === 'oscuro' ? 'sel' : '',
+      selAc: theme === 'ac' ? 'sel' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Diálogo de error accesible</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{width:1280px;height:800px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg);position:relative}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.topbar{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);box-sizing:border-box}
+.brand{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.lg{height:48px;padding:0 24px;font-size:16px}
+.btn.ghost{border-color:transparent}
+.btn.focus{border:3px solid var(--focus)}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h1{font-size:28px;font-weight:700;line-height:1.3;margin:0}
+.h2{font-size:20px;font-weight:700;line-height:1.35;margin:0}
+.drop{border:2px dashed var(--border);border-radius:16px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+.dialog{position:absolute;left:370px;top:190px;width:540px;background:var(--bg);border:2px solid var(--text);border-radius:8px;box-sizing:border-box;display:flex;flex-direction:column}
+.dtitle{height:40px;display:flex;align-items:center;padding:0 8px 0 16px;border-bottom:1px solid var(--border);background:var(--surface);border-radius:6px 6px 0 0;font-size:13px}
+.erricon{width:48px;height:48px;border-radius:24px;border:3px solid var(--error);color:var(--error);display:flex;align-items:center;justify-content:center;box-sizing:border-box;flex:0 0 auto}
+.tip{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:12px 16px;display:flex;gap:10px}
+</style>
+</helmet>
+<div class="cr {{theme}}">
+<header class="topbar">
+<div class="brand"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z"></path><path d="M20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6z"></path></svg>ClearRead</div>
+<div class="grow"></div>
+<button class="btn ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"></path><circle cx="15" cy="6" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Ajustes</button>
+</header>
+<main style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; padding: 32px">
+<h1 class="h1">Abre un documento para empezar</h1>
+<div class="drop" style="width: 640px; height: 320px">
+<p class="h2">Arrastra aquí tu PDF o tu foto</p>
+</div>
+<div style="height: 60px"></div>
+</main>
+<div class="dialog" role="alertdialog" aria-labelledby="errt">
+<div class="dtitle"><span class="grow" style="font-weight: 600">ClearRead</span><button class="btn ghost" style="height: 32px; width: 32px; padding: 0" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24" style="width: 16px; height: 16px"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 16px; align-items: flex-start">
+<span class="erricon"><svg class="ico" viewBox="0 0 24 24" style="width: 24px; height: 24px; stroke-width: 2.5"><path d="M12 7v6M12 17v0.5"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 class="h2" id="errt">No pudimos abrir este documento</h2>
+<p style="margin: 0; font-size: 16px">El PDF tiene contraseña y ClearRead no puede leerlo así.</p>
+</div>
+</div>
+<div class="tip">
+<svg class="ico" viewBox="0 0 24 24" style="margin-top: 2px"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"></path></svg>
+<div style="display: flex; flex-direction: column"><span style="font-weight: 700">Qué puedes hacer</span><span>Guarda una copia del PDF sin contraseña y ábrela otra vez.</span></div>
+</div>
+<div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 4px">
+<button class="btn">Elegir otro archivo</button>
+<button class="btn primary focus" style="min-width: 130px">Entendido</button>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'claro' };
+  }
+}
+</script>
+</body>
+</html>

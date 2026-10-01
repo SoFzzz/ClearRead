@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Tokens por tema</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.col{flex:1 1 0;display:flex;flex-direction:column;gap:12px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text)}
+.reader{font-family:OpenDyslexic,Verdana,sans-serif;font-size:19px;line-height:1.8;letter-spacing:1.5px;word-spacing:4px;white-space:nowrap}
+.e{color:var(--se)}.o{color:var(--so)}
+.ruler{background:var(--ruler);margin:0 -20px;padding:0 20px}
+.hl{background:var(--hlbg);color:var(--hlfg);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;padding:0 2px}
+.btn{height:36px;padding:0 14px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:14px;font-weight:600;box-sizing:border-box}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.focus{border:3px solid var(--focus)}
+.row{display:flex;align-items:center;gap:8px;font-size:12.5px;line-height:1.3}
+.sw{width:18px;height:18px;border-radius:4px;border:1px solid var(--border);flex:0 0 auto}
+.mono{font-family:Consolas,monospace;margin-left:auto}
+</style>
+</helmet>
+<div class="cr claro" style="width: 1280px; height: 800px; padding: 28px 32px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; gap: 16px">
+<h1 style="margin: 0; font-size: 26px">ClearRead · tokens por tema</h1>
+<span style="color: var(--muted)">Paleta base: crema #FFF8F0 · amarillo #F4D06F · naranja #FF8811 · turquesa #9DD9D2 · morado #392F5A</span>
+</div>
+<div style="display: flex; gap: 20px; flex-grow: 1">
+<sc-for list="{{themes}}" as="th" hint-placeholder-count="3">
+<div class="col {{th.cls}}">
+<div style="font-size: 20px; font-weight: 700">{{th.name}}</div>
+<div class="reader">
+<div><span class="e">La</span> <span class="e">fo</span><span class="o">to</span><span class="e">sín</span><span class="o">te</span><span class="e">sis</span> <span class="e">es</span> <span class="e">un</span></div>
+<div class="ruler"><span class="e">pro</span><span class="o">ce</span><span class="e">so</span> <span class="hl">na-tu-ral</span> <span class="e">de</span> <span class="e">las</span></div>
+<div><span class="e">plan</span><span class="o">tas</span> <span class="e">ver</span><span class="o">des</span>.</div>
+</div>
+<div style="display: flex; gap: 8px">
+<button class="btn primary">Reproducir</button>
+<button class="btn">Cancelar</button>
+<button class="btn focus">Con foco</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<sc-for list="{{th.tokens}}" as="t" hint-placeholder-count="16">
+<div class="row"><span class="sw" style="background: {{t.hex}}"></span><span>{{t.name}}</span><span class="mono">{{t.hex}}</span></div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const names = ['bg','surface','text','text-muted','syllable-even','syllable-odd','word-highlight-bg','word-highlight-fg','ruler-bg','focus-ring','primary-bg','primary-fg','secondary','border','error','success'];
+    const pack = (hexes) => names.map((n, i) => ({ name: n, hex: hexes[i] }));
+    return {
+      themes: [
+        { cls: 'claro', name: 'Claro', tokens: pack(['#FFF8F0','#F5EEE8','#392F5A','#4F417C','#392F5A','#703800','#F4D06F','#392F5A','#E2EFE7','#2E766D','#392F5A','#FFF8F0','#392F5A','#7968B0','#A85400','#2E766D']) },
+        { cls: 'oscuro', name: 'Oscuro', tokens: pack(['#392F5A','#2B2344','#FFF8F0','#D7D0D2','#F4D06F','#9DD9D2','#F4D06F','#392F5A','#2B2344','#9DD9D2','#F4D06F','#392F5A','#FFF8F0','#9C94A5','#FF8811','#9DD9D2']) },
+        { cls: 'ac', name: 'Alto Contraste', tokens: pack(['#000000','#000000','#FFFFFF','#FFFFFF','#FFFFFF','#9DD9D2','#F4D06F','#000000','#333333','#9DD9D2','#FFFFFF','#000000','#FFFFFF','#FFFFFF','#FF8811','#9DD9D2']) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

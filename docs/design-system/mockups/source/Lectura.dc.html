@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Lectura reproduciendo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{width:1280px;height:800px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.topbar{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);box-sizing:border-box}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.lg{height:48px;padding:0 24px;font-size:16px}
+.btn.ghost{border-color:transparent}
+.btn.focus{border:3px solid var(--focus)}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.slider{position:relative;height:24px;display:flex;align-items:center}
+.groove{height:6px;width:100%;border-radius:3px;background:var(--border)}
+.done{position:absolute;left:0;height:6px;border-radius:3px;background:var(--pbg)}
+.handle{position:absolute;top:2px;width:20px;height:20px;border-radius:10px;background:var(--pbg);border:2px solid var(--surface);box-sizing:border-box;margin-left:-10px}
+.reader{font-family:OpenDyslexic,Verdana,sans-serif;font-size:21px;line-height:1.8;letter-spacing:1.5px;word-spacing:4px;white-space:nowrap}
+.e{color:var(--se)}.o{color:var(--so)}
+.ln{padding:0 40px}
+.ln.ruler{background:var(--ruler)}
+.para{margin-bottom:14px}
+.hl{background:var(--hlbg);color:var(--hlfg);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;padding:0 2px}
+.kbd{display:inline-flex;align-items:center;height:22px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-weight:600}
+.playbar{flex:0 0 80px;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:center;box-sizing:border-box}
+</style>
+</helmet>
+<div class="cr {{theme}}">
+<header class="topbar">
+<button class="btn ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Inicio</button>
+<div class="grow" style="text-align: center; font-weight: 700">Guía de Biología · Unidad 3</div>
+<button class="btn"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><path d="M9 10h6"></path></svg>Asistente</button>
+<button class="btn ghost"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"></path><circle cx="15" cy="6" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Ajustes</button>
+</header>
+<main style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden">
+<div class="reader" style="width: 820px; padding-top: 32px">
+<div class="para">
+<div class="ln"><span class="e">La</span> <span class="e">fo</span><span class="o">to</span><span class="e">sín</span><span class="o">te</span><span class="e">sis</span> <span class="e">es</span> <span class="e">el</span> <span class="e">pro</span><span class="o">ce</span><span class="e">so</span> <span class="e">que</span> <span class="e">u</span><span class="o">san</span> <span class="e">las</span></div>
+<div class="ln ruler"><span class="e">plan</span><span class="o">tas</span> <span class="e">pa</span><span class="o">ra</span> <span class="hl">fabricar</span> <span class="e">su</span> <span class="e">pro</span><span class="o">pio</span> <span class="e">a</span><span class="o">li</span><span class="e">men</span><span class="o">to</span>. <span class="e">Con</span></div>
+<div class="ln"><span class="e">la</span> <span class="e">luz</span> <span class="e">del</span> <span class="e">sol</span>, <span class="e">el</span> <span class="e">a</span><span class="o">gua</span> <span class="e">y</span> <span class="e">el</span> <span class="e">ai</span><span class="o">re</span>, <span class="e">las</span> <span class="e">ho</span><span class="o">jas</span></div>
+<div class="ln"><span class="e">pro</span><span class="o">du</span><span class="e">cen</span> <span class="e">a</span><span class="o">zú</span><span class="e">car</span> <span class="e">y</span> <span class="e">li</span><span class="o">be</span><span class="e">ran</span> <span class="e">o</span><span class="o">xí</span><span class="e">ge</span><span class="o">no</span>.</div>
+</div>
+<div class="para">
+<div class="ln"><span class="e">Es</span><span class="o">te</span> <span class="e">pro</span><span class="o">ce</span><span class="e">so</span> <span class="e">o</span><span class="o">cu</span><span class="e">rre</span> <span class="e">den</span><span class="o">tro</span> <span class="e">de</span> <span class="e">los</span></div>
+<div class="ln"><span class="e">clo</span><span class="o">ro</span><span class="e">plas</span><span class="o">tos</span>, <span class="e">u</span><span class="o">nas</span> <span class="e">es</span><span class="o">truc</span><span class="e">tu</span><span class="o">ras</span> <span class="e">pe</span><span class="o">que</span><span class="e">ñas</span></div>
+<div class="ln"><span class="e">que</span> <span class="e">con</span><span class="o">tie</span><span class="e">nen</span> <span class="e">clo</span><span class="o">ro</span><span class="e">fi</span><span class="o">la</span>, <span class="e">el</span> <span class="e">pig</span><span class="o">men</span><span class="e">to</span> <span class="e">que</span></div>
+<div class="ln"><span class="e">da</span> <span class="e">el</span> <span class="e">co</span><span class="o">lor</span> <span class="e">ver</span><span class="o">de</span> <span class="e">a</span> <span class="e">las</span> <span class="e">ho</span><span class="o">jas</span>.</div>
+</div>
+<div class="para">
+<div class="ln"><span class="e">Sin</span> <span class="e">la</span> <span class="e">fo</span><span class="o">to</span><span class="e">sín</span><span class="o">te</span><span class="e">sis</span> <span class="e">no</span> <span class="e">ha</span><span class="o">brí</span><span class="e">a</span> <span class="e">o</span><span class="o">xí</span><span class="e">ge</span><span class="o">no</span></div>
+<div class="ln"><span class="e">su</span><span class="o">fi</span><span class="e">cien</span><span class="o">te</span> <span class="e">pa</span><span class="o">ra</span> <span class="e">los</span> <span class="e">se</span><span class="o">res</span> <span class="e">vi</span><span class="o">vos</span>.</div>
+</div>
+</div>
+</main>
+<footer class="playbar">
+<div style="width: 820px; padding: 0 24px; box-sizing: border-box; display: flex; align-items: center; gap: 16px">
+<button class="btn primary lg" style="width: 148px"><svg class="ico" viewBox="0 0 24 24" style="stroke-width: 3"><path d="M8 5v14M16 5v14"></path></svg>Pausar</button>
+<button class="btn"><svg class="ico" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>Detener</button>
+<div style="display: flex; flex-direction: column; gap: 0; width: 220px; margin-left: 8px">
+<div style="display: flex; justify-content: space-between" class="small"><span style="font-weight: 600">Velocidad</span><span>150 palabras/min</span></div>
+<div class="slider"><div class="groove"></div><div class="done" style="width: 28%"></div><div class="handle" style="left: 28%"></div></div>
+</div>
+<div class="grow"></div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px" class="small">
+<span>Palabra 11 de 65</span>
+<span class="muted"><span class="kbd">Espacio</span> pausar · <span class="kbd">Esc</span> detener</span>
+</div>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'claro' };
+  }
+}
+</script>
+</body>
+</html>

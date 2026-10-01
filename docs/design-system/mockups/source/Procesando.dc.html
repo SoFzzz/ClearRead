@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Procesando</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{width:1280px;height:800px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.topbar{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);box-sizing:border-box}
+.brand{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.lg{height:48px;padding:0 24px;font-size:16px}
+.btn.ghost{border-color:transparent}
+.btn.focus{border:3px solid var(--focus)}
+.btn.disabled{border-style:dashed;border-color:var(--border);background:var(--disbg);color:var(--dis)}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h1{font-size:28px;font-weight:700;line-height:1.3;margin:0}
+.h2{font-size:20px;font-weight:700;line-height:1.35;margin:0}
+.h3{font-size:16px;font-weight:700;margin:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-sizing:border-box}
+.track{height:12px;border-radius:6px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box;overflow:hidden}
+.fill{height:100%;background:var(--pbg)}
+.step{display:flex;align-items:center;gap:12px;height:36px}
+.dot{width:24px;height:24px;border-radius:12px;border:2px solid var(--border);box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.dot.ok{border-color:var(--success);color:var(--success)}
+.dot.now{border:3px solid var(--text)}
+</style>
+</helmet>
+<div class="cr {{theme}}">
+<header class="topbar">
+<div class="brand"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z"></path><path d="M20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6z"></path></svg>ClearRead</div>
+<div class="grow"></div>
+<button class="btn ghost disabled" style="border-color: transparent; background: transparent"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"></path><circle cx="15" cy="6" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="17" cy="18" r="2"></circle></svg>Ajustes</button>
+</header>
+<main style="flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 32px">
+<div class="card" style="width: 600px; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 class="h2">Preparando tu documento</h1>
+<span class="muted">Guía de Biología · Unidad 3.pdf</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between"><span style="font-weight: 600">Leyendo la página 5 de 12</span><span class="muted">42 %</span></div>
+<div class="track"><div class="fill" style="width: 42%"></div></div>
+</div>
+<div style="display: flex; flex-direction: column">
+<div class="step"><span class="dot ok"><svg class="ico" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3"><path d="M5 12l5 5 9-10"></path></svg></span><span>Abrir el archivo</span></div>
+<div class="step"><span class="dot ok"><svg class="ico" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3"><path d="M5 12l5 5 9-10"></path></svg></span><span>Mejorar la imagen</span></div>
+<div class="step"><span class="dot now"></span><span style="font-weight: 700">Reconocer el texto</span><span class="muted small">(en curso)</span></div>
+<div class="step"><span class="dot"></span><span class="muted">Separar en sílabas y preparar la lectura</span></div>
+</div>
+<p class="muted small" style="margin: 0">Puede tardar un poco si el documento tiene muchas páginas. Tu archivo no sale de este equipo.</p>
+<div style="display: flex; justify-content: flex-end">
+<button class="btn focus">Cancelar</button>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'claro' };
+  }
+}
+</script>
+</body>
+</html>

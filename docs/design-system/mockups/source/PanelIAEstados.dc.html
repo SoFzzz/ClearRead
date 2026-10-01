@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Estados del panel de IA</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.cr{box-sizing:border-box;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);background:var(--bg)}
+.claro{--bg:#FFF8F0;--surface:#F5EEE8;--text:#392F5A;--muted:#4F417C;--se:#392F5A;--so:#703800;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#E2EFE7;--focus:#2E766D;--pbg:#392F5A;--pfg:#FFF8F0;--phover:#4A3D75;--ppress:#261F3C;--sec:#392F5A;--sechover:#E2EFE7;--border:#7968B0;--error:#A85400;--success:#2E766D;--dis:#4F417C;--disbg:#F5EEE8}
+.oscuro{--bg:#392F5A;--surface:#2B2344;--text:#FFF8F0;--muted:#D7D0D2;--se:#F4D06F;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#392F5A;--ruler:#2B2344;--focus:#9DD9D2;--pbg:#F4D06F;--pfg:#392F5A;--phover:#F8E3A9;--ppress:#FFF8F0;--sec:#FFF8F0;--sechover:#2B2344;--border:#9C94A5;--error:#FF8811;--success:#9DD9D2;--dis:#D7D0D2;--disbg:#2B2344}
+.ac{--bg:#000000;--surface:#000000;--text:#FFFFFF;--muted:#FFFFFF;--se:#FFFFFF;--so:#9DD9D2;--hlbg:#F4D06F;--hlfg:#000000;--ruler:#333333;--focus:#9DD9D2;--pbg:#FFFFFF;--pfg:#000000;--phover:#F4D06F;--ppress:#9DD9D2;--sec:#FFFFFF;--sechover:#333333;--border:#FFFFFF;--error:#FF8811;--success:#9DD9D2;--dis:#FFFFFF;--disbg:#000000}
+.grow{flex:1 1 auto}
+.btn{height:40px;padding:0 18px;border-radius:8px;border:2px solid var(--sec);background:transparent;color:var(--sec);font-family:inherit;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap}
+.btn.primary{background:var(--pbg);border-color:var(--pbg);color:var(--pfg)}
+.btn.icon{width:40px;padding:0}
+.btn.ghost{border-color:transparent}
+.btn.focus{border:3px solid var(--focus)}
+.btn.disabled{border-style:dashed;border-color:var(--border);background:var(--disbg);color:var(--dis)}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.h2{font-size:20px;font-weight:700;line-height:1.35;margin:0}
+.h3{font-size:16px;font-weight:700;margin:0}
+.cap{font-size:14px;font-weight:700;height:24px}
+.col{width:360px;display:flex;flex-direction:column;gap:8px}
+.panel{height:512px;background:var(--surface);border:1px solid var(--border);box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:20px}
+.head{display:flex;align-items:center;gap:8px}
+.chip{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:8px;background:var(--hlbg);color:var(--hlfg);font-weight:700}
+.answer{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:16px;display:flex;flex-direction:column;gap:10px}
+.answer .body{font-family:OpenDyslexic,Verdana,sans-serif;font-size:17px;line-height:1.7;letter-spacing:1px}
+.track{height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box;overflow:hidden;position:relative}
+.seg{position:absolute;left:30%;width:35%;height:100%;background:var(--pbg)}
+.erricon{width:40px;height:40px;border-radius:20px;border:3px solid var(--error);color:var(--error);display:flex;align-items:center;justify-content:center;box-sizing:border-box;flex:0 0 auto}
+.privacy{border:2px solid var(--text);border-radius:12px;background:var(--bg);padding:16px;display:flex;flex-direction:column;gap:12px}
+.tooltip{background:var(--text);color:var(--bg);border-radius:6px;padding:8px 12px;font-size:13px;max-width:280px}
+.bar{height:56px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--surface);border:1px solid var(--border);box-sizing:border-box}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;box-sizing:border-box;white-space:nowrap}
+</style>
+</helmet>
+<div class="cr {{theme}}" style="width: 2344px; height: 640px; padding: 32px; display: flex; gap: 24px">
+<div class="col">
+<div class="cap">A · Primer uso: aviso de privacidad</div>
+<div class="panel">
+<div class="head"><h2 class="h2 grow">Asistente</h2><button class="btn icon ghost" aria-label="Cerrar asistente"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="privacy">
+<div style="display: flex; gap: 10px; align-items: center"><svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span class="h3">Antes de usar el asistente</span></div>
+<p style="margin: 0">Para ayudarte, enviamos por internet solo la palabra o el párrafo que elijas. El resto del documento se queda en tu equipo.</p>
+<p style="margin: 0">El asistente usa inteligencia artificial y puede equivocarse.</p>
+<div style="display: flex; gap: 8px; justify-content: flex-end"><button class="btn">Ahora no</button><button class="btn primary focus">Entendido</button></div>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="cap">B · Cargando</div>
+<div class="panel">
+<div class="head"><h2 class="h2 grow">Asistente</h2><button class="btn icon ghost" aria-label="Cerrar asistente"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span class="small muted">Elegiste</span><div><span class="chip">cloroplastos</span></div></div>
+<div class="answer" aria-live="polite">
+<span class="h3">Buscando una explicación…</span>
+<div class="track"><div class="seg"></div></div>
+<span class="small muted">Suele tardar unos segundos.</span>
+</div>
+<div class="grow"></div>
+<button class="btn" style="align-self: flex-start">Cancelar</button>
+</div>
+</div>
+<div class="col">
+<div class="cap">C · Despertando el asistente (arranque en frío)</div>
+<div class="panel">
+<div class="head"><h2 class="h2 grow">Asistente</h2><button class="btn icon ghost" aria-label="Cerrar asistente"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span class="small muted">Elegiste</span><div><span class="chip">cloroplastos</span></div></div>
+<div class="answer" aria-live="polite">
+<div style="display: flex; gap: 10px; align-items: center"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2 2M9 2h6"></path></svg><span class="h3">Despertando el asistente…</span></div>
+<p style="margin: 0">Estaba descansando porque nadie lo usó en un rato. Puede tardar hasta un minuto; puedes seguir leyendo mientras tanto.</p>
+<div class="track"><div class="seg"></div></div>
+</div>
+<div class="grow"></div>
+<button class="btn" style="align-self: flex-start">Cancelar</button>
+</div>
+</div>
+<div class="col">
+<div class="cap">D · Respuesta (simplificar párrafo)</div>
+<div class="panel">
+<div class="head"><h2 class="h2 grow">Asistente</h2><button class="btn icon ghost" aria-label="Cerrar asistente"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; gap: 8px"><button class="btn" style="flex-grow: 1">Explicar palabra</button><button class="btn primary" style="flex-grow: 1">Simplificar párrafo</button></div>
+<div class="answer">
+<span class="h3">El párrafo, más simple</span>
+<p class="body" style="margin: 0">Las plantas hacen su comida con la luz del sol, el agua y el aire. Al hacerlo, sueltan oxígeno.</p>
+<span class="small muted">Respuesta creada con IA. Puede tener errores.</span>
+</div>
+<div class="grow"></div>
+<span class="small muted">Consultas en esta sesión: 4 de 30</span>
+</div>
+</div>
+<div class="col">
+<div class="cap">E · Error (sin conexión)</div>
+<div class="panel">
+<div class="head"><h2 class="h2 grow">Asistente</h2><button class="btn icon ghost" aria-label="Cerrar asistente"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="answer" role="alert">
+<div style="display: flex; gap: 12px; align-items: flex-start"><span class="erricon"><svg class="ico" viewBox="0 0 24 24" style="stroke-width: 2.5"><path d="M12 7v6M12 17v0.5"></path></svg></span><span class="h3">No pudimos conectar con el asistente.</span></div>
+<p style="margin: 0">Verifica tu conexión a internet. Lo demás de ClearRead sigue funcionando sin internet.</p>
+<div><button class="btn primary focus"><svg class="ico" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"></path></svg>Reintentar</button></div>
+</div>
+</div>
+</div>
+<div class="col">
+<div class="cap">F · Sin internet: botón deshabilitado</div>
+<div class="bar"><span class="grow" style="font-weight: 700">Guía de Biología · Unidad 3</span><button class="btn disabled"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path><path d="M9 10h6"></path></svg>Asistente</button></div>
+<div style="display: flex; justify-content: flex-end"><div class="tooltip">El asistente necesita internet. Lo demás funciona igual.</div></div>
+<div style="display: flex; gap: 8px; padding-top: 8px"><span class="badge"><svg class="ico" viewBox="0 0 24 24" style="width: 14px; height: 14px"><path d="M2 8a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M3 3l18 18"></path></svg>Sin internet</span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["claro","oscuro","ac"],"default":"claro"},"$preview":{"width":2344,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'claro' };
+  }
+}
+</script>
+</body>
+</html>
