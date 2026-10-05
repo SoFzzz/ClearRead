@@ -7,6 +7,7 @@ Derived from the clearread.spec of §6.3, adapted to PyInstaller >= 6:
 - console=True: the spike reports through stdout.
 - no icon: resources/icons/app.ico does not exist yet.
 - VC++ runtime DLLs taken from System32 (see VC_RUNTIME_DLLS below).
+- opencv_videoio_ffmpeg excluded: video I/O is never used (~30 MB).
 """
 
 import os
@@ -19,6 +20,7 @@ from PyInstaller.utils.hooks import collect_data_files
 # replace them. App-local deployment of these DLLs is allowed by Microsoft.
 SYSTEM32 = os.path.join(os.environ["SystemRoot"], "System32")
 VC_RUNTIME_DLLS = ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+UNUSED_BINARY_PREFIX = "opencv_videoio_ffmpeg"
 
 # RapidOCR ships its ONNX models and config.yaml inside the package.
 datas = collect_data_files("rapidocr_onnxruntime")
@@ -43,7 +45,12 @@ a = Analysis(
     noarchive=False,
 )
 
-a.binaries = [entry for entry in a.binaries if entry[0].lower() not in VC_RUNTIME_DLLS]
+a.binaries = [
+    entry
+    for entry in a.binaries
+    if entry[0].lower() not in VC_RUNTIME_DLLS
+    and not os.path.basename(entry[0]).startswith(UNUSED_BINARY_PREFIX)
+]
 a.binaries += [(name, os.path.join(SYSTEM32, name), "BINARY") for name in VC_RUNTIME_DLLS]
 
 pyz = PYZ(a.pure)

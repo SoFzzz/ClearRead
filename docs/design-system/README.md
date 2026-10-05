@@ -28,7 +28,7 @@ Este documento traduce los requisitos de `document.md` (§1.2, §4.4, §4.8, §4
 - [8. Checklist de accesibilidad](#8-checklist-de-accesibilidad)
 - [9. Voz y tono](#9-voz-y-tono)
 - [10. Traspaso a Qt](#10-traspaso-a-qt)
-- [11. Decisiones abiertas](#11-decisiones-abiertas)
+- [11. Decisiones abiertas y tareas pendientes](#11-decisiones-abiertas-y-tareas-pendientes)
 
 ---
 
@@ -80,7 +80,7 @@ Este documento traduce los requisitos de `document.md` (§1.2, §4.4, §4.8, §4
 | `yellow-200` | `#F8E3A9` | Amarillo | Mezcla 60 % amarillo + 40 % blanco | Botón primario en *hover* (Oscuro) |
 | `gray-800` | `#333333` | Negro | Negro aclarado al 20 % | Regleta y *hover* del Alto Contraste |
 
-> **Nota sobre `orange-900` (segunda sílaba del Claro).** Las dos sílabas deben superar 7:1 sobre crema, así que las dos tienen que ser oscuras y se parecen mucho. Primero se probó un turquesa oscuro (`#1A423D`, 10,55:1): pasaba el contraste, pero en la captura renderizada **no se distinguía del morado** (diferencia perceptual ΔE76 ≈ 39). El marrón derivado del naranja (`#703800`, 8,84:1) separa cálido de frío y sube la diferencia a ΔE76 ≈ 66. Es un **tono derivado**, no el naranja `#FF8811`: la regla "el naranja nunca es texto" se mantiene para el color base. Si prefieres no usar la familia naranja en texto, la alternativa medida es `#0E4E47` (turquesa HSL L 18 % con saturación 70 %, 9,06:1 sobre crema, ΔE76 ≈ 44), con menos diferencia visible. Queda en [decisiones abiertas](#11-decisiones-abiertas).
+> **Nota sobre `orange-900` (segunda sílaba del Claro).** Las dos sílabas deben superar 7:1 sobre crema, así que las dos tienen que ser oscuras y se parecen mucho. Primero se probó un turquesa oscuro (`#1A423D`, 10,55:1): pasaba el contraste, pero en la captura renderizada **no se distinguía del morado** (diferencia perceptual ΔE76 ≈ 39). El marrón derivado del naranja (`#703800`, 8,84:1) separa cálido de frío y sube la diferencia a ΔE76 ≈ 66. Es un **tono derivado**, no el naranja `#FF8811`: la regla "el naranja nunca es texto" se mantiene para el color base. Si prefieres no usar la familia naranja en texto, la alternativa medida es `#0E4E47` (turquesa HSL L 18 % con saturación 70 %, 9,06:1 sobre crema, ΔE76 ≈ 44), con menos diferencia visible. **Decidido (2026-10-01): `#703800`.** Queda una validación para el Día 5 (ver [§11](#11-decisiones-abiertas-y-tareas-pendientes)).
 
 ### 1.2 Tokens semánticos por tema
 
@@ -251,9 +251,9 @@ Nunca por debajo de 13 px. Sin cursivas ni mayúsculas sostenidas.
 | Parámetro | Mínimo | Por defecto | Máximo | Paso | Fuente del valor por defecto |
 |:--|--:|--:|--:|--:|:--|
 | Tamaño de letra | 12 pt | **16 pt** | 28 pt | 1 pt | `AppConfig.font_size_pt` (§4.6) y §4.4 |
-| Espacio entre líneas | 1,4 | **1,8** | 2,6 | 0,1 | §4.4 (`line-height: 1.8`) |
-| Espacio entre letras | 0 px | **1,5 px** | 4 px | 0,5 px | §4.4 (`letter-spacing: 1.5px`) |
-| Espacio entre palabras | 0 px | **4 px** | 12 px | 1 px | §4.4 (`word-spacing: 4px`) |
+| Espacio entre líneas | 1,4 | **1,8** | 2,6 | 0,1 | `AppConfig.line_spacing`; §4.4 (`line-height: 1.8`) |
+| Espacio entre letras | 0 px | **1,5 px** | 4 px | 0,5 px | `AppConfig.letter_spacing`; §4.4 (`letter-spacing: 1.5px`) |
+| Espacio entre palabras | 0 px | **4 px** | 12 px | 1 px | `AppConfig.word_spacing`; §4.4 (`word-spacing: 4px`) |
 | Entre párrafos | — | **14 px** | — | — | §4.4 (`margin-bottom: 14px`), fijo |
 | Respuesta de IA | — | 17 px, interlineado 1,7, letras 1 px | — | — | Fijo (el panel es estrecho) |
 
@@ -414,7 +414,7 @@ Todos los átomos usan solo propiedades soportadas por QSS (`background`, `color
 
 ### 3.6 Aviso de privacidad
 
-- **Primer uso** (NFR-SEC01): tarjeta con borde **2 px** `text` dentro del panel, icono de candado, título "Antes de usar el asistente", dos frases y botones "Ahora no" (secundario) / "Entendido" (primario con foco). Hasta pulsar "Entendido" no se envía nada. La aceptación se guarda en `AppConfig` (campo nuevo, ver decisiones abiertas).
+- **Primer uso** (NFR-SEC01): tarjeta con borde **2 px** `text` dentro del panel, icono de candado, título "Antes de usar el asistente", dos frases y botones "Ahora no" (secundario) / "Entendido" (primario con foco). Hasta pulsar "Entendido" no se envía nada. La aceptación se guarda en `AppConfig.ai_privacy_accepted` (§4.6 de `document.md`).
 - **Recordatorio permanente** al pie del panel: candado + "Solo enviamos a internet la palabra o el párrafo que elegiste. El resto del documento no sale de tu equipo."
 
 ---
@@ -435,7 +435,7 @@ Todos los átomos usan solo propiedades soportadas por QSS (`background`, `color
 - Sílabas: el HTML de `TextFormatter` con `syllable-even` / `syllable-odd` del tema (§4.4).
 - **Palabra que suena** (`ExtraSelection` `word_fmt`): fondo `word-highlight-bg`, **primer plano `word-highlight-fg` (obligatorio)**, negrita (700) y **subrayado** con color `word-highlight-fg` (`setFontUnderline(True)`, `setUnderlineColor`). El primer plano fijo es lo que garantiza ≥ 7:1: sin él, la sílaba impar del Claro quedaría a 6,25:1 sobre el amarillo y la sílaba par del Oscuro sería amarillo sobre amarillo.
 - **Regleta** (`ruler_fmt`, `FullWidthSelection`): color **opaco** `ruler-bg` (sustituye al `QColor(240, 230, 214, 160)` con alfa de §4.8). Cubre todo el ancho de la columna.
-- **Por qué la regleta no llega a 3:1 con el fondo:** un fondo que contraste 3:1 con el crema dejaría el texto encima por debajo de 7:1. La regleta es un **apoyo** para no perder la línea; la señal principal de "dónde voy" es la palabra resaltada, que sí tiene señales ≥ 3:1 (negrita + subrayado). Si se quiere más presencia, ver decisiones abiertas.
+- **Por qué la regleta no llega a 3:1 con el fondo:** un fondo que contraste 3:1 con el crema dejaría el texto encima por debajo de 7:1. La regleta es un **apoyo** para no perder la línea; la señal principal de "dónde voy" es la palabra resaltada, que sí tiene señales ≥ 3:1 (negrita + subrayado). **Decidido (2026-10-01):** la regleta por debajo de 3:1 se acepta como apoyo visual en los tres temas.
 - Clic en una palabra → empieza a leer desde ahí (UI-F02): cursor de mano sobre el texto.
 - Foco del lector: borde 3 px `focus-ring` alrededor de la columna. Con el foco aquí funcionan Espacio y Esc (UI-F03).
 
@@ -460,7 +460,7 @@ Todos los átomos usan solo propiedades soportadas por QSS (`background`, `color
 | E · Error | Icono "!" en círculo `error`, mensaje de `strings.py` según `AIErrorKind`, frase de tranquilidad, botón "Reintentar" (no se muestra con `SESSION_LIMIT`, `DAILY_LIMIT` ni `INPUT_TOO_LONG`) | §4.10 |
 | F · Sin internet | El botón "Asistente" de la barra está **deshabilitado** (borde discontinuo) con *tooltip* "El asistente necesita internet. Lo demás funciona igual." y *badge* "Sin internet" | AI-F03 (`QNetworkInformation`) |
 
-- Los errores del asistente se muestran **dentro del panel**, no con `AccessibleErrorDialog`, para no interrumpir la lectura con una ventana modal (decisión abierta: §4.10 dice que el mapeo lo "consume `AccessibleErrorDialog`").
+- Los errores del asistente se muestran **dentro del panel**, no con `AccessibleErrorDialog`, para no interrumpir la lectura con una ventana modal (decidido el 2026-10-01; recogido en §4.10 de `document.md`).
 - "Cancelar" deja de esperar en la interfaz; el *worker* termina solo y su resultado se ignora (no se pueden abortar `QRunnable` en curso).
 
 ### 4.5 Panel de ajustes
@@ -610,13 +610,13 @@ Se fija con `QWidget.setTabOrder` en cada vista; el anillo de foco es siempre vi
 |:--|:--|:--|:--|
 | **Espacio** | Reproducir / pausar / reanudar | Lectura (foco en lector o barra) | UI-F03 |
 | **Esc** | Detener la lectura | Lectura | UI-F03 |
-| Esc | Cerrar diálogo / cerrar panel de IA / cancelar procesado / salir de Ajustes | Según contexto (prioridad: diálogo → panel → procesado → Ajustes → detener lectura) | Propuesta |
-| Ctrl+O | Elegir archivo | Inicio | Propuesta |
-| Ctrl+, | Abrir Ajustes | Inicio, Lectura | Propuesta |
-| Alt+← | Atrás | Lectura, Ajustes, Procesando | Propuesta |
-| Ctrl+I | Abrir / cerrar el asistente con la palabra bajo el cursor | Lectura | Propuesta |
-| F6 | Mover el foco entre lector y panel de IA | Lectura + panel | Propuesta |
-| Ctrl++ / Ctrl+− | Agrandar / achicar la letra un paso | Lectura | Propuesta |
+| Esc | Cerrar diálogo / cerrar panel de IA / cancelar procesado / salir de Ajustes | Según contexto (prioridad: diálogo → panel → procesado → Ajustes → detener lectura) | UI-F03 (aprobado) |
+| Ctrl+O | Elegir archivo | Inicio | UI-F03 (aprobado) |
+| Ctrl+, | Abrir Ajustes | Inicio, Lectura | UI-F03 (aprobado) |
+| Alt+← | Atrás | Lectura, Ajustes, Procesando | UI-F03 (aprobado) |
+| Ctrl+I | Abrir / cerrar el asistente con la palabra bajo el cursor | Lectura | UI-F03 (aprobado) |
+| F6 | Mover el foco entre lector y panel de IA | Lectura + panel | UI-F03 (aprobado) |
+| Ctrl++ / Ctrl+− | Agrandar / achicar la letra un paso | Lectura | UI-F03 (aprobado) |
 
 Los atajos se registran con `QShortcut` (contexto `Qt.WidgetWithChildrenShortcut` en cada vista) y aparecen en los *tooltips* de sus botones ("Pausar (Espacio)").
 
@@ -692,7 +692,7 @@ Para revisar cada pantalla antes de darla por terminada (Días 5–11):
 
 ### 10.1 Módulo de tema (`src/clearread/ui/theme.py`)
 
-- `ThemeId(Enum)`: `LIGHT = "light"`, `DARK = "dark"`, `HIGH_CONTRAST = "high_contrast"`. Es el valor que se guarda en `AppConfig.theme`. Los nombres "Claro", "Oscuro", "Alto contraste" están en `strings.py`.
+- `ThemeId(Enum)`: `LIGHT = "light"`, `DARK = "dark"`, `HIGH_CONTRAST = "high_contrast"`. Es el valor que se guarda en `AppConfig.theme` (por defecto `"light"`). Los nombres "Claro", "Oscuro", "Alto contraste" están en `strings.py`.
 - `ThemeTokens`: `@dataclass(frozen=True)` con un campo `str` (hex) por token de §1.2, en `snake_case` (`bg`, `surface`, `text`, `text_muted`, `syllable_even`, `syllable_odd`, `word_highlight_bg`, `word_highlight_fg`, `ruler_bg`, `focus_ring`, `primary_bg`, `primary_fg`, `primary_bg_hover`, `primary_bg_pressed`, `secondary`, `secondary_bg_hover`, `border`, `error`, `success`, `disabled_fg`, `disabled_bg`).
 - `THEMES: dict[ThemeId, ThemeTokens]`: los tres juegos de §1.2, **copiados de esta tabla**. Un test (`tests/test_theme.py`) recalcula cada ratio de §1.3 con la misma fórmula de `contrast.py` y falla si alguno baja del umbral: así un cambio de color no puede romper NFR-A11Y01 sin que se note.
 - `build_stylesheet(tokens: ThemeTokens) -> str`: devuelve el QSS de la app a partir de una plantilla. Se aplica con `QApplication.setStyleSheet` al arrancar y al cambiar de tema.
@@ -750,7 +750,7 @@ Las variantes se marcan con propiedades dinámicas (`button.setProperty("variant
 | Fondo del lector | `QPalette.Base` = `bg` (además del QSS) |
 | Iconos | SVG recoloreados al cargar (§1.7) |
 | Toggle | Imágenes SVG de indicador por tema |
-| Barra de título | Nativa de Windows: no se tematiza (ver decisiones abiertas) |
+| Barra de título | Nativa de Windows: no se tematiza (ver [§11](#11-decisiones-abiertas-y-tareas-pendientes)) |
 
 ### 10.4 Cómo recibe `TextFormatter` la `SyllablePalette` (§4.4)
 
@@ -779,20 +779,17 @@ Flujo al cambiar de tema en Ajustes:
 
 ---
 
-## 11. Decisiones abiertas
+## 11. Decisiones abiertas y tareas pendientes
 
-Cada una con la opción recomendada en **negrita**. Ninguna bloquea la aprobación del documento salvo la 1.
+Decisiones cerradas por la usuaria el 2026-10-01 y ya aplicadas en este documento y en `document.md`: segunda sílaba del Claro `#703800`; Alto Contraste con sílabas blanco/turquesa y fondo negro; regleta < 3:1 aceptada como apoyo; errores del asistente dentro del panel (§4.10); campos nuevos de `AppConfig` y tema por defecto `"light"` (§4.6); `voice_volume` fijo en 1.0 sin control; atajos de §7.3 (UI-F03); `QtSvg` + `qsvg` en `clearread.spec` (§8, Día 12).
 
-1. **Segunda sílaba del Claro.** `#703800` (marrón derivado del naranja, ΔE ≈ 66 frente al morado) o `#0E4E47` (turquesa oscuro, ΔE ≈ 44, se distingue menos). → **`#703800`**: las dos pasan 7:1 y esta se diferencia mucho mejor en pantalla; el naranja base sigue sin usarse como texto.
-2. **Sílaba impar del Alto Contraste.** Turquesa `#9DD9D2` (13,29:1) o amarillo `#F4D06F` (14,10:1, se distingue más del blanco pero se confunde con el resaltado). → **Turquesa**, para que el amarillo signifique solo "palabra que suena".
-3. **Fondo de Alto Contraste.** Negro con texto blanco o blanco con texto negro. → **Negro** (convención de los temas de contraste de Windows y menos deslumbramiento).
-4. **Regleta < 3:1 con el fondo.** Aceptarla como apoyo visual o añadir una línea inferior de 2 px en `border` (requiere pintar en `paintEvent`, porque `ExtraSelection` solo da fondo). → **Aceptarla como apoyo** y revisarla con usuarios en el Día 8.
-5. **Errores del asistente en el panel, no en `AccessibleErrorDialog`.** §4.10 dice que el mapeo `AIErrorKind → texto` lo consume `AccessibleErrorDialog`. → **Mostrarlos en el panel** (mismo texto de `strings.py`, sin ventana modal que corte la lectura); requiere que actualices esa frase de §4.10.
-6. **Campos que faltan en `AppConfig` (§4.6).** Ajustes necesita `line_height`, `letter_spacing_px`, `word_spacing_px`, `voice_id` y `ai_privacy_accepted`; `AppConfig` solo tiene `font_size_pt`, `syllables_enabled`, `reading_speed_wpm`, `voice_volume` y `backend_url`. → **Añadirlos en §4.6 antes del Día 7** (cambio de `document.md` que debes pedir tú).
-7. **`AppConfig.theme = "Sepia"` (§4.6).** Tras renombrar los temas, el valor por defecto ya no existe. → **Cambiarlo a `"light"`** (`ThemeId.LIGHT`) en §4.6.
-8. **Control de volumen.** `AppConfig.voice_volume` existe pero CFG-F02 no pide control. → **No mostrarlo** en Ajustes (se usa el volumen de Windows).
-9. **Fuente de la interfaz.** Segoe UI (sistema) o Atkinson Hyperlegible (OFL, habría que empaquetarla y pedir permiso como recurso nuevo). → **Segoe UI**.
-10. **Barra de título oscura.** En el tema Oscuro y AC la barra nativa de Windows queda clara. Se puede oscurecer con `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` vía `ctypes`. → **Dejarla nativa** en esta entrega (no está en los requisitos).
-11. **Iconos SVG en el `.exe`.** Recolorear SVG requiere `QtSvg` y el *plugin* `imageformats/qsvg` en `clearread.spec`. → **Sí**, y avisar al agente `packager` para el Día 12.
-12. **Atajos propuestos** (Ctrl+O, Ctrl+,, Alt+←, Ctrl+I, F6, Ctrl++/−). → **Adoptarlos**; solo Espacio y Esc son requisito (UI-F03).
-13. **Nombres de tema en archivos que no son `document.md`.** La skill `contrast-check` y el agente `design-system-writer` (en `.claude/`) aún dicen "Sepia, Alto Contraste, Noche". → **Actualizarlos tú** (no se tocan `.claude/` desde esta tarea).
+### Tareas pendientes
+
+1. **Día 5 — validar la alternancia de sílabas del Claro.** Con OpenDyslexic real y una captura, comprobar que morado/marrón (`#392F5A`/`#703800`) se distingue. Si no se distingue, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). Registrado también en `document.md` §6.5, Día 5.
+
+### Decisiones abiertas
+
+Cada una con la opción recomendada en **negrita**.
+
+1. **Fuente de la interfaz.** Segoe UI (sistema) o Atkinson Hyperlegible (OFL, habría que empaquetarla y pedir permiso como recurso nuevo). → **Segoe UI**.
+2. **Barra de título oscura.** En el tema Oscuro y AC la barra nativa de Windows queda clara. Se puede oscurecer con `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` vía `ctypes`. → **Dejarla nativa** en esta entrega (no está en los requisitos).

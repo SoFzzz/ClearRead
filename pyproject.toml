@@ -12,10 +12,9 @@ dependencies = [
     "pypdfium2>=4.28.0",
     "rapidocr-onnxruntime>=1.3.0",
     "onnxruntime>=1.16.0",
-    "opencv-python-headless>=4.8.0",
     "Pillow>=10.0.0",
     "numpy>=1.24.0",
-    "pyttsx3>=2.98",
+    "pyttsx3==2.98",   # 2.99 only speaks on the first runAndWait() (Day 1 spike)
     "pywin32>=306",
     "silabeador>=1.1.0",
     "httpx>=0.27.0",

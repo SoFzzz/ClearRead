@@ -52,8 +52,8 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Framework GUI** | PySide6 | ≥ 6.7.0 | LGPL v3 | Si PySide6 presenta problemas de tamaño en el bundle, mantener `--onedir` sin compresión UPX. |
 | **Renderizado PDF** | **pypdfium2** | ≥ 4.28.0 | Apache 2.0 / BSD-3 | Renderizado C nativo sin Poppler; libre de riesgos copyleft AGPL. |
 | **Visión e IA (OCR Principal)** | **RapidOCR (ONNX Runtime)** | ≥ 1.3.0 | Apache 2.0 | **Plan B IA:** Si la precisión de reconocimiento de RapidOCR es insuficiente en tipografías degradadas del set de calibración, ajustar umbrales de detección (`box_thresh`, `unclip_ratio`) o incorporar preprocesamiento de contraste adaptativo en OpenCV. Mantiene 100% el uso de IA de Deep Learning con inferencia local ágil y huella mínima (~16 MB). |
-| **Visión Artificial** | opencv-python-headless + Pillow | ≥ 4.8.0 / ≥ 10.0 | Apache / HPND | Calibración empírica con set curado de 10 imágenes reales de smartphones/fotocopias. |
-| **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | ≥ 2.98 | MPL 2.0 / PSF | **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
+| **Visión Artificial** | opencv-python + Pillow | (versión que exige rapidocr-onnxruntime) / ≥ 10.0 | Apache 2.0 / HPND | Se usa `opencv-python`, **no** `-headless`: `rapidocr-onnxruntime` exige `opencv-python` y, si se instalan los dos, ambos escriben en la misma carpeta `cv2` y se pisan (comprobado en el Día 1). `opencv-python` no se declara aparte: llega como dependencia de RapidOCR. En el `.exe` se excluye `opencv_videoio_ffmpeg` (~30 MB, sin uso). Calibración empírica con set curado de 10 imágenes reales de smartphones/fotocopias. |
+| **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | **== 2.98** | MPL 2.0 / PSF | **Versión fijada:** en el spike del Día 1, pyttsx3 2.99 solo habla en el primer `runAndWait()` de cada motor (la 2.ª frase vuelve en 0.10 s con 1 evento); con 2.98 la 2.ª frase habla completa (9.05 s, 38 eventos). **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
 | **Segmentación Fonética** | silabeador | ≥ 1.1.0 | MIT | Algoritmo determinista RAE. Plan B: módulo interno de reglas regex fonológicas. |
 | **Tipografía Accesible** | OpenDyslexic | Open Font | SIL OFL | Empaquetada localmente en recursos del proyecto. |
 | **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
@@ -177,7 +177,7 @@ sequenceDiagram
 - **ING-F01:** Ingestión de PDFs mediante `pypdfium2` (licencia permisiva Apache 2.0 / BSD-3).
 - **ING-F02:** Normalización de orientación EXIF automática en imágenes JPG/PNG provenientes de dispositivos móviles.
 - **ING-F03:** Detección de texto digital nativo previo al renderizado: si la página contiene texto extraíble íntegro, debe marcarse para omitir el OCR.
-- **ING-F04:** Detección y manejo de PDFs protegidos por contraseña (`pypdfium2.PdfPasswordError`), notificando con claridad a la interfaz.
+- **ING-F04:** Detección y manejo de PDFs protegidos por contraseña, notificando con claridad a la interfaz. **Medido en el spike del Día 1 (pypdfium2 5.13.0, PDFium 153.0.7999.0):** `pypdfium2.PdfPasswordError` **no existe**; un PDF con contraseña lanza `pypdfium2.PdfiumError` con `err_code == 4` (`pypdfium2.raw.FPDF_ERR_PASSWORD`). Comportamiento fijado en `tests/test_samples.py`.
 - **ING-NF01 (Memoria):** Meta de diseño estimada a validar empíricamente: consumo de memoria residente proyectado en $\le 450\text{ MB}$ procesando un PDF estándar de 100 páginas (uso estricto de generadores con cierre asegurado mediante `try...finally`).
 
 #### Contrato de Interfaz y Código
@@ -191,6 +191,7 @@ from pathlib import Path
 from typing import Generator
 import numpy as np
 import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_raw
 from PIL import Image, ImageOps
 
 
@@ -224,11 +225,13 @@ class DocumentIngestor:
         if path.suffix.lower() in self.SUPPORTED_PDF_EXT:
             try:
                 doc = pdfium.PdfDocument(str(path))
-                count = len(doc)
-                doc.close()
-                return count
-            except pdfium.PdfPasswordError:
-                raise PermissionError("El archivo PDF está protegido con contraseña.")
+            except pdfium.PdfiumError as err:
+                if err.err_code == pdfium_raw.FPDF_ERR_PASSWORD:
+                    raise PermissionError("El archivo PDF está protegido con contraseña.") from err
+                raise
+            count = len(doc)
+            doc.close()
+            return count
         elif path.suffix.lower() in self.SUPPORTED_IMAGE_EXT:
             return 1
         raise ValueError(f"Formato de archivo no soportado: {path.suffix}")
@@ -245,8 +248,10 @@ class DocumentIngestor:
     def _load_pdf_streaming(self, path: Path) -> Generator[PageResult, None, None]:
         try:
             doc = pdfium.PdfDocument(str(path))
-        except pdfium.PdfPasswordError:
-            raise PermissionError("El archivo PDF está protegido con contraseña.")
+        except pdfium.PdfiumError as err:
+            if err.err_code == pdfium_raw.FPDF_ERR_PASSWORD:
+                raise PermissionError("El archivo PDF está protegido con contraseña.") from err
+            raise
 
         try:
             total_pages = len(doc)
@@ -300,7 +305,7 @@ class DocumentIngestor:
 #### Requisitos de Ingeniería
 - **PRE-F01:** Corrección de iluminación por división de fondo (estimación morfológica) para atenuar sombras de flexión de hojas de cuadernos.
 - **PRE-F02:** Enderezado geométrico (*deskew*) automático acotado en el rango $[-45^\circ, 45^\circ]$ con umbral de activación mínima en $| \theta | \ge 0.5^\circ$.
-- **PRE-NF01:** Consumo de CPU $\le 800\text{ ms}$ por página A4 mediante el uso exclusivo de primitivas vectorizadas de `opencv-python-headless`.
+- **PRE-NF01:** Consumo de CPU $\le 800\text{ ms}$ por página A4 mediante el uso exclusivo de primitivas vectorizadas de OpenCV (`opencv-python`, ver §2.2).
 
 ```python
 """Image preprocessing pipeline using OpenCV headless."""
@@ -386,7 +391,7 @@ class OCRPreprocessor:
 - **OCR-F01:** Inferencia de OCR mediante modelos Deep Learning ONNX (`RapidOCR`), 100% offline y local.
 - **OCR-F02:** Des-hifenización en español para fusionar palabras partidas al final de línea (`cons-` + `trucción` $\rightarrow$ `construcción`).
 - **OCR-F03:** Filtrado de detecciones espurias y reconstrucción topológica de líneas y párrafos respetando el orden natural de lectura.
-- **OCR-NF01:** Tiempo de inferencia acotado ($\le 2.5\text{ s}$ por página en CPU de 4 núcleos), sin dependencias de compiladores externos. *(Estimación a medir; ver protocolo en §5.2. Se retiró la meta separada de memoria $\le 250\text{ MB}$ del OCR: queda cubierta por la meta general NFR-MEM01 de §5.2, evitando duplicar el mismo consumo bajo dos metas distintas.)*
+- **OCR-NF01:** Tiempo de inferencia por página en CPU, sin dependencias de compiladores externos. **Valores medidos** (no estimados) con `time.perf_counter()` sobre una página A4 a 300 DPI, Intel Core i5-8300H (4 núcleos), 23.8 GB RAM, Windows 10 Home: **primera inferencia de cada proceso ~4.0 s** (3964–6268 ms en 4 ejecuciones del spike del Día 1, venv y `.exe`; la 1.ª ejecución del `.exe` tras compilar, 10.3 s), porque incluye la preparación del modelo; **inferencias siguientes ~1.9 s** (mediana 1.86–1.95 s en 3 ejecuciones, `tests/spike_ocr_latin.py`, con `ch_PP-OCRv4_rec` y con `latin_PP-OCRv5_rec_mobile`). La estimación previa de 2.5 s solo se cumple a partir de la segunda página procesada en el mismo proceso. *(Ver protocolo en §5.2. Se retiró la meta separada de memoria $\le 250\text{ MB}$ del OCR: queda cubierta por la meta general NFR-MEM01 de §5.2, evitando duplicar el mismo consumo bajo dos metas distintas.)*
 
 ```python
 """OCR and layout analysis engine using RapidOCR (ONNX Runtime)."""
@@ -663,8 +668,16 @@ class TextFormatter:
 ### 4.5 Módulo de Síntesis de Voz Robusto (`services/tts_controller.py`)
 **Solución al Problema Crítico #2:** Eliminación de `threading.Thread(daemon=True)` arbitrario. El motor SAPI5 se aísla en un **`QThread` dedicado permanente** que inicializa su propio apartamento COM STA (`pythoncom.CoInitialize()`). Las comunicaciones entre la interfaz y el motor se canalizan exclusivamente a través de colas de eventos y señales asíncronas con `Qt.ConnectionType.QueuedConnection`.
 
+**Hallazgos del spike del Día 1 (`tests/spike_tts_stop.py`, cada escenario en un proceso nuevo, voz Microsoft Helena):**
+- **(a) pyttsx3 fijado a `==2.98`** (§2.2): con 2.99 solo habla el primer `runAndWait()` de cada motor; la 2.ª frase vuelve en 0.10 s con 1 evento. Con 2.98, la 2.ª frase habla completa (9.05 s, 38 eventos), y este diseño reutiliza el mismo motor en cada lectura.
+- **(b) Evento de palabra extra al iniciar cada frase:** pyttsx3 emite un `started-word` adicional al empezar el *stream*, con `name=None`, `location` = número de *stream* y `length` = posición del *stream*. Los eventos reales traen la palabra y su **offset de carácter** en el texto enviado (p. ej. "Prueba de integración exitosa" → `location` 0, 7, 10, 22). Por eso el resaltado **se alinea por el offset de carácter (`location`) del evento contra el texto enviado, no contando eventos** (contar daría un desfase de una palabra).
+- **Pausa:** `engine.stop()` llamado desde **otro hilo** mientras `runAndWait()` habla detiene la voz: `runAndWait()` vuelve a 1.60–1.61 s con la parada pedida a 1.5 s, SAPI queda en estado *done*, con y sin `CoInitialize` en el hilo que para. *Hipótesis a verificar en el Día 5:* como `speak()` bloquea el hilo del worker dentro de `runAndWait()`, una señal `sig_stop` en cola podría no procesarse hasta que termine la frase; si es así, `TTSController.stop()` debe llamar a `SAPI5Worker.stop()` directamente (lo que el spike sí probó).
+
 ```python
 """Thread-safe SAPI5 TTS Controller with isolated STA COM lifecycle."""
+
+import bisect
+import re
 
 import pyttsx3
 import pythoncom
@@ -683,7 +696,7 @@ class SAPI5Worker(QObject):
         self._engine = None
         self._is_speaking = False
         self._base_word_offset = 0
-        self._words_in_current_utterance = 0
+        self._word_starts: list[int] = []  # char offset of each word in the sent text
 
     @Slot()
     def initialize(self) -> None:
@@ -715,7 +728,7 @@ class SAPI5Worker(QObject):
 
         self._is_speaking = True
         self._base_word_offset = start_offset
-        self._words_in_current_utterance = 0
+        self._word_starts = [match.start() for match in re.finditer(r"\S+", text)]
         try:
             self._engine.say(text, name="doc_playback")
             self._engine.runAndWait()
@@ -736,11 +749,14 @@ class SAPI5Worker(QObject):
         if self._engine:
             self._engine.setProperty("rate", max(80, min(320, wpm)))
 
-    def _on_word_boundary(self, _name: str, _location: int, _length: int) -> None:
-        # Emite el índice ordinal global (compensando si se reanudó desde la mitad)
-        global_word_index = self._base_word_offset + self._words_in_current_utterance
-        self.word_started.emit(global_word_index)
-        self._words_in_current_utterance += 1
+    def _on_word_boundary(self, name: str | None, location: int, _length: int) -> None:
+        # pyttsx3 also reports the stream start as a "started-word" with name=None and
+        # location=stream number; only real word events carry a char offset (Day 1 spike).
+        if name is None:
+            return
+        local_index = bisect.bisect_right(self._word_starts, location) - 1
+        if local_index >= 0:
+            self.word_started.emit(self._base_word_offset + local_index)
 
     @Slot()
     def cleanup(self) -> None:
@@ -817,11 +833,16 @@ DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 
 @dataclass
 class AppConfig:
-    theme: str = "Sepia"
+    theme: str = "light"  # ThemeId value: "light" | "dark" | "high_contrast"
     font_size_pt: int = 16
+    line_spacing: float = 1.8
+    letter_spacing: float = 1.5  # px
+    word_spacing: int = 4  # px
     syllables_enabled: bool = True
     reading_speed_wpm: int = 150
-    voice_volume: float = 1.0
+    voice_id: str = ""  # SAPI5 voice id; empty means the system default voice
+    voice_volume: float = 1.0  # fixed: no UI control, the Windows volume applies
+    ai_privacy_accepted: bool = False  # privacy notice before the first AI call (NFR-SEC01)
     backend_url: str = DEFAULT_BACKEND_URL  # editable in "Ajustes avanzados" (CFG-F02)
 
     @classmethod
@@ -1311,7 +1332,7 @@ class HomeView(QWidget):
 | `504 upstream_timeout` | `TIMEOUT` | (mismo mensaje que `TIMEOUT`) |
 | Cualquier otra respuesta o JSON inesperado | `BAD_RESPONSE` | "No pudimos entender la respuesta del asistente." |
 
-El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings.py` (junto con el resto de textos de la UI) y lo consume `AccessibleErrorDialog`. `INVALID_KEY` y `NO_BALANCE` de v1.4.0 desaparecen de la app: esos fallos ocurren entre el backend y DeepSeek y llegan como `502 upstream_*`.
+El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings.py` (junto con el resto de textos de la UI). Los errores del asistente se muestran **dentro del panel de IA** (estado de error del panel, `docs/design-system/README.md` §4.4), **no** con `AccessibleErrorDialog`, para no cortar la lectura con una ventana modal; `AccessibleErrorDialog` queda para los errores de ingesta y procesamiento (§4.9). `INVALID_KEY` y `NO_BALANCE` de v1.4.0 desaparecen de la app: esos fallos ocurren entre el backend y DeepSeek y llegan como `502 upstream_*`.
 
 #### Contrato de Interfaz y Código
 ```python
@@ -1714,7 +1735,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **ING-F01** | Ingestor | Soporte de PDF mediante `pypdfium2` sin Poppler ni dependencias C externas. | Carga de PDFs estándar sin requerir variables de entorno `PATH`. |
 | **ING-F02** | Ingestor | Auto-rotación de fotos JPG/PNG según cabecera `EXIF 0x0112`. | La imagen se carga vertical independientemente de la orientación del teléfono. |
 | **ING-F03** | Ingestor | Extracción directa de texto embebido si cuenta con más de 50 caracteres. | Omite el pipeline de OCR reduciendo el tiempo de procesamiento a $< 200\text{ ms}$. |
-| **ING-F04** | Ingestor | Detección y manejo de PDFs protegidos con contraseña mediante captura de `PdfPasswordError`. | Emite mensaje descriptivo impidiendo crashes silenciosos de la app. |
+| **ING-F04** | Ingestor | Detección y manejo de PDFs protegidos con contraseña mediante captura de `pypdfium2.PdfiumError` con `err_code == 4` (`FPDF_ERR_PASSWORD`). | Emite mensaje descriptivo impidiendo crashes silenciosos de la app. |
 | **PRE-F01** | Preprocessor | Eliminación de sombras de curvatura mediante división morfológica de fondo. | Desvanece gradientes oscuros en lomos de libros preservando caracteres legibles. |
 | **PRE-F02** | Preprocessor | Enderezado geométrico (*deskew*) automático mediante análisis de contornos con `cv2.minAreaRect`. | Corrige inclinaciones en el rango $[-45^\circ, 45^\circ]$ si $| \theta | \ge 0.5^\circ$. |
 | **OCR-F01** | OCR Engine | Inferencia Deep Learning mediante RapidOCR (ONNX), 100% offline y local. | Detección robusta de texto en imágenes degradadas del set de calibración. |
@@ -1725,7 +1746,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **TTS-F01** | TTS | Aislamiento de SAPI5 en hilo permanente STA con soporte de reanudación por `start_offset`. | Pausa y reanudación sin reiniciar desde el inicio ni lanzar excepciones COM. |
 | **UI-F01** | ReaderWidget | Resaltado superpuesto mediante `QTextEdit.ExtraSelection` a 60 FPS. | Ausencia total de parpadeos (*flicker*) durante la lectura a 200 WPM. *(Meta de FPS fuera de alcance de medición en esta entrega, ver §6.5.)* |
 | **UI-F02** | ReaderWidget | Clic en una palabra del `ReaderWidget` inicia la lectura desde el `WordToken` correspondiente (`start_offset`). | Al hacer clic en la palabra N, la síntesis de voz y el resaltado arrancan exactamente en N, no desde el inicio del documento. |
-| **UI-F03** | ReadingView | Atajos de teclado: `Espacio` alterna reproducir/pausar, `Esc` detiene la lectura. | Ambos atajos funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones. |
+| **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente, `F6` mueve el foco entre el lector y el panel de IA y `Ctrl++`/`Ctrl+−` agranda/achica la letra un paso (`docs/design-system/README.md` §7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. |
 | **CFG-F01** | Config | Escritura atómica a disco para persistencia de configuraciones de usuario. | El archivo `config.json` no se corrompe ante terminaciones forzadas del proceso. |
 | **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas (Claro, Oscuro y Alto Contraste), tamaño de fuente, interlineado, espaciado, velocidad de lectura y voz TTS. **Sin campo de API key** (la key vive solo en el backend). La URL del backend es un valor por defecto en `AppConfig` (`DEFAULT_BACKEND_URL`), editable en "Ajustes avanzados". | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app; no existe ningún campo para introducir una API key. |
 | **HOME-F01** | HomeView | Lista de documentos recientes con caché local del `FormattedDocument` ya procesado. | Reabrir un documento reciente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. |
@@ -1746,7 +1767,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en todos los temas visuales (Claro, Oscuro y Alto Contraste). | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa. *(Tokens y ratios medidos en `docs/design-system/README.md`.)* |
 | **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
-| **OCR-NF01** | Latencia OCR | Meta de diseño estimada: tiempo de inferencia $\le 2.5\text{ s}$ por página en CPU de 4 núcleos. *(Estimación a medir.)* | Benchmark interno mediante `time.perf_counter()` en el set de calibración de 10 imágenes reales. |
+| **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. |
 | **NFR-SEC01** | Seguridad de Credenciales | La API key de DeepSeek existe **solo** en las variables de entorno del hosting (y en `backend/.env`, ignorado por git, para desarrollo): nunca en el repositorio, en la app ni en el `.exe`. Solo se envía el texto seleccionado por el usuario, con aviso de privacidad visible. El `X-Client-Token` **no** se considera secreto (§4.11). | Auditoría: grep de la key en el repositorio (incluido el historial de git) y en `dist/` da 0 resultados; revisión manual del aviso de privacidad antes del primer uso de IA. |
 | **BE-NF01** | Arranque en Frío | *Estimación a medir:* tras ≥ 15 min sin tráfico, el backend en Render Free responde a `/health` en ~1 min (cifra de la documentación de Render, consultada el 2026-10-01). | Medición real con `curl.exe -w "%{time_total}"` o cronómetro desde el `.exe`, anotando fecha, hora y equipo (Días 10 y 12). |
 
@@ -1772,10 +1793,9 @@ dependencies = [
     "pypdfium2>=4.28.0",
     "rapidocr-onnxruntime>=1.3.0",
     "onnxruntime>=1.16.0",
-    "opencv-python-headless>=4.8.0",
     "Pillow>=10.0.0",
     "numpy>=1.24.0",
-    "pyttsx3>=2.98",
+    "pyttsx3==2.98",   # 2.99 only speaks on the first runAndWait() (Day 1 spike)
     "pywin32>=306",
     "silabeador>=1.1.0",
     "httpx>=0.27.0",
@@ -1831,60 +1851,69 @@ Para usuarios no técnicos y presentaciones de portafolio, la aplicación debe d
 
 ```python
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller build specification for ClearRead Desktop (Windows onedir)."""
+"""PyInstaller build specification for ClearRead Desktop (Windows onedir).
+
+Validated against PyInstaller 6.22.3 in the Day 1 spike (spike.spec)."""
 
 import os
-import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-block_cipher = None
+from PyInstaller.utils.hooks import collect_data_files
+
+# PyInstaller bundles the MSVC runtime that ships with Python 3.11.9 (14.36).
+# onnxruntime 1.30 segfaults on import with it, so the build machine's System32
+# copies (VC++ redistributable >= 14.40) replace them. App-local deployment of
+# these DLLs is allowed by Microsoft.
+SYSTEM32 = os.path.join(os.environ["SystemRoot"], "System32")
+VC_RUNTIME_DLLS = ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
+# OpenCV video I/O is never used (~30 MB).
+UNUSED_BINARY_PREFIX = "opencv_videoio_ffmpeg"
 
 # Recolección de activos estáticos: tipografías OpenDyslexic y modelos offline
 datas = [
-    ('resources/fonts', 'resources/fonts'),
-    ('resources/models', 'resources/models'),
+    ("resources/fonts", "resources/fonts"),
+    ("resources/models", "resources/models"),
 ]
-
-# Recolectar datos y binarios embebidos de pypdfium2 y rapidocr_onnxruntime
-datas += collect_data_files('pypdfium2')
-datas += collect_data_files('rapidocr_onnxruntime')
+# RapidOCR trae sus modelos ONNX y su config.yaml dentro del paquete.
+# pypdfium2 no necesita entrada: el hook de PyInstaller ya recoge pypdfium2_raw/pdfium.dll.
+datas += collect_data_files("rapidocr_onnxruntime")
 
 # Módulos dinámicos que PyInstaller no detecta por análisis estático
 hiddenimports = [
-    'pypdfium2',
-    'rapidocr_onnxruntime',
-    'onnxruntime',
-    'pyttsx3.drivers',
-    'pyttsx3.drivers.sapi5',
-    'win32com.client',
-    'pythoncom',
-    'silabeador',
+    "pyttsx3.drivers",
+    "pyttsx3.drivers.sapi5",
+    "comtypes.client",
+    "pythoncom",
 ]
 
 a = Analysis(
-    ['src/clearread/__main__.py'],
-    pathex=['src'],
+    ["src/clearread/__main__.py"],
+    pathex=["src"],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'scipy', 'notebook', 'IPython'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    excludes=["tkinter", "matplotlib", "scipy", "notebook", "IPython"],
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+a.binaries = [
+    entry
+    for entry in a.binaries
+    if entry[0].lower() not in VC_RUNTIME_DLLS
+    and not os.path.basename(entry[0]).startswith(UNUSED_BINARY_PREFIX)
+]
+a.binaries += [(name, os.path.join(SYSTEM32, name), "BINARY") for name in VC_RUNTIME_DLLS]
+
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ClearRead',
+    name="ClearRead",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -1895,18 +1924,17 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='resources/icons/app.ico',
+    icon="resources/icons/app.ico",
 )
 
 coll = COLLECT(
     exe,
     a.binaries,
-    a.zipfiles,
     a.datas,
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='ClearRead',
+    name="ClearRead",
 )
 ```
 
@@ -1915,8 +1943,13 @@ coll = COLLECT(
 .\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
 ```
 
-> [!WARNING]
-> **Spec pendiente de validar contra PyInstaller ≥ 6.** El `.spec` de arriba usa argumentos de la época de PyInstaller 5 (`block_cipher`/`cipher`, `win_private_assemblies`, `win_no_prefer_redirects`) que pueden estar obsoletos o eliminados en PyInstaller 6. Tampoco está confirmado que `collect_data_files('pypdfium2')` recoja la DLL de pdfium (en pypdfium2 ≥ 4 vive en el paquete `pypdfium2_raw`). Lo confirma el *packager* en el **Día 1** al compilar el spike, y cualquier ajuste se documenta como desviación de este `.spec`. El `.exe` tampoco debe contener `fastapi` ni `uvicorn` (verificación de la skill `package-exe`).
+> [!NOTE]
+> **Validado contra PyInstaller 6.22.3 en el spike del Día 1** (`spike.spec`, mismas reglas). Cambios respecto al `.spec` de v1.5.0:
+> - Se quitaron `block_cipher`/`cipher=` y `win_no_prefer_redirects`/`win_private_assemblies`: PyInstaller 6 los eliminó.
+> - **Obligatorio:** se reemplazan `msvcp140.dll`, `vcruntime140.dll` y `vcruntime140_1.dll` (14.36, los de Python 3.11.9) por los de System32 (14.51 en el equipo de compilación). Sin este cambio, el `.exe` se cerraba con *segmentation fault* al importar `onnxruntime_pybind11_state.pyd` (onnxruntime 1.30). Requisito del equipo de compilación: VC++ Redistributable ≥ 14.40 instalado.
+> - Se excluye `opencv_videoio_ffmpeg` (~30 MB, sin uso): `dist/` del spike bajó de 238.0 MB a 208.5 MB y siguió dando `SPIKE OK`.
+> - `collect_data_files('pypdfium2')` sobra: el hook de PyInstaller ya recoge `pypdfium2_raw/pdfium.dll`.
+> - El `.exe` no debe contener `fastapi` ni `uvicorn` (verificación de la skill `package-exe`).
 
 ---
 
@@ -1998,10 +2031,10 @@ gantt
 | **D2** | 2026-10-03 | Documento de design system (jerarquía, navegación, UI/UX, temas con contraste ≥ 7:1), previo a cualquier pantalla. |
 | **D3** | 2026-10-04 | `DocumentIngestor`, `OCRPreprocessor` y `ClearReadOCR` integrados y calibrados con el set de 10 fotos reales. |
 | **D4** | 2026-10-05 | Silabeador RAE y `TextFormatter` con `TokenPositionMap`. |
-| **D5** | 2026-10-06 | `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. |
+| **D5** | 2026-10-06 | `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. Validar con OpenDyslexic real y una captura que la alternancia de sílabas morado/marrón (`#392F5A`/`#703800`, tema Claro) se distingue; si no, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). |
 | **D6** | 2026-10-07 | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
 | **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz; "Ajustes avanzados" con la URL del backend (CFG-F02); `AppConfig` atómico. |
-| **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado Espacio/Esc (UI-F03). |
+| **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado (UI-F03). |
 | **D9** | 2026-10-10 | Backend en local (`backend/`, §4.11): endpoints, límites, tope diario, caché, sin logs de textos; tests con `TestClient` y DeepSeek simulado (BE-F01–BE-F03). |
 | **D10** | 2026-10-11 | Despliegue en Render (§6.6, lo ejecuta o autoriza la usuaria) con la checklist de `deploy-backend`; medición del arranque en frío (BE-NF01); `BackendAIClient` en la app con la URL real en `core/config.py`. |
 | **D11** | 2026-10-12 | Panel de IA: clic derecho sobre una palabra o párrafo → explicar / simplificar, aviso "Despertando el asistente…" y aviso de privacidad (AI-F01–AI-F04). |
@@ -2074,11 +2107,12 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 
 - ~~**Requisito de "desplegada":** confirmar con el profesor si la entrega exige un backend accesible remotamente.~~ **RESUELTO (2026-10-01): sí.** La materia exige el proyecto desplegado; se incorpora el backend propio en Render (§4.11, §6.6).
 - **Riesgos del spike técnico por verificar:**
-  - Si la pausa de reproducción SAPI5 queda bloqueada por la naturaleza sincrónica de `engine.runAndWait()` al invocar `stop()` desde otro hilo.
-  - Reconocimiento de `ñ` y tildes del español con los modelos `ch_PP-OCRv4` (entrenados primariamente en chino/inglés).
-  - Existencia real del atributo `pypdfium2.PdfPasswordError` en la versión de `pypdfium2` fijada en §2.2 (verificar en el spike de Día 1, no asumido).
+  - ~~Si la pausa de reproducción SAPI5 queda bloqueada por la naturaleza sincrónica de `engine.runAndWait()` al invocar `stop()` desde otro hilo.~~ **RESUELTO (Día 1): funciona.** `stop()` desde otro hilo hace volver `runAndWait()` a 1.60–1.61 s con la parada pedida a 1.5 s, con y sin `CoInitialize` (§4.5). Hallazgo asociado: pyttsx3 2.99 no habla a partir de la 2.ª frase → fijado `==2.98` (§2.2).
+  - **ABIERTO — Reconocimiento de `ñ` y tildes del español con los modelos `ch_PP-OCRv4`.** Medido en el Día 1 sobre `tests/samples/sample_page_scanned.pdf` a 300 DPI: **1 de 21** caracteres especiales reconocidos (solo la `é` de "Qué"); salida típica: "El nino leyo una cancion en el jardin.". El diccionario del modelo `ch_PP-OCRv4_rec` (6623 caracteres) **no contiene `ñ`, `Ñ`, `¿` ni `¡`**, así que no puede reconocerlos; las vocales con tilde sí están, pero el modelo casi nunca las emite. Se resuelve en el Día 3. **Preparación del Día 3 (medida):** el modelo `latin_PP-OCRv5_rec_mobile` (ONNX, Apache 2.0, 7.9 MB, diccionario de 502 caracteres con `ñ Ñ ¿ ¡ á é í ó ú ü`) reconoce **21/21** caracteres especiales en la misma muestra a 300 y a 200 DPI, con tiempos iguales al modelo actual (`tests/spike_ocr_latin.py`, origen en `resources/models/README.md`). Falta validarlo con el set de 10 fotos reales antes de cerrar este punto.
+  - ~~Existencia real del atributo `pypdfium2.PdfPasswordError` en la versión de `pypdfium2` fijada en §2.2.~~ **RESUELTO (Día 1): no existe** en pypdfium2 5.13.0; se usa `PdfiumError` con `err_code == 4` (§4.1).
   - Desfase del `TokenPositionMap` cuando el HTML colapsa espacios múltiples, pudiendo desalinear `doc_start_pos`/`doc_end_pos` respecto al texto hablado.
-  - Validez del `.spec` de §6.3 con PyInstaller ≥ 6 (`cipher`, `win_private_assemblies`, `win_no_prefer_redirects`) y que se recoja la DLL de pdfium (Día 1).
+  - ~~Validez del `.spec` de §6.3 con PyInstaller ≥ 6 y que se recoja la DLL de pdfium.~~ **RESUELTO (Día 1):** `.spec` validado con PyInstaller 6.22.3; cambios en la nota de §6.3 (incluido el reemplazo obligatorio del runtime de VC++). El hook de PyInstaller recoge `pdfium.dll`.
+  - Iconos SVG recoloreados por tema (`docs/design-system/README.md` §1.7): `clearread.spec` debe incluir el módulo `QtSvg` y el plugin `imageformats/qsvg` de Qt; verificarlo en `dist/` (skill `package-exe`, Día 12).
   - `QNetworkInformation` (AI-F03) requiere el plugin de backend de *reachability* de Windows de Qt; verificar que `clearread.spec` y PyInstaller lo incluyen en el `.exe` (Día 12). Si falta o no se detecta en tiempo de ejecución, debe aplicarse el mismo comportamiento de *fallback* de AI-F03 (botón habilitado, error informado en el primer fallo real).
 - **Condiciones del hosting:** las de Render Free se consultaron el 2026-10-01 (§2.2) y pueden cambiar; revisarlas de nuevo antes del despliegue (Día 10) y de la entrega. **El Plan B (Hugging Face Spaces) no es gratuito** para un backend FastAPI a esa fecha (Docker/Gradio requieren plan de pago): falta decidir un Plan B gratuito o aceptar el costo.
 - **Medir el arranque en frío (BE-NF01):** la cifra de ~1 min es de la documentación de Render, no una medición propia. Verificar también la hipótesis de §4.10 de que un servicio dormido mantiene la petición abierta (se manifiesta como *timeout*, no como error de conexión).
