@@ -6,6 +6,7 @@ Outputs (no personal data, Spanish text with ñ, tildes and ü):
 - sample_page_digital.pdf   text layer (pdfium can extract it)
 - sample_page_scanned.pdf   image only (forces OCR)
 - sample_page_password.pdf  text layer, RC4-40 encrypted, user password SAMPLE_PASSWORD
+- sample_photo_exif6.jpg    stored landscape with EXIF Orientation=6 (displays portrait)
 
 PDFs are written by hand so no PDF-writing dependency is needed.
 """
@@ -17,6 +18,7 @@ import time
 from pathlib import Path
 
 import pypdfium2 as pdfium
+from PIL import Image, ImageDraw
 
 SAMPLES_DIR = Path(__file__).parent
 SAMPLE_PASSWORD = "clearread"
@@ -43,6 +45,13 @@ PASSWORD_PAD = bytes.fromhex(
     "28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A"
 )
 PERMISSIONS = -4
+EXIF_ORIENTATION_TAG = 0x0112
+EXIF_ROTATE_90_CW = 6
+# Stored pixels: 200 wide x 100 tall, red block at the top-left corner.
+PHOTO_STORED_SIZE = (200, 100)
+PHOTO_MARKER_BOX = (0, 0, 39, 39)
+PHOTO_MARKER_RGB = (255, 0, 0)
+PHOTO_BACKGROUND_RGB = (255, 255, 255)
 FILE_ID = hashlib.md5(b"clearread-synthetic-sample").digest()
 
 
@@ -176,6 +185,16 @@ def build_scanned_pdf(digital_pdf: Path) -> bytes:
     return out.getvalue()
 
 
+def build_exif_photo() -> bytes:
+    image = Image.new("RGB", PHOTO_STORED_SIZE, PHOTO_BACKGROUND_RGB)
+    ImageDraw.Draw(image).rectangle(PHOTO_MARKER_BOX, fill=PHOTO_MARKER_RGB)
+    exif = Image.Exif()
+    exif[EXIF_ORIENTATION_TAG] = EXIF_ROTATE_90_CW
+    out = io.BytesIO()
+    image.save(out, format="JPEG", quality=95, subsampling=0, exif=exif)
+    return out.getvalue()
+
+
 def main() -> None:
     digital = SAMPLES_DIR / "sample_page_digital.pdf"
     digital.write_bytes(build_digital_pdf())
@@ -183,6 +202,7 @@ def main() -> None:
     (SAMPLES_DIR / "sample_page_password.pdf").write_bytes(
         build_password_pdf(SAMPLE_PASSWORD)
     )
+    (SAMPLES_DIR / "sample_photo_exif6.jpg").write_bytes(build_exif_photo())
 
 
 if __name__ == "__main__":
