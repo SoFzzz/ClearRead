@@ -38,7 +38,7 @@ Este documento traduce los requisitos de `document.md` (§1.2, §4.4, §4.8, §4
 |:--|:--|:--|
 | P1 | **Sin cursivas** | Ningún estilo usa `font-style: italic`, ni en la interfaz ni en el lector. El énfasis se hace con **negrita**. |
 | P2 | **Sin texto justificado** | Todo el texto se alinea a la izquierda (`Qt.AlignLeft`). El justificado crea "ríos" de espacio que rompen el seguimiento de la línea. |
-| P3 | **Líneas de ≤ 70 caracteres** | La columna de lectura mide como máximo 820 px (§4.8) con 40 px de margen interior: 740 px útiles. Con OpenDyslexic a 16 pt y 1,5 px de espaciado salen ≈ 47 caracteres por línea (*estimación de diseño, hay que comprobarla con la fuente real en el Día 5*). Los textos de la interfaz (diálogos, panel de IA) tienen ancho máximo de 520 px. |
+| P3 | **Líneas de ≤ 70 caracteres** | La columna de lectura mide como máximo 820 px (§4.8) con 40 px de margen interior: 740 px útiles. Con OpenDyslexic a 16 pt y 1,5 px de espaciado salen ≈ 40 caracteres por línea y como máximo 49 (12 pt, ventana ancha); medido con la fuente real, ver §1.4. Los textos de la interfaz (diálogos, panel de IA) tienen ancho máximo de 520 px. |
 | P4 | **Espaciado generoso** | Interlineado 1,8, espacio entre letras 1,5 px y entre palabras 4 px por defecto (§4.4), todos ajustables. 14 px entre párrafos. |
 | P5 | **Sin mayúsculas sostenidas** | Ningún botón, título ni etiqueta va en MAYÚSCULAS. Se escribe en tipo oración: "Elegir archivo", no "ELEGIR ARCHIVO" ni "Elegir Archivo". |
 | P6 | **Baja carga cognitiva** | Una acción principal por pantalla (un solo botón primario), pocas opciones visibles, textos cortos, sin jerga técnica y sin animaciones que distraigan. |
@@ -229,8 +229,14 @@ Para repetir la medición: `py -3 .claude\skills\contrast-check\contrast.py "<te
 
 | Rol | Fuente | Justificación |
 |:--|:--|:--|
-| **Lectura** (ReaderWidget, respuesta de IA, vista previa) | **OpenDyslexic** Regular y Bold, empaquetada en `resources/fonts` | Requisito de §1.2 y CLAUDE.md §o. Se carga con `QFontDatabase.addApplicationFont` al arrancar. |
+| **Lectura** (ReaderWidget, respuesta de IA, vista previa) | **OpenDyslexic**, variante oficial `compiled/opendyslexic.otf` (un solo peso, ya grueso), empaquetada en `resources/fonts` | Requisito de §1.2 y CLAUDE.md §o. Se carga con `QFontDatabase.addApplicationFont` al arrancar. Se eligió (2026-10-07, decisión de la usuaria) porque centra las tildes de `ó` y `é`; no hay Regular ni Bold, y la palabra resaltada ya no usa negrita (origen y motivo en `resources/fonts/README.md`). |
 | **Interfaz** (botones, etiquetas, títulos, diálogos) | **Segoe UI** (fuente del sistema) | Es la fuente de Windows 10/11: ya está en todos los equipos objetivo, tiene *hinting* para pantalla (nítida a 13–16 px), letras diferenciadas (`I l 1`), soporte completo de español y **no añade bytes ni licencias al `.exe`**. Usar OpenDyslexic también en la interfaz restaría espacio (es muy ancha) y quitaría a la lectura su "voz" diferenciada. |
+
+**Capturas reales con la variante adoptada** (texto sintético, `tests/manual/show_reading_view.py --capture`): [Claro](mockups/real/lectura_real_light.png) · [Oscuro](mockups/real/lectura_real_dark.png) · [Alto contraste](mockups/real/lectura_real_high_contrast.png). Se comprobó a ojo que `ó é á í ú ñ ü ¿ ¡` salen bien, con la tilde centrada sobre su vocal.
+
+![Lectura real, tema Claro, con opendyslexic.otf](mockups/real/lectura_real_light.png)
+
+**Anchura de línea con el trazo más grueso** (`tests/manual/measure_line_width.py`, `QTextLayout` sobre la fuente real, texto sintético, este equipo): la línea más larga mide **49 caracteres** (12 pt, ventana de 1920 px, columna de 820 px); a 16 pt, 40; a 28 pt, 22. Sigue por debajo de los 70 caracteres de P3 en cualquier tamaño de Ajustes (12–28 pt).
 
 > En los mockups, OpenDyslexic se sustituye por **Verdana** porque la fuente aún no está en `resources/fonts` y el lienzo no puede cargar fuentes locales. Los anchos reales son algo mayores; se verificó en el Día 5 con la fuente real (ver [§11](#11-decisiones-abiertas-y-tareas-pendientes)).
 
@@ -647,7 +653,7 @@ Para revisar cada pantalla antes de darla por terminada (Días 5–11):
 - [ ] **Nunca solo color:** estado elegido = borde grueso + radio relleno; deshabilitado = borde discontinuo + *tooltip*; error = icono "!" + texto; paso completado = ✓; palabra que suena = negrita + subrayado; toggle = "Sí/No".
 - [ ] **Nombres accesibles:** `setAccessibleName` en botones de solo icono, sliders y el lector; `setBuddy` en etiquetas.
 - [ ] **Sin cursivas, sin justificado, sin mayúsculas sostenidas.**
-- [ ] **Líneas de lectura ≤ 70 caracteres** con el tamaño de letra mínimo (comprobar con OpenDyslexic real).
+- [x] **Líneas de lectura ≤ 70 caracteres** con el tamaño de letra mínimo (medido con OpenDyslexic real: máximo 49, ver §1.4).
 - [ ] **Movimiento:** sin transiciones; la barra indeterminada respeta "Mostrar animaciones".
 - [ ] **Escalado de Windows** al 125 % y 150 %: nada se corta.
 - [ ] **Narrador de Windows:** lee el título y el mensaje del diálogo de error y anuncia la respuesta del panel de IA.
@@ -790,7 +796,7 @@ Decisiones cerradas por la usuaria el 2026-10-01 y ya aplicadas en este document
 1. ~~**Día 5 — validar la alternancia de sílabas del Claro.**~~ **HECHA (2026-10-07).** Con OpenDyslexic real (Regular y Bold) en `ReaderWidget`, las capturas de los tres temas están en [`mockups/real/`](mockups/real/) (`lectura_real_light.png`, `lectura_real_dark.png`, `lectura_real_high_contrast.png`). En el tema Claro el morado `#392F5A` y el marrón `#703800` **se distinguen**: a tamaño normal se lee la alternancia sílaba a sílaba (p. ej. `es-tu-dian-tes`) y ampliada al doble es inequívoca; no hace falta el plan B de espaciado. Es una valoración visual sobre las capturas, no una medición nueva (los ratios siguen siendo los de §1.3).
    - **Hallazgo 1: fuente.** La última *release* de OpenDyslexic (v0.91.12) dibuja mal la tilde de la `ó` (aparece a la derecha, como un apóstrofo) y la v0.91.2 pone las tildes *debajo* de la vocal; se empaquetan los archivos de la rama `main` del repositorio oficial, que las dibujan bien (`resources/fonts/README.md`, comparación en [`mockups/real/fuente_comparacion_acentos.png`](mockups/real/fuente_comparacion_acentos.png)).
    - **Hallazgo 2: interlineado.** Con `line-height: 1.8` en el HTML, Qt lo interpreta como 180 % del paso de línea *propio de la fuente*, y OpenDyslexic ya tiene un paso de 1,83 veces su tamaño (39 px a 16 pt): quedaba una separación de 3,3 veces el tamaño, y además Qt solo aplicaba la propiedad al primer párrafo. `ReaderWidget` ahora convierte el valor del diseño (1,8 veces el tamaño de la letra) a porcentaje del paso real y lo aplica a todos los párrafos; `TextFormatter` ya no escribe `line-height`.
-   - **Hallazgo 3: negrita.** La negrita de la palabra resaltada (`ExtraSelection`) no se nota con esta fuente; las señales visibles son el fondo amarillo, el color y el subrayado.
+   - **Hallazgo 3: negrita.** La negrita de la palabra resaltada (`ExtraSelection`) no se nota con esta fuente; las señales visibles son el fondo amarillo, el color y el subrayado. Desde el 2026-10-07 la fuente es `opendyslexic.otf` (un solo peso) y esa negrita se quitó del código.
 
 ### Decisiones abiertas
 
