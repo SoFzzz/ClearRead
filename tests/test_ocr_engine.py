@@ -129,3 +129,14 @@ def test_missing_recognition_model_fails_clearly(tmp_path: Path) -> None:
 def test_confidence_threshold_above_one_drops_everything() -> None:
     strict = ClearReadOCR(OCRSettings(min_confidence=1.01))
     assert strict.process_image(render_scanned_sample()).raw_text == ""
+
+
+def test_result_reports_line_count_and_mean_confidence(engine: ClearReadOCR) -> None:
+    result = engine.process_image(render_scanned_sample())
+    assert result.line_count == len(EXPECTED_LINES)
+    assert 0.8 < result.mean_confidence <= 1.0
+
+
+def test_blank_page_has_zero_confidence_and_no_lines(engine: ClearReadOCR) -> None:
+    result = engine.process_image(np.full((200, 300, 3), 255, np.uint8))
+    assert (result.line_count, result.mean_confidence) == (0, 0.0)
