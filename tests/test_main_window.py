@@ -8,17 +8,20 @@ from pathlib import Path
 import numpy as np
 import pypdfium2 as pdfium
 import pytest
-from fakes import EngineSource
+from fakes import EngineSource, FakeAIClient
 from PySide6.QtCore import Qt
+from PySide6.QtNetwork import QNetworkInformation
 from pytestqt.qtbot import QtBot
 from samples.make_samples import EXPECTED_TEXT, SAMPLES_DIR
 
 from clearread.core.config import AppConfig
 from clearread.services.document_library import DocumentLibrary
+from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import LazyOCREngine, OCRResult
 from clearread.services.tts_controller import TTSController
 from clearread.ui.fonts import load_reading_font
 from clearread.ui.main_window import MainWindow, Screen
+from clearread.ui.strings import Language, tr
 from clearread.workers.ocr_worker import ProcessingErrorKind
 
 DIGITAL = SAMPLES_DIR / "sample_page_digital.pdf"
@@ -267,3 +270,83 @@ def test_closing_while_processing_leaves_no_live_thread(
     assert worker.isFinished()
     assert ocr.calls == 1
     assert all(w.isFinished() for w in window._retired_workers)
+
+
+def make_ai_window(
+    qtbot: QtBot,
+    tts: TTSController,
+    library: DocumentLibrary,
+    tmp_path: Path,
+    network: NetworkMonitor | None = None,
+) -> tuple[MainWindow, FakeAIClient]:
+    load_reading_font()
+    client = FakeAIClient()
+    window = MainWindow(
+        AppConfig(),
+        FakeOCR(),  # type: ignore[arg-type]
+        tts,
+        library,
+        config_dir=tmp_path / "config",
+        ai_client=client,
+        network=network,
+    )
+    qtbot.addWidget(window)
+    window.show()
+    window.open_document(str(DIGITAL))
+    wait_for_screen(qtbot, window, Screen.READING)
+    return window, client
+
+
+def test_assistant_button_only_shows_in_reading_and_ctrl_i_toggles_the_panel(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, tmp_path: Path
+) -> None:
+    window, _ = make_ai_window(qtbot, tts, library, tmp_path)
+    assert window.assistant_button.isVisible()
+    window.assistant_button.click()
+    assert window.reading_view.assistant_open
+    assert window.assistant_button.isChecked()
+    window.toggle_assistant()
+    assert not window.reading_view.assistant_open
+    assert not window.assistant_button.isChecked()
+    window.go_back()
+    assert not window.assistant_button.isVisible()
+
+
+def test_without_an_ai_client_there_is_no_assistant(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary
+) -> None:
+    window = make_window(qtbot, tts, library, FakeOCR())
+    window.open_document(str(DIGITAL))
+    wait_for_screen(qtbot, window, Screen.READING)
+    assert not window.assistant_button.isVisible()
+    window.toggle_assistant()
+    assert not window.reading_view.assistant_open
+
+
+def test_no_network_disables_the_button_and_shows_the_badge(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, tmp_path: Path
+) -> None:
+    network = NetworkMonitor(None)
+    window, _ = make_ai_window(qtbot, tts, library, tmp_path, network)
+    network.set_reachability(QNetworkInformation.Reachability.Disconnected)
+    assert not window.assistant_button.isEnabled()
+    assert window.offline_badge.isVisible()
+    assert window.assistant_button.toolTip() == tr("ai.offline_tooltip", Language.ES)
+    network.set_reachability(QNetworkInformation.Reachability.Online)
+    assert window.assistant_button.isEnabled()
+    assert not window.offline_badge.isVisible()
+
+
+def test_accepting_the_privacy_notice_is_saved_and_survives_settings_changes(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, tmp_path: Path
+) -> None:
+    window, client = make_ai_window(qtbot, tts, library, tmp_path)
+    assert window.assistant is not None
+    window.reading_view.explain_at(0)
+    assert client.calls == []
+    window.reading_view.ai_panel.accept_button.click()
+    qtbot.waitUntil(lambda: bool(client.calls), timeout=TIMEOUT_MS)
+    assert AppConfig.load(tmp_path / "config").ai_privacy_accepted
+    window.settings_view.set_speed(200)
+    window.settings_view.config_changed.emit(window.settings_view.config)
+    assert AppConfig.load(tmp_path / "config").ai_privacy_accepted
