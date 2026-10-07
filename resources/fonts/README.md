@@ -2,18 +2,17 @@
 
 Archivos que viajan dentro del `.exe` (§6.3). **El código de la app nunca los descarga**: se descargaron una sola vez como tarea de desarrollo y se versionan aquí. Se cargan con `QFontDatabase.addApplicationFont` (ver `clearread.ui.fonts`).
 
-## OpenDyslexic (fuente de lectura, Regular y Bold)
+## OpenDyslexic (fuente de lectura, un solo peso)
 
 | Campo | Valor |
 |:---|:---|
-| Archivos | `OpenDyslexic-Regular.otf` (175 872 bytes), `OpenDyslexic-Bold.otf` (184 472 bytes) |
-| SHA256 Regular | `32f5840fb2bf844bdabafe372591ddfb9286e98117f5b21950aaf54ea856919a` |
-| SHA256 Bold | `5d690ea4c87ccb0d5d5d81487826a395e9b20a6c1d606f1f262c060d2bef4f03` |
-| Origen | Carpeta `compiled/` de la rama `main` del repositorio oficial https://github.com/antijingoist/opendyslexic (enlazado desde https://opendyslexic.org). Última modificación de ambos archivos: commit `77bda89f3f2069c78d81d33de43b461c2de6c48e` (2025-04-10, "Disabled auto-generating ligatures for fi, etc."); `main` estaba en `1824da5c0e41dc3e13ffc7f3a636dcaf695d61b7` al descargar. URL: `https://raw.githubusercontent.com/antijingoist/opendyslexic/main/compiled/OpenDyslexic-Regular.otf` (y `-Bold.otf`) |
+| Archivo | `opendyslexic.otf` (233 008 bytes). Familia `OpenDyslexic`; Qt la ve con un único estilo, `Bold` |
+| SHA256 | `90933562f30d429c78a867b3e3001abf80e72619127c37c61bdaec6c156f4ee8` |
+| Origen | Carpeta `compiled/` de la rama `main` del repositorio oficial https://github.com/antijingoist/opendyslexic (enlazado desde https://opendyslexic.org). Última modificación del archivo: commit `cbd140088db3c8ef3c87f49652dbb2542cb8e065` (2019-11-06); `main` estaba en `1824da5c0e41dc3e13ffc7f3a636dcaf695d61b7` al descargar. URL: `https://raw.githubusercontent.com/antijingoist/opendyslexic/main/compiled/opendyslexic.otf` |
 | Licencia | SIL Open Font License 1.1 (`OFL.txt`, del mismo repositorio). Copyright (c) 2019-07-29 Abbie Gonzalez, con el nombre reservado "OpenDyslexic" |
 | Descargado | 2026-10-07 |
 
 - Es un recurso, no una dependencia de Python. La OFL permite incrustarla en la app y redistribuirla; no se renombra ni se modifica.
-- Solo se incluyen Regular y Bold (las que usa el design system, §1.4).
-- **Por qué `main` y no la última release (v0.91.12, 2019-10-17).** Se probaron tres versiones renderizando `leyó canción ó á é í ú ñ ü ¿¡` con Qt: la v0.91.12 dibuja el acento de la `ó` desplazado a la derecha (parece un apóstrofo: `leyo´`), y la v0.91.2 dibuja los acentos como puntos *debajo* de la vocal. Los archivos de `main` dibujan todas las tildes encima de su vocal. Comparación (de arriba abajo: `main`, v0.91.2, v0.91.12): `docs/design-system/mockups/real/fuente_comparacion_acentos.png`.
-- Cobertura comprobada con `QFontMetrics.inFontUcs4`: `ñ Ñ á é í ó ú ü ¿ ¡ « » — “ ”`.
+- **Por qué esta variante (decisión de la usuaria, 2026-10-07).** Es la variante oficial `compiled/opendyslexic.otf`, que centra la tilde de la `ó` y de la `é` sobre su vocal; los `OpenDyslexic-Regular.otf` y `-Bold.otf` de la misma carpeta la dejaban algo desplazada. Comparación: `docs/design-system/mockups/real/acentos_variante_opendyslexic_otf.png`.
+- **Por qué ya no están Regular ni Bold.** Esta variante es de un solo peso y ya es gruesa. La única negrita que usaba la vista era la de la palabra resaltada, que con esta fuente no aportaba nada (ver README del design system, §11); se quitó, y el resaltado se distingue por el fondo, el color y el subrayado. Si Qt recibiera una negrita de esta fuente la sintetizaría ensanchando el trazo, lo que movería las líneas.
+- Cobertura comprobada con `QFontMetrics.inFontUcs4`: `ñ Ñ á é í ó ú ü ¿ ¡ « » — “ ”`. Verificada además a ojo en `docs/design-system/mockups/real/lectura_real_*.png`.
