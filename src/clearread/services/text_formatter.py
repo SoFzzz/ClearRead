@@ -10,10 +10,10 @@ _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # A number such as 3,5 or 12.345,67 is one token; otherwise a word with optional
 # inner apostrophes/hyphens. Anything else (punctuation, symbols) is not spoken.
 _TOKEN = re.compile(r"\d+(?:[.,]\d+)+|\w+(?:['’-]\w+)*")
-_DIV_STYLE = (
-    "font-family: 'OpenDyslexic'; font-size: 16pt; line-height: 1.8; "
-    "letter-spacing: 1.5px; word-spacing: 4px;"
-)
+# No line-height here: Qt applies block properties of a <div> to its first paragraph only,
+# and its proportional line-height is relative to the font's own line pitch, not to the
+# font size. ReaderWidget sets the line spacing on every block instead.
+_DIV_STYLE = "font-family: 'OpenDyslexic'; font-size: 16pt; letter-spacing: 1.5px; word-spacing: 4px;"
 
 
 @dataclass(frozen=True)
