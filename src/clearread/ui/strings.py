@@ -394,6 +394,41 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Try again later.",
     },
     "ai.hint.bad_response": {"es": "Inténtalo de nuevo.", "en": "Try again."},
+    "ai.hint.input_too_long": {
+        "es": "Elige un párrafo más corto o selecciona solo una parte.",
+        "en": "Choose a shorter paragraph or select just a part of it.",
+    },
+    "ai.empty.title": {
+        "es": "Pregúntale al asistente",
+        "en": "Ask the assistant",
+    },
+    "ai.empty.body": {
+        "es": "Haz clic derecho sobre una palabra para que te la explique, o sobre un "
+        "párrafo para que lo simplifique.",
+        "en": "Right-click a word to get it explained, or a paragraph to get it "
+        "simplified.",
+    },
+    "ai.empty.shortcut": {
+        "es": "Ctrl+I abre y cierra este panel.",
+        "en": "Ctrl+I opens and closes this panel.",
+    },
+    "ai.chosen": {"es": "Elegiste", "en": "You chose"},
+    "ai.answer_title_word": {"es": "Qué significa", "en": "What it means"},
+    "ai.answer_title_paragraph": {
+        "es": "El párrafo, más simple",
+        "en": "The paragraph, simpler",
+    },
+    "ai.listen": {"es": "Escuchar respuesta", "en": "Listen to the answer"},
+    "ai.listen_stop": {"es": "Dejar de escuchar", "en": "Stop listening"},
+    "ai.close": {"es": "Cerrar el asistente", "en": "Close the assistant"},
+    "ai.toggle_tooltip": {
+        "es": "Asistente (Ctrl+I)",
+        "en": "Assistant (Ctrl+I)",
+    },
+    "ai.offline_title": {
+        "es": "El asistente está apagado",
+        "en": "The assistant is off",
+    },
     # --- Privacy notice (NFR-SEC01) ---
     "privacy.title": {
         "es": "Antes de usar el asistente",
@@ -404,6 +439,12 @@ CATALOG: dict[str, dict[str, str]] = {
         "El resto de tu documento se queda en tu equipo.",
         "en": "To help you, we send the word or paragraph you choose over the internet. "
         "The rest of your document stays on your computer.",
+    },
+    "privacy.destination": {
+        "es": "El texto viaja al servidor de ClearRead, que lo pasa a DeepSeek, un "
+        "servicio de inteligencia artificial. Puede equivocarse.",
+        "en": "The text travels to the ClearRead server, which passes it to DeepSeek, "
+        "an artificial intelligence service. It can make mistakes.",
     },
     "privacy.footer": {
         "es": "Solo enviamos a internet la palabra o el párrafo que elegiste. "
