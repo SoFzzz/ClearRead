@@ -10,7 +10,6 @@ from typing import Any
 from clearread.core.paths import get_resource_path, get_user_data_dir
 
 # The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
-# Placeholder until the real Render URL exists (Day 10, §6.5).
 DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 
 # The client token filters casual traffic only: anyone with the .exe can extract it
