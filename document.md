@@ -310,16 +310,23 @@ class DocumentIngestor:
 > [!NOTE]
 > **Calibración del Día 3 (estado real).** Implementación en `services/preprocessor.py`: `OCRPreprocessor` recibe un `PreprocessSettings` por constructor y expone cada etapa como método (`remove_shadows`, `denoise`, `deskew`, `enhance_contrast`); `process` devuelve escala de grises. El código de referencia de abajo es la versión inicial: la implementada divide por el fondo estimado (cierre morfológico + mediana sobre una copia reducida, en vez de `absdiff`) y calcula el ángulo del lado largo de cada línea (la convención de `minAreaRect` cambió en OpenCV ≥ 4.5).
 >
-> **A/B medido solo sobre páginas SINTÉTICAS** (6 variantes degradadas de `sample_page_scanned.pdf`: limpia, giro 3°, giro 10°, sombra, ruido, giro 4° + sombra + ruido; `tests/calibrate_ocr.py --synthetic --ablation`; i5-8300H, 300 DPI, `perf_counter`). El set de 10 fotos reales **todavía no está en `tests/samples/private/`**, así que la calibración con fotos reales sigue **pendiente**:
+> **A/B medido (Día 3, `tests/calibrate_ocr.py`).** Equipo verificado el 2026-10-06: Intel Core i5-8300H (4 núcleos), 23.8 GB de RAM, Windows 10 Home, Python 3.11, `perf_counter`. Métricas: CER (con espacios y saltos normalizados), F1 por palabras (bolsa de palabras, insensible al orden de lectura) y caracteres especiales (`ñ`, tildes, `ü`, `¿`, `¡`) conservados.
 >
-> | Configuración | CER medio | Especiales | Preproc. medio |
-> |:---|:---:|:---:|:---:|
-> | original (sin preprocesar) | 9.8 % | 118/126 | 0 ms |
-> | las 4 etapas | 0.0 % | 126/126 | 152 ms |
-> | solo `deskew` | 0.0 % | 126/126 | 22 ms |
-> | solo sombras / solo mediana / solo CLAHE | 9.8 % | 118/126 | 97 / 8 / 34 ms |
+> **a) PDF renderizados a 300 DPI** (`--pdf-render --ablation --limit-pages 3`: 3 primeras páginas de cada una de las 5 fichas = 15 páginas; referencia = texto digital de esa página; `is_camera_photo=False`, así que la eliminación de sombras no aplica):
 >
-> El único caso en que el preprocesado ayuda es el giro de 10° (CER 58.8 % → 0.0 %), y lo logra solo `deskew`; con giros de 3° RapidOCR ya acierta sin preprocesar. Sombras, mediana y CLAHE no cambian ningún resultado en este set (no empeoran, pero tampoco hay evidencia de beneficio y cuestan ~100 / 5 / 26 ms por página). **Valores por defecto provisionales: solo `deskew` activo** (~22 ms ≤ 800 ms de PRE-NF01; las 4 etapas suman ~152 ms, también dentro). Las otras tres etapas se activan solo si el A/B con fotos reales demuestra mejora. Una página sintética limpia no discrimina bien: no extrapolar a fotos.
+> | Configuración | CER medio | F1 palabras | Especiales | Preproc. medio |
+> |:---|:---:|:---:|:---:|:---:|
+> | original (color, sin preprocesar) | 59.5 % | 97.0 % | 382/385 | 0 ms |
+> | solo `deskew` (**por defecto**) | 58.9 % | 96.7 % | 381/385 | 25 ms |
+> | solo mediana | 59.4 % | 96.4 % | 380/385 | 9 ms |
+> | solo CLAHE | 59.6 % | 96.4 % | 379/385 | 31 ms |
+> | mediana + `deskew` + CLAHE | 58.9 % | 96.4 % | 379/385 | 50 ms |
+>
+> El CER alto (~59 %) **no es error de lectura**: las fichas tienen columnas y recuadros y el texto digital sigue otro orden; por eso se usa el F1 por palabras (~97 %). Ninguna etapa mejora el resultado sobre PDF limpios: las diferencias (≤ 0.6 puntos de F1) están dentro del ruido de 15 páginas y, si algo, las etapas empeoran ligeramente (la conversión a grises ya cuesta ~0.3 puntos). La corrección de sombras no se evaluó aquí.
+>
+> **Sintético** (6 variantes degradadas de `sample_page_scanned.pdf`: limpia, giro 3°, giro 10°, sombra, ruido, giro 4° + sombra + ruido; `--synthetic --ablation`, medido antes del cambio a F1/especiales por multiconjunto): original CER 9.8 % y 118/126 especiales; con las 4 etapas o solo `deskew`, 0.0 % y 126/126. El único caso en que el preprocesado ayuda es el giro de 10° (CER 58.8 % → 0.0 %), y lo logra solo `deskew`; con giros de 3° RapidOCR ya acierta sin preprocesar. Sombras, mediana y CLAHE no cambiaron ningún resultado.
+>
+> **Valores finales de esta fase: solo `deskew` activo; sombras, mediana y CLAHE desactivadas** (el `deskew` cuesta ~20 ms y es imprescindible con páginas giradas ≥ 10°; PRE-NF01 ≤ 800 ms se cumple de sobra, también con las 4 etapas: ~50 ms sobre PDF y ~150 ms con sombras). **Pendiente (§8):** el modo `--photos` está implementado pero **no se ha ejecutado**, porque aún no hay fotos de móvil con el nombre `<Ficha>_p<N>_<condición>.jpg` en `tests/samples/private/`. La eliminación de sombras y el resto de etapas solo se activarán si ese A/B con fotos reales demuestra mejora.
 
 ```python
 """Image preprocessing pipeline using OpenCV headless."""
@@ -410,7 +417,9 @@ class OCRPreprocessor:
 > [!NOTE]
 > **Implementación y parámetros del Día 3 (estado real).** `services/ocr_engine.py`: detección `ch_PP-OCRv4_det` y clasificador de ángulo del paquete `rapidocr_onnxruntime`, reconocimiento `latin_PP-OCRv5_rec_mobile` desde `resources/models` vía `get_resource_path`; el motor se crea una vez en el constructor. `process_image(image, page_number)` recibe el número de página (antes valía siempre 1) y mide también el tiempo de páginas sin texto. Reconstrucción topológica y des-hifenización son funciones puras (`build_paragraphs`, `merge_lines`): el guion solo se elimina al final de línea y la línea siguiente empieza en minúscula (`cons-`/`trucción` → `construcción`); `hispano-americano` dentro de la línea y `Madrid-`/`Barcelona` se conservan. Se descartan detecciones con confianza < 0.45 o sin ningún carácter alfanumérico. Nuevo salto de párrafo: hueco vertical entre líneas > 1.0 × altura mediana.
 >
-> **Parámetros:** `min_confidence=0.45`, `box_thresh=0.5`, `unclip_ratio=1.6` (los valores por defecto de RapidOCR y de este documento). **No se han ajustado**: sobre las páginas sintéticas todas las configuraciones dan CER 0 %, así que no hay señal para elegir otros, y faltan las fotos reales. El barrido (`calibrate_ocr.py --sweep`) está listo para ejecutarse con ellas. Verificado: `sample_page_scanned.pdf` a 300 DPI → 21/21 caracteres especiales (`tests/test_ocr_engine.py`).
+> **Parámetros finales:** `min_confidence=0.45`, `box_thresh=0.5`, `unclip_ratio=1.6`. **Barrido** (`calibrate_ocr.py --sweep --pdf-render --limit-pages 2`, 10 páginas en color, 18 combinaciones de `box_thresh` {0.4, 0.5, 0.6} × `unclip_ratio` {1.6, 2.0} × confianza {0.30, 0.45, 0.60}; mismo equipo): F1 entre 96.6 % y 97.3 %. La combinación elegida (0.5 / 1.6 / 0.45) empata con la mejor (F1 97.3 %, 287/289 especiales). `unclip_ratio=2.0` empeora ~0.5 puntos de F1 en todas las combinaciones; `box_thresh=0.6` pierde caracteres especiales (285/289); `box_thresh=0.4` solo recupera 1 carácter especial más a cambio de 0.1 puntos de F1: no justifica salirse del valor por defecto. La confianza entre 0.30 y 0.60 casi no cambia nada (≤ 0.2 puntos). **Se mantienen los valores por defecto**; el barrido sobre fotos de móvil sigue pendiente (§8). Verificado: `sample_page_scanned.pdf` a 300 DPI → 21/21 caracteres especiales (`tests/test_ocr_engine.py`); fichas reales: 382/385 (99.2 %).
+>
+> **Tiempo (corrige la expectativa de OCR-NF01):** en las 15 páginas de fichas a 300 DPI el OCR tarda de media **~7 s por página (4.3–12.8 s)**, no 1.9 s: esa cifra era de una página con 6 líneas; el coste crece con el número de líneas. La barra de progreso de §4.7 debe contar con 5–10 s por página escaneada densa (las páginas con texto digital no pasan por OCR, §4.1).
 
 ```python
 """OCR and layout analysis engine using RapidOCR (ONNX Runtime)."""
@@ -557,6 +566,13 @@ class ClearReadOCR:
 > **Colores de sílabas (NFR-A11Y01):** la paleta de cada tema (Claro, Oscuro y Alto Contraste), con sus ratios medidos, está definida en el design system: [`docs/design-system/README.md`](docs/design-system/README.md) (§1.2 tokens, §10.4 `SyllablePalette`). Los colores `#1565C0` y `#D84315` del código de referencia no cumplían 7.0:1 y quedan sustituidos por esos tokens.
 
 `TextFormatter` **no fija colores propios**: recibe la paleta de sílabas del tema activo por inyección de dependencia (ver `SyllablePalette` abajo), definida y validada en el design system. Al cambiar de tema, la app regenera el `html_content` con la nueva paleta; el `TokenPositionMap` **no se recalcula**, porque el color no altera las posiciones `(doc_start_pos, doc_end_pos)` de cada `WordToken`.
+
+> [!NOTE]
+> **Implementación del Día 4 (`services/syllabifier.py`, `services/text_formatter.py`).** Las posiciones se calculan sobre `QTextDocument.toPlainText()` tras `setHtml`, no sobre el HTML: un carácter por letra y un `\n` entre párrafos (el `<div>` envolvente no añade bloque). Antes de calcular nada, `normalise_paragraphs` parte por líneas en blanco y colapsa todo espacio (dobles, tabuladores, saltos sueltos) a uno solo. Cambios respecto al código de referencia: la tokenización usa una expresión regular sobre el párrafo (la del código de referencia descartaba la palabra en tokens como `a,b`); los números (`3,5`, `12.345,67`) son un solo token; los signos y símbolos se escapan con `html.escape` y no se hablan; `FormattedDocument` es un `dataclass(frozen=True)`. **Verificado con `QTextDocument` real (pytest-qt):** párrafos múltiples, `¿Qué?`, `«comillas»`, paréntesis, `<`, `&`, `"`, `<script>`, espacios dobles, saltos sueltos, Unicode combinado y emoji → 100 % de los tokens en su posición; y las 5 fichas reales (5 482 tokens) → 100 % (`tests/test_private_pdfs.py`, sin imprimir texto).
+>
+> **Silabeador (SYL-F01, NFR-FON01): el banco de 50 palabras NO alcanza el umbral.** `silabeador` acierta **45/50 (90 %)**, por debajo del 98 % exigido. Los 5 fallos son de la categoría *prefijos* (la librería divide fonológicamente; la RAE, para final de línea, divide por morfemas): `des-a-hu-cio` → `de-sahu-cio`, `sub-ra-yar` → `su-bra-yar`, `in-ac-ti-vo` → `i-nac-ti-vo`, `des-es-ti-mar` → `de-ses-ti-mar`, `sub-ur-ba-no` → `su-bur-ba-no`. Los otros 7 grupos (hiatos acentuales y simples, diptongos, triptongos, dígrafos, grupos consonánticos, `x`/`h` intercalada) pasan al 100 %. Probar `exceptions=2` o `h=True` no mejora (con `h=True` empeora a 7 fallos). Las respuestas esperadas del banco no se han tocado; `tests/test_syllabifier.py::test_bank_reaches_98_percent` falla a propósito. **Plan B propuesto (§2.2):** una lista corta de prefijos (`des-`, `sub-`, `in-`, `inter-`, `trans-`...) aplicada antes de llamar a la librería, que parte el prefijo si la palabra empieza por él y lo que sigue empieza por vocal o grupo válido. Pendiente de aprobación. Dos observaciones sobre la librería: en palabras que terminan en `-um/-em/-at/-it/-am` (`álbum`, `item`) su rama latina lanza `TypeError` (se reintenta con `exceptions=0`), y relee su archivo de excepciones en cada llamada (se memoriza el resultado por palabra con `lru_cache`).
+>
+> **Tiempo de `format_document` (`perf_counter`, i5-8300H, venv):** ficha más larga (8 173 caracteres, 1 185 tokens) **619 ms en frío** (proceso nuevo, caché de sílabas vacía) y **12 ms** con la caché caliente; sin la caché, ~1.1 s por ficha. Una sola medición por situación, no un promedio estadístico.
 
 ```python
 """Linguistic text formatter and Token Position Map for bimodal reading."""
@@ -863,6 +879,7 @@ class AppConfig:
     voice_volume: float = 1.0  # fixed: no UI control, the Windows volume applies
     ai_privacy_accepted: bool = False  # privacy notice before the first AI call (NFR-SEC01)
     backend_url: str = DEFAULT_BACKEND_URL  # editable in "Ajustes avanzados" (CFG-F02)
+    ui_language: str = "es"  # "es" | "en": interface language only, applied on restart (I18N-F01)
 
     @classmethod
     def load(cls) -> "AppConfig":
@@ -1321,6 +1338,7 @@ class HomeView(QWidget):
 
 #### Requisitos de Ingeniería
 - **AI-F01:** `explain_word(word, context_sentence)` — explica el significado de una palabra usando la oración como contexto, vía `POST /v1/explain`.
+- **Idioma (I18N-F01):** `BackendAIClient` recibe por inyección el idioma de la interfaz (`AppConfig.ui_language`) y lo envía como campo `"lang"` (`"es"` o `"en"`) en `/v1/explain` y `/v1/simplify`; la respuesta sale en ese idioma. La palabra y la oración siguen siendo texto del documento (español).
 - **AI-F02:** `simplify_paragraph(text)` — reescribe un párrafo en lenguaje más simple, vía `POST /v1/simplify`.
 - **AI-F03:** Degradación elegante sin red y con el backend dormido:
   - Sin red: la app detecta conectividad **sin generar tráfico de red** mediante `QNetworkInformation` (Qt ≥ 6.1, backend de *reachability* del sistema operativo) y deshabilita el botón de IA. Si `QNetworkInformation` no está disponible en el SO, el botón permanece habilitado y, ante el primer fallo real de la llamada, se informa con un mensaje amable en vez de deshabilitarse preventivamente.
@@ -1422,8 +1440,9 @@ class BackendAIClient(AIClient):
     WAKE_TIMEOUT_SECONDS = 60.0
     WAKE_POLL_SECONDS = 2.0
 
-    def __init__(self, base_url: str, client_token: str, cache) -> None:
+    def __init__(self, base_url: str, client_token: str, cache, lang: str) -> None:
         self._base_url = base_url.rstrip("/")
+        self._lang = lang  # "es" | "en", the interface language (I18N-F01)
         self._headers = {"X-Client-Token": client_token}
         self._cache = cache
         self._calls_this_session = 0
@@ -1440,11 +1459,11 @@ class BackendAIClient(AIClient):
         raise AIUnavailableError(AIErrorKind.SERVER_WAKING)
 
     def explain_word(self, word: str, context_sentence: str) -> AIResponse:
-        payload = {"word": word, "context_sentence": context_sentence}
+        payload = {"word": word, "context_sentence": context_sentence, "lang": self._lang}
         return self._call_or_cache("/v1/explain", payload)
 
     def simplify_paragraph(self, text: str) -> AIResponse:
-        return self._call_or_cache("/v1/simplify", {"text": text})
+        return self._call_or_cache("/v1/simplify", {"text": text, "lang": self._lang})
 
     def _health_ok(self, timeout: float) -> bool:
         try:
@@ -1577,8 +1596,8 @@ packages = ["src/clearread_backend"]
 #### Endpoints
 | Método y ruta | Cuerpo | Respuesta 200 | Errores propios |
 |:---|:---|:---|:---|
-| `POST /v1/explain` | `{"word": str ≤ 40, "context_sentence": str ≤ 300}` | `{"text": str}` (máx. 2 frases) | 401, 413, 422, 429, 502, 504 |
-| `POST /v1/simplify` | `{"text": str ≤ 1500}` | `{"text": str}` (máx. 4 frases) | 401, 413, 422, 429, 502, 504 |
+| `POST /v1/explain` | `{"word": str ≤ 40, "context_sentence": str ≤ 300, "lang": "es" \| "en"}` | `{"text": str}` (máx. 2 frases) | 401, 413, 422, 429, 502, 504 |
+| `POST /v1/simplify` | `{"text": str ≤ 1500, "lang": "es" \| "en"}` | `{"text": str}` (máx. 4 frases) | 401, 413, 422, 429, 502, 504 |
 | `GET /health` | — | `{"status": "ok"}` | — |
 | `GET /docs` | — | Documentación OpenAPI automática de FastAPI | — |
 
@@ -1588,7 +1607,7 @@ Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos
 |:---:|:---|:---|
 | 401 | `invalid_client_token` | Falta la cabecera `X-Client-Token` o no coincide |
 | 413 | `input_too_long` | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres |
-| 422 | `invalid_request` | Cuerpo mal formado o campos vacíos |
+| 422 | `invalid_request` | Cuerpo mal formado, campos vacíos o `lang` distinto de `es`/`en` |
 | 429 | `daily_limit_reached` | Se alcanzó el tope global diario de llamadas a DeepSeek |
 | 502 | `upstream_auth_failed` | DeepSeek respondió 401 (key inválida) |
 | 502 | `upstream_no_balance` | DeepSeek respondió 402 (saldo agotado) |
@@ -1648,18 +1667,22 @@ import secrets
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from clearread_backend.deepseek import DeepSeekGateway, UpstreamError
 from clearread_backend.quota import DailyQuota
 from clearread_backend.settings import Settings
 
-EXPLAIN_SYSTEM_PROMPT = (
-    "Explica en español simple, en máximo 2 frases cortas, para una persona con dislexia."
-)
-SIMPLIFY_SYSTEM_PROMPT = (
-    "Reescribe en español simple, en máximo 4 frases cortas, para una persona con dislexia."
-)
+EXPLAIN_SYSTEM_PROMPTS = {
+    "es": "Explica en español simple, en máximo 2 frases cortas, para una persona con dislexia.",
+    "en": "Explain in simple English, in at most 2 short sentences, for a person with dyslexia.",
+}
+SIMPLIFY_SYSTEM_PROMPTS = {
+    "es": "Reescribe en español simple, en máximo 4 frases cortas, para una persona con dislexia.",
+    "en": "Rewrite in simple English, in at most 4 short sentences, for a person with dyslexia.",
+}
 
 settings = Settings.from_env()
 gateway = DeepSeekGateway(settings.deepseek_api_key, settings.deepseek_model_id)
@@ -1676,10 +1699,12 @@ class ApiError(Exception):
 class ExplainRequest(BaseModel):
     word: str = Field(min_length=1, max_length=40)
     context_sentence: str = Field(min_length=1, max_length=300)
+    lang: Literal["es", "en"]  # any other value fails validation -> 422
 
 
 class SimplifyRequest(BaseModel):
     text: str = Field(min_length=1, max_length=1500)
+    lang: Literal["es", "en"]
 
 
 class AIText(BaseModel):
@@ -1713,12 +1738,14 @@ async def health() -> dict[str, str]:
 @app.post("/v1/explain", dependencies=[Depends(require_client_token)])
 async def explain(body: ExplainRequest) -> AIText:
     user_prompt = f"Palabra: '{body.word}'. Oración: {body.context_sentence}"
-    return AIText(text=await _complete(EXPLAIN_SYSTEM_PROMPT, user_prompt, max_tokens=80))
+    system_prompt = EXPLAIN_SYSTEM_PROMPTS[body.lang]
+    return AIText(text=await _complete(system_prompt, user_prompt, max_tokens=80))
 
 
 @app.post("/v1/simplify", dependencies=[Depends(require_client_token)])
 async def simplify(body: SimplifyRequest) -> AIText:
-    return AIText(text=await _complete(SIMPLIFY_SYSTEM_PROMPT, body.text, max_tokens=250))
+    system_prompt = SIMPLIFY_SYSTEM_PROMPTS[body.lang]
+    return AIText(text=await _complete(system_prompt, body.text, max_tokens=250))
 
 
 async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
@@ -1740,7 +1767,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 `DeepSeekGateway.complete()` usa `httpx.AsyncClient` con *timeout* de 20 s contra `https://api.deepseek.com/chat/completions` y traduce: `httpx.TimeoutException` → `UpstreamError(504, "upstream_timeout")`; 401 → `(502, "upstream_auth_failed")`; 402 → `(502, "upstream_no_balance")`; cualquier otro error, JSON inesperado o texto vacío → `(502, "upstream_bad_response")`; si `finish_reason == "length"`, recorta a la última frase completa. `DailyQuota.try_consume()` reinicia el contador cuando cambia la fecha UTC. La caché es un diccionario acotado a 500 entradas (descarta la más antigua).
 
 #### Pruebas
-- **Automáticas** (`backend/tests/`, pytest + `TestClient` de FastAPI, **DeepSeek simulado**, sin red ni key real): 200 en `/health`; respuesta correcta de `/v1/explain` y `/v1/simplify`; 401 sin token; 413 con 41/301/1501 caracteres; 422 con cuerpo inválido; 429 al superar `DAILY_CALL_LIMIT` (configurado a un valor bajo en el test) y reinicio al cambiar de día; acierto de caché sin consumir tope; traducción 401/402/timeout/JSON roto de DeepSeek a los códigos propios; ningún texto de entrada aparece en los logs capturados (`caplog`).
+- **Automáticas** (`backend/tests/`, pytest + `TestClient` de FastAPI, **DeepSeek simulado**, sin red ni key real): 200 en `/health`; respuesta correcta de `/v1/explain` y `/v1/simplify`; 401 sin token; 413 con 41/301/1501 caracteres; 422 con cuerpo inválido, con `lang` ausente y con `lang` fuera de `es`/`en`; el system prompt enviado a DeepSeek cambia según `lang`; 429 al superar `DAILY_CALL_LIMIT` (configurado a un valor bajo en el test) y reinicio al cambiar de día; acierto de caché sin consumir tope; traducción 401/402/timeout/JSON roto de DeepSeek a los códigos propios; ningún texto de entrada aparece en los logs capturados (`caplog`).
 - **Manual real** contra el despliegue (skill `deploy-backend`): `/health`, `/docs`, una petición real a `/v1/explain` que responde en español, 429 con un tope temporal de 1, y medición del arranque en frío (BE-NF01).
 
 ---
@@ -1753,7 +1780,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 |:---|:---|:---|:---|
 | **ING-F01** | Ingestor | Soporte de PDF mediante `pypdfium2` sin Poppler ni dependencias C externas. | Carga de PDFs estándar sin requerir variables de entorno `PATH`. |
 | **ING-F02** | Ingestor | Auto-rotación de fotos JPG/PNG según cabecera `EXIF 0x0112`. | La imagen se carga vertical independientemente de la orientación del teléfono. |
-| **ING-F03** | Ingestor | Extracción directa de texto embebido si cuenta con más de 50 caracteres. | Omite el pipeline de OCR reduciendo el tiempo de procesamiento a $< 200\text{ ms}$. |
+| **ING-F03** | Ingestor | Extracción directa de texto embebido si cuenta con más de 50 caracteres. | Omite el pipeline de OCR reduciendo el tiempo de procesamiento a $< 200\text{ ms}$. **Medido (Día 3):** las 30 páginas de las 5 fichas tienen texto digital y toman el bypass; render a 300 DPI + extracción de texto = 167–208 ms de media por página (máx. 277 ms) según la ficha: el objetivo se cumple en promedio solo en parte, porque el render domina el tiempo. |
 | **ING-F04** | Ingestor | Detección y manejo de PDFs protegidos con contraseña mediante captura de `pypdfium2.PdfiumError` con `err_code == 4` (`FPDF_ERR_PASSWORD`). | Emite mensaje descriptivo impidiendo crashes silenciosos de la app. |
 | **PRE-F01** | Preprocessor | Eliminación de sombras de curvatura mediante división morfológica de fondo. | Desvanece gradientes oscuros en lomos de libros preservando caracteres legibles. |
 | **PRE-F02** | Preprocessor | Enderezado geométrico (*deskew*) automático mediante análisis de contornos con `cv2.minAreaRect`. | Corrige inclinaciones en el rango $[-45^\circ, 45^\circ]$ si $| \theta | \ge 0.5^\circ$. |
@@ -1767,10 +1794,11 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **UI-F02** | ReaderWidget | Clic en una palabra del `ReaderWidget` inicia la lectura desde el `WordToken` correspondiente (`start_offset`). | Al hacer clic en la palabra N, la síntesis de voz y el resaltado arrancan exactamente en N, no desde el inicio del documento. |
 | **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente, `F6` mueve el foco entre el lector y el panel de IA y `Ctrl++`/`Ctrl+−` agranda/achica la letra un paso (`docs/design-system/README.md` §7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. |
 | **CFG-F01** | Config | Escritura atómica a disco para persistencia de configuraciones de usuario. | El archivo `config.json` no se corrompe ante terminaciones forzadas del proceso. |
-| **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas (Claro, Oscuro y Alto Contraste), tamaño de fuente, interlineado, espaciado, velocidad de lectura y voz TTS. **Sin campo de API key** (la key vive solo en el backend). La URL del backend es un valor por defecto en `AppConfig` (`DEFAULT_BACKEND_URL`), editable en "Ajustes avanzados". | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app; no existe ningún campo para introducir una API key. |
+| **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas (Claro, Oscuro y Alto Contraste), tamaño de fuente, interlineado, espaciado, velocidad de lectura y voz TTS, más el selector "Idioma de la interfaz" / "Interface language" (`es` o `en`, valor en `AppConfig.ui_language`). **Sin campo de API key** (la key vive solo en el backend). La URL del backend es un valor por defecto en `AppConfig` (`DEFAULT_BACKEND_URL`), editable en "Ajustes avanzados". | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app, **salvo el idioma, que se aplica al reiniciar** y muestra un aviso en el idioma nuevo que lo explica; no existe ningún campo para introducir una API key. |
+| **I18N-F01** | Interfaz (`ui/strings.py`) | Soporte de idioma de interfaz español (`es`, por defecto) e inglés (`en`). Solo cambia la interfaz (botones, etiquetas, diálogos, progreso, errores, aviso de privacidad); el contenido de los documentos se sigue tratando como español (OCR latino, silabeo RAE, voz española). Todos los textos visibles viven en un catálogo con claves en inglés y traducciones `es`/`en`; las respuestas del asistente de IA salen en el idioma de la interfaz (`lang`, §4.10). | Todos los textos visibles salen del catálogo; con `en`, ninguna pantalla muestra texto en español salvo el contenido del documento. `tests/test_strings.py` lo verifica: toda clave tiene `es` y `en` no vacíos con los mismos `{parámetros}`, y no hay caracteres `áéíóúñ¿¡` en `src/` fuera de `strings.py`. |
 | **HOME-F01** | HomeView | Lista de documentos recientes con caché local del `FormattedDocument` ya procesado. | Reabrir un documento reciente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. |
-| **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra vía `POST /v1/explain` de nuestro backend (§4.11). | Respuesta en español, ≤ 80 tokens (máx. 2 frases); solo disponible con conexión; la app no contiene API key. |
-| **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple vía `POST /v1/simplify` de nuestro backend. | Respuesta en español, ≤ 250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario (≤ 1500 caracteres). |
+| **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra vía `POST /v1/explain` de nuestro backend (§4.11). | Respuesta en el idioma de la interfaz, ≤ 80 tokens (máx. 2 frases); solo disponible con conexión; la app no contiene API key. |
+| **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple vía `POST /v1/simplify` de nuestro backend. | Respuesta en el idioma de la interfaz, ≤ 250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario (≤ 1500 caracteres). |
 | **AI-F03** | AI Assistant | Degradación sin red (detectada sin tráfico mediante `QNetworkInformation`, Qt ≥ 6.1) y con el backend dormido (`GET /health` + espera de hasta 60 s). | Sin red, el botón de IA aparece deshabilitado (o, si `QNetworkInformation` no está disponible, el primer fallo real se informa con un mensaje amable). Con el backend dormido, la UI muestra "Despertando el asistente…" y, si no despierta en 60 s, un mensaje amable (`SERVER_WAKING`). |
 | **AI-F04** | AI Assistant | Las llamadas a `BackendAIClient` corren en un `QRunnable` del `QThreadPool` dedicado (`maxThreadCount=1`); la UI solo recibe resultados por señales Qt. | Inspección de código (skill `offline-audit`): ningún módulo de `ui/` importa `httpx` ni llama directamente a `explain_word`/`simplify_paragraph`. |
 | **BE-F01** | Backend | Endpoints `POST /v1/explain`, `POST /v1/simplify`, `GET /health` y `/docs` automático (§4.11). | Tests con `TestClient` (DeepSeek simulado) en verde; en el despliegue, `/health` → 200, `/docs` accesible y una petición real a `/v1/explain` responde en español. |
@@ -1786,7 +1814,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en todos los temas visuales (Claro, Oscuro y Alto Contraste). | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa. *(Tokens y ratios medidos en `docs/design-system/README.md`.)* |
 | **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
-| **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. |
+| **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. **Día 3, fichas reales densas (A4, 300 DPI, 15 páginas):** media ~7 s por página (4.3–12.8 s); la meta de 2.5 s solo vale para páginas con poco texto. |
 | **NFR-SEC01** | Seguridad de Credenciales | La API key de DeepSeek existe **solo** en las variables de entorno del hosting (y en `backend/.env`, ignorado por git, para desarrollo): nunca en el repositorio, en la app ni en el `.exe`. Solo se envía el texto seleccionado por el usuario, con aviso de privacidad visible. El `X-Client-Token` **no** se considera secreto (§4.11). | Auditoría: grep de la key en el repositorio (incluido el historial de git) y en `dist/` da 0 resultados; revisión manual del aviso de privacidad antes del primer uso de IA. |
 | **BE-NF01** | Arranque en Frío | *Estimación a medir:* tras ≥ 15 min sin tráfico, el backend en Render Free responde a `/health` en ~1 min (cifra de la documentación de Render, consultada el 2026-10-01). | Medición real con `curl.exe -w "%{time_total}"` o cronómetro desde el `.exe`, anotando fecha, hora y equipo (Días 10 y 12). |
 
@@ -2050,9 +2078,9 @@ gantt
 | **D2** | 2026-10-03 | Documento de design system (jerarquía, navegación, UI/UX, temas con contraste ≥ 7:1), previo a cualquier pantalla. |
 | **D3** | 2026-10-04 | `DocumentIngestor`, `OCRPreprocessor` y `ClearReadOCR` integrados y calibrados con el set de 10 fotos reales. |
 | **D4** | 2026-10-05 | Silabeador RAE y `TextFormatter` con `TokenPositionMap`. |
-| **D5** | 2026-10-06 | `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. Validar con OpenDyslexic real y una captura que la alternancia de sílabas morado/marrón (`#392F5A`/`#703800`, tema Claro) se distingue; si no, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). |
+| **D5** | 2026-10-06 | Catálogo de textos `ui/strings.py` (es/en, I18N-F01) **antes de la primera pantalla**; `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. Validar con OpenDyslexic real y una captura que la alternancia de sílabas morado/marrón (`#392F5A`/`#703800`, tema Claro) se distingue; si no, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). |
 | **D6** | 2026-10-07 | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
-| **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz; "Ajustes avanzados" con la URL del backend (CFG-F02); `AppConfig` atómico. |
+| **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz, **selector de idioma de la interfaz (se aplica al reiniciar, con aviso)**; "Ajustes avanzados" con la URL del backend (CFG-F02); `AppConfig` atómico. |
 | **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado (UI-F03). |
 | **D9** | 2026-10-10 | Backend en local (`backend/`, §4.11): endpoints, límites, tope diario, caché, sin logs de textos; tests con `TestClient` y DeepSeek simulado (BE-F01–BE-F03). |
 | **D10** | 2026-10-11 | Despliegue en Render (§6.6, lo ejecuta o autoriza la usuaria) con la checklist de `deploy-backend`; medición del arranque en frío (BE-NF01); `BackendAIClient` en la app con la URL real en `core/config.py`. |
@@ -2127,9 +2155,9 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 - ~~**Requisito de "desplegada":** confirmar con el profesor si la entrega exige un backend accesible remotamente.~~ **RESUELTO (2026-10-01): sí.** La materia exige el proyecto desplegado; se incorpora el backend propio en Render (§4.11, §6.6).
 - **Riesgos del spike técnico por verificar:**
   - ~~Si la pausa de reproducción SAPI5 queda bloqueada por la naturaleza sincrónica de `engine.runAndWait()` al invocar `stop()` desde otro hilo.~~ **RESUELTO (Día 1): funciona.** `stop()` desde otro hilo hace volver `runAndWait()` a 1.60–1.61 s con la parada pedida a 1.5 s, con y sin `CoInitialize` (§4.5). Hallazgo asociado: pyttsx3 2.99 no habla a partir de la 2.ª frase → fijado `==2.98` (§2.2).
-  - **ABIERTO — Reconocimiento de `ñ` y tildes del español con los modelos `ch_PP-OCRv4`.** Medido en el Día 1 sobre `tests/samples/sample_page_scanned.pdf` a 300 DPI: **1 de 21** caracteres especiales reconocidos (solo la `é` de "Qué"); salida típica: "El nino leyo una cancion en el jardin.". El diccionario del modelo `ch_PP-OCRv4_rec` (6623 caracteres) **no contiene `ñ`, `Ñ`, `¿` ni `¡`**, así que no puede reconocerlos; las vocales con tilde sí están, pero el modelo casi nunca las emite. Se resuelve en el Día 3. **Preparación del Día 3 (medida):** el modelo `latin_PP-OCRv5_rec_mobile` (ONNX, Apache 2.0, 7.9 MB, diccionario de 502 caracteres con `ñ Ñ ¿ ¡ á é í ó ú ü`) reconoce **21/21** caracteres especiales en la misma muestra a 300 y a 200 DPI, con tiempos iguales al modelo actual (`tests/spike_ocr_latin.py`, origen en `resources/models/README.md`). Falta validarlo con el set de 10 fotos reales antes de cerrar este punto.
+  - **ABIERTO — Reconocimiento de `ñ` y tildes del español con los modelos `ch_PP-OCRv4`.** Medido en el Día 1 sobre `tests/samples/sample_page_scanned.pdf` a 300 DPI: **1 de 21** caracteres especiales reconocidos (solo la `é` de "Qué"); salida típica: "El nino leyo una cancion en el jardin.". El diccionario del modelo `ch_PP-OCRv4_rec` (6623 caracteres) **no contiene `ñ`, `Ñ`, `¿` ni `¡`**, así que no puede reconocerlos; las vocales con tilde sí están, pero el modelo casi nunca las emite. Se resuelve en el Día 3. **Preparación del Día 3 (medida):** el modelo `latin_PP-OCRv5_rec_mobile` (ONNX, Apache 2.0, 7.9 MB, diccionario de 502 caracteres con `ñ Ñ ¿ ¡ á é í ó ú ü`) reconoce **21/21** caracteres especiales en la misma muestra a 300 y a 200 DPI, con tiempos iguales al modelo actual (`tests/spike_ocr_latin.py`, origen en `resources/models/README.md`). **Día 3, fichas reales (5 PDF, 15 páginas renderizadas a 300 DPI):** 382/385 caracteres especiales (99.2 %), F1 por palabras 97.0 % (§4.2, §4.3). Falta validarlo con las **fotos de móvil** (`<Ficha>_p<N>_<condición>.jpg`, aún no entregadas) antes de cerrar este punto.
   - ~~Existencia real del atributo `pypdfium2.PdfPasswordError` en la versión de `pypdfium2` fijada en §2.2.~~ **RESUELTO (Día 1): no existe** en pypdfium2 5.13.0; se usa `PdfiumError` con `err_code == 4` (§4.1).
-  - Desfase del `TokenPositionMap` cuando el HTML colapsa espacios múltiples, pudiendo desalinear `doc_start_pos`/`doc_end_pos` respecto al texto hablado.
+  - ~~Desfase del `TokenPositionMap` cuando el HTML colapsa espacios múltiples.~~ **RESUELTO (Día 4):** el texto se normaliza (espacios y saltos de línea colapsados) antes de calcular posiciones y un test con `QTextDocument` real verifica `toPlainText()[start:end] == spoken_text` en el 100 % de los tokens, incluidas las 5 fichas reales (§4.4).
   - ~~Validez del `.spec` de §6.3 con PyInstaller ≥ 6 y que se recoja la DLL de pdfium.~~ **RESUELTO (Día 1):** `.spec` validado con PyInstaller 6.22.3; cambios en la nota de §6.3 (incluido el reemplazo obligatorio del runtime de VC++). El hook de PyInstaller recoge `pdfium.dll`.
   - Iconos SVG recoloreados por tema (`docs/design-system/README.md` §1.7): `clearread.spec` debe incluir el módulo `QtSvg` y el plugin `imageformats/qsvg` de Qt; verificarlo en `dist/` (skill `package-exe`, Día 12).
   - `QNetworkInformation` (AI-F03) requiere el plugin de backend de *reachability* de Windows de Qt; verificar que `clearread.spec` y PyInstaller lo incluyen en el `.exe` (Día 12). Si falta o no se detecta en tiempo de ejecución, debe aplicarse el mismo comportamiento de *fallback* de AI-F03 (botón habilitado, error informado en el primer fallo real).
