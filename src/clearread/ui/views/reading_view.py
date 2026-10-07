@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -26,13 +26,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from clearread.services.text_formatter import FormattedDocument, WordToken
+from clearread.services.text_formatter import (
+    FormattedDocument,
+    ReadingStyle,
+    WordToken,
+)
 from clearread.services.tts_controller import (
     DEFAULT_RATE_WPM,
+    MAX_RATE_WPM,
+    MIN_RATE_WPM,
     TTSController,
     TTSErrorKind,
 )
-from clearread.ui.fonts import READING_FONT_FAMILY
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, ThemeTokens
@@ -43,13 +48,10 @@ READER_MARGIN_X = 40
 READER_MARGIN_TOP = 32
 PLAY_BAR_HEIGHT = 80
 PLAY_BUTTON_SIZE = (148, 48)
-SPEED_RANGE_WPM = (100, 280)
 SPEED_SLIDER_WIDTH = 210
 BAR_PADDING_X = 24
 BAR_PADDING_Y = 8
 BAR_SPACING = 16
-BOLD_WEIGHT = 700
-READING_FONT_PT = 16
 DEFAULT_LINE_SPACING = 1.8  # multiple of the font size (design system 1.4)
 POINTS_PER_INCH = 72.0
 _ERROR_KEYS = {
@@ -76,6 +78,9 @@ class ReaderWidget(QTextEdit):
         self._word_format = QTextCharFormat()
         self._ruler_format = QTextCharFormat()
         self._line_spacing = DEFAULT_LINE_SPACING
+        self.reading_font = QFont(
+            ReadingStyle().font_family, ReadingStyle().font_size_pt
+        )
         self.apply_theme(tokens)
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
@@ -87,7 +92,6 @@ class ReaderWidget(QTextEdit):
         word = QTextCharFormat()
         word.setBackground(QColor(tokens.word_highlight_bg))
         word.setForeground(QColor(tokens.word_highlight_fg))
-        word.setFontWeight(BOLD_WEIGHT)
         word.setFontUnderline(True)
         word.setUnderlineColor(QColor(tokens.word_highlight_fg))
         self._word_format = word
@@ -97,6 +101,15 @@ class ReaderWidget(QTextEdit):
         ruler.setProperty(QTextFormat.Property.FullWidthSelection, True)
         self._ruler_format = ruler
 
+    def set_line_spacing(self, line_spacing: float) -> None:
+        self._line_spacing = line_spacing
+
+    def set_reading_font(self, font: QFont) -> None:
+        # Kept apart from font(): the window's QSS sets a UI font on every widget, and
+        # the line spacing must be computed from the font the text is drawn with.
+        self.reading_font = font
+        self.setFont(font)
+
     def set_content(self, html_content: str) -> None:
         self.setHtml(html_content)
         self._apply_line_spacing()
@@ -105,7 +118,7 @@ class ReaderWidget(QTextEdit):
         # Qt's proportional height is relative to the font's own line pitch (1.8 times
         # the font size for OpenDyslexic), so the design's "multiple of the font size"
         # is converted to a percentage of that pitch.
-        font = self.font()
+        font = self.reading_font
         em_px = font.pointSizeF() * self.logicalDpiY() / POINTS_PER_INCH
         natural_px = QFontMetricsF(font).lineSpacing()
         block_format = QTextBlockFormat()
@@ -151,6 +164,8 @@ class ReaderWidget(QTextEdit):
 
 
 class ReadingView(QWidget):
+    speed_changed = Signal(int)  # words per minute chosen with the bar's slider
+
     def __init__(
         self,
         tts: TTSController,
@@ -171,7 +186,6 @@ class ReadingView(QWidget):
 
     def _build_ui(self) -> None:
         self.editor = ReaderWidget(self._tokens)
-        self.editor.setFont(QFont(READING_FONT_FAMILY, READING_FONT_PT))
         self.status_label = QLabel()
         self.status_label.setProperty("role", "muted")
         self.status_label.setWordWrap(True)
@@ -213,7 +227,7 @@ class ReadingView(QWidget):
 
         self.speed_label = QLabel()
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setRange(*SPEED_RANGE_WPM)
+        self.speed_slider.setRange(MIN_RATE_WPM, MAX_RATE_WPM)
         self.speed_slider.setValue(DEFAULT_RATE_WPM)
         self.speed_slider.setFixedWidth(SPEED_SLIDER_WIDTH)
         self.speed_value_label = QLabel()
@@ -322,15 +336,30 @@ class ReadingView(QWidget):
         self.status_label.hide()
         self._set_state(PlaybackState.IDLE)
 
-    def apply_theme(self, theme: ThemeId, html_content: str) -> None:
-        """Switch theme with html regenerated from the same text: positions are unchanged."""
+    def apply_appearance(
+        self,
+        theme: ThemeId,
+        style: ReadingStyle,
+        line_spacing: float,
+        html_content: str,
+    ) -> None:
+        """Re-render with new colours and typography from html generated for the same text.
+
+        The positions of the token map do not change, so the word being read stays
+        highlighted.
+        """
         self._tokens = THEMES[theme]
         self.editor.apply_theme(self._tokens)
+        self.editor.set_reading_font(QFont(style.font_family, style.font_size_pt))
+        self.editor.set_line_spacing(line_spacing)
         self.editor.set_content(html_content)
         self.editor.clear_highlights()
         if self.state is not PlaybackState.IDLE and self.token_map:
             self.editor.highlight_token(self.token_map[self.current_word_idx])
         self._refresh_texts()
+
+    def set_speed(self, wpm: int) -> None:
+        self.speed_slider.setValue(wpm)
 
     def toggle_play(self) -> None:
         if not self.token_map:
@@ -359,6 +388,7 @@ class ReadingView(QWidget):
     def _on_speed_changed(self, wpm: int) -> None:
         self.speed_value_label.setText(self._t("reading.speed_value", wpm=wpm))
         self._tts.set_speed(wpm)
+        self.speed_changed.emit(wpm)
 
     @Slot(int)
     def _on_word_spoken(self, word_index: int) -> None:
