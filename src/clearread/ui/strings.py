@@ -58,6 +58,26 @@ CATALOG: dict[str, dict[str, str]] = {
     "reading.resume": {"es": "Reanudar", "en": "Resume"},
     "reading.stop": {"es": "Detener", "en": "Stop"},
     "reading.speed": {"es": "Velocidad", "en": "Speed"},
+    "reading.speed_value": {"es": "{wpm} palabras/min", "en": "{wpm} words/min"},
+    "reading.word_counter": {
+        "es": "Palabra {current} de {total}",
+        "en": "Word {current} of {total}",
+    },
+    "reading.tooltip": {"es": "{action} ({shortcut})", "en": "{action} ({shortcut})"},
+    "reading.key_space": {"es": "Espacio", "en": "Space"},
+    "reading.key_esc": {"es": "Esc", "en": "Esc"},
+    "reading.shortcuts": {
+        "es": "Espacio: pausar · Esc: detener",
+        "en": "Space: pause · Esc: stop",
+    },
+    "reading.error.tts_init": {
+        "es": "No pudimos iniciar la voz. Revisa que Windows tenga una voz en español instalada.",
+        "en": "We could not start the voice. Check that Windows has a Spanish voice installed.",
+    },
+    "reading.error.tts_playback": {
+        "es": "La lectura en voz alta se detuvo. Prueba a reproducir de nuevo.",
+        "en": "Reading aloud stopped. Try playing again.",
+    },
     # --- Settings ---
     "settings.title": {"es": "Ajustes", "en": "Settings"},
     "settings.autosave_hint": {
