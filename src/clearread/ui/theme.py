@@ -138,6 +138,26 @@ QSlider::handle:horizontal { width: 20px; height: 20px; margin: -7px 0;
                              border-radius: 10px; background: $primary_bg;
                              border: 2px solid $bg; }
 
+QFrame#TopBar { background: $surface; border: none; border-bottom: 1px solid $border; }
+QLabel#Brand { font-size: 18px; font-weight: 700; }
+QLabel[role="heading"] { font-size: 20px; font-weight: 700; }
+QLabel[role="title"] { font-size: 24px; font-weight: 700; }
+QFrame#DropZone { border: 2px dashed $border; border-radius: 16px; background: transparent; }
+QFrame#DropZone[dragging="true"] { border-color: $focus_ring; background: $ruler_bg; }
+QFrame#RecentItem { background: $surface; border: 1px solid $border; border-radius: 12px; }
+QFrame#RecentItem:hover { background: $secondary_bg_hover; }
+QFrame#RecentItem QLabel, QFrame#DropZone QLabel { border: none; }
+QFrame#ProcessingCard { background: $surface; border: 1px solid $border; border-radius: 12px; }
+QFrame#ProcessingCard QLabel { border: none; }
+QProgressBar { min-height: 14px; max-height: 14px; border: 1px solid $border; border-radius: 7px;
+               background: $bg; text-align: center; color: transparent; }
+QProgressBar::chunk { background: $primary_bg; border-radius: 6px; }
+QDialog#ErrorDialog { background: $bg; border: 2px solid $text; }
+QFrame#ActionBox { background: $surface; border: 1px solid $border; border-radius: 8px; }
+QFrame#ActionBox QLabel { border: none; }
+QLabel#ErrorMark { border: 3px solid $error; border-radius: 22px; color: $error;
+                   font-size: 22px; font-weight: 700; }
+
 QToolTip { background: $text; color: $bg; border: none; padding: 8px 12px; font-size: 13px; }
 """
 )
