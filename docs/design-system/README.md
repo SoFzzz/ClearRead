@@ -466,7 +466,9 @@ Todos los átomos usan solo propiedades soportadas por QSS (`background`, `color
 ### 4.5 Panel de ajustes
 
 - Pantalla completa (no diálogo) con dos columnas dentro de 1120 px: controles (flexible) y "Vista previa" (420 px).
-- Secciones: **Tema** (3 tarjetas-radio de 84 px con muestra "Aa": la elegida lleva borde 3 px `text` y punto relleno en el radio), **Texto** (tamaño, espacio entre líneas, entre letras, entre palabras, sílabas de colores), **Voz** (velocidad, voz), **Ajustes avanzados** (plegado por defecto).
+- Secciones: **Tema** (3 tarjetas-radio de 84 px con muestra "Aa": la elegida lleva borde 3 px `text` y punto relleno en el radio), **Texto** (tamaño, espacio entre líneas, entre letras, entre palabras, sílabas de colores), **Voz** (velocidad, voz), **Idioma** (fila "Idioma de la interfaz" / "Interface language"), **Ajustes avanzados** (plegado por defecto).
+- **Idioma de la interfaz** (I18N-F01): fila de ajuste (molécula [3.3](#33-fila-de-ajuste-con-vista-previa)) con un selector (combobox, [2.5](#25-campo-de-texto-y-combobox)) de dos opciones, "Español" y "English", cada una escrita en su propio idioma. No actualiza la vista previa. Al cambiarla se guarda en `AppConfig.ui_language` y aparece un diálogo, **ya en el idioma nuevo**, que explica que se verá al reiniciar ClearRead (claves `settings.language.restart_*`). Los documentos no cambian: solo la interfaz.
+- **Textos más largos o más cortos:** el inglés puede ocupar ~20–30 % menos o más que el español según el texto. Los botones, etiquetas y filas **no tienen ancho fijo**: se ajustan al contenido con un ancho mínimo y relleno constante, y los textos largos pasan a dos líneas en vez de cortarse.
 - **Ajustes avanzados** (desplegado): campo "Dirección del asistente" con el valor de `AppConfig.backend_url`, botón "Usar la dirección original" (restaura `DEFAULT_BACKEND_URL`) y la ayuda "Solo cámbiala si te lo pide quien mantiene ClearRead." **Sin campo de API key** (CFG-F02).
 - Botón "Restablecer valores" (secundario) bajo la vista previa.
 - Los cambios se guardan solos y se aplican al momento (no hay botón "Guardar").
@@ -599,7 +601,7 @@ Las vistas viven en un `QStackedWidget`; el diálogo de error es un `QDialog` mo
 | Procesando | **Cancelar** (único control activo, foco inicial) |
 | Lectura | ← Inicio → Asistente → Ajustes → **lector** (foco inicial) → Reproducir/Pausar → Detener → Velocidad |
 | Lectura + panel | … → Velocidad → panel: × → Explicar palabra → Simplificar párrafo → Reintentar/Cancelar (si existen). F6 salta entre lector y panel |
-| Ajustes | ← Volver → Tema (flechas eligen entre las 3 tarjetas) → Tamaño → Espacio entre líneas → Espacio entre letras → Espacio entre palabras → Sílabas → Velocidad → Voz → Ajustes avanzados → (campos avanzados) → Restablecer |
+| Ajustes | ← Volver → Tema (flechas eligen entre las 3 tarjetas) → Tamaño → Espacio entre líneas → Espacio entre letras → Espacio entre palabras → Sílabas → Velocidad → Voz → Idioma de la interfaz → Ajustes avanzados → (campos avanzados) → Restablecer |
 | Diálogo de error | **Entendido** (foco inicial) ↔ acción secundaria |
 
 Se fija con `QWidget.setTabOrder` en cada vista; el anillo de foco es siempre visible (no solo al usar teclado).
