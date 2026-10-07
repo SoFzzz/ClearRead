@@ -1,0 +1,283 @@
+"""User-visible text catalog (I18N-F01). No Qt dependency.
+
+Keys are English dotted names; every key carries both "es" and "en".
+Logic modules never contain visible text: they pass keys (or enum names) here.
+"""
+
+from enum import Enum
+
+
+class Language(str, Enum):
+    ES = "es"
+    EN = "en"
+
+
+DEFAULT_LANGUAGE = Language.ES
+
+
+class MissingStringError(KeyError):
+    """Raised when a key is not in the catalog."""
+
+
+CATALOG: dict[str, dict[str, str]] = {
+    # --- Shared ---
+    "common.cancel": {"es": "Cancelar", "en": "Cancel"},
+    "common.understood": {"es": "Entendido", "en": "Got it"},
+    "common.not_now": {"es": "Ahora no", "en": "Not now"},
+    "common.retry": {"es": "Reintentar", "en": "Try again"},
+    # --- Navigation ---
+    "nav.settings": {"es": "Ajustes", "en": "Settings"},
+    "nav.back_home": {"es": "← Inicio", "en": "← Home"},
+    "nav.back": {"es": "← Volver", "en": "← Back"},
+    "nav.assistant": {"es": "Asistente", "en": "Assistant"},
+    # --- Home ---
+    "home.title": {
+        "es": "Abre un documento para empezar",
+        "en": "Open a document to start",
+    },
+    "home.drop_title": {
+        "es": "Arrastra aquí tu PDF o tu foto",
+        "en": "Drag your PDF or photo here",
+    },
+    "home.choose_file": {"es": "Elegir archivo", "en": "Choose file"},
+    "home.recent_title": {"es": "Documentos recientes", "en": "Recent documents"},
+    "home.recent_open": {"es": "Abrir", "en": "Open"},
+    "home.recent_remove": {"es": "Quitar de recientes", "en": "Remove from recent"},
+    # --- Processing ---
+    "processing.title": {
+        "es": "Preparando tu documento",
+        "en": "Getting your document ready",
+    },
+    "processing.reading_page": {
+        "es": "Leyendo la página {current} de {total}",
+        "en": "Reading page {current} of {total}",
+    },
+    # --- Reading ---
+    "reading.play": {"es": "Reproducir", "en": "Play"},
+    "reading.pause": {"es": "Pausar", "en": "Pause"},
+    "reading.resume": {"es": "Reanudar", "en": "Resume"},
+    "reading.stop": {"es": "Detener", "en": "Stop"},
+    "reading.speed": {"es": "Velocidad", "en": "Speed"},
+    # --- Settings ---
+    "settings.title": {"es": "Ajustes", "en": "Settings"},
+    "settings.autosave_hint": {
+        "es": "Los cambios se guardan solos y se ven al momento.",
+        "en": "Changes are saved automatically and show up right away.",
+    },
+    "settings.section.theme": {"es": "Tema", "en": "Theme"},
+    "settings.section.text": {"es": "Texto", "en": "Text"},
+    "settings.section.voice": {"es": "Voz", "en": "Voice"},
+    "settings.section.language": {"es": "Idioma", "en": "Language"},
+    "settings.section.advanced": {"es": "Ajustes avanzados", "en": "Advanced settings"},
+    "settings.theme.light": {"es": "Claro", "en": "Light"},
+    "settings.theme.dark": {"es": "Oscuro", "en": "Dark"},
+    "settings.theme.high_contrast": {"es": "Alto contraste", "en": "High contrast"},
+    "settings.font_size": {"es": "Tamaño de letra", "en": "Text size"},
+    "settings.line_spacing": {"es": "Espacio entre líneas", "en": "Line spacing"},
+    "settings.letter_spacing": {"es": "Espacio entre letras", "en": "Letter spacing"},
+    "settings.word_spacing": {"es": "Espacio entre palabras", "en": "Word spacing"},
+    "settings.syllables": {"es": "Sílabas de colores", "en": "Colored syllables"},
+    "settings.voice": {"es": "Voz", "en": "Voice"},
+    "settings.preview_title": {"es": "Vista previa", "en": "Preview"},
+    "settings.reset": {"es": "Restablecer valores", "en": "Reset to defaults"},
+    "settings.language.label": {
+        "es": "Idioma de la interfaz",
+        "en": "Interface language",
+    },
+    # Language names are shown in their own language in both catalogs.
+    "settings.language.es": {"es": "Español", "en": "Español"},
+    "settings.language.en": {"es": "English", "en": "English"},
+    "settings.language.restart_title": {
+        "es": "Reinicia ClearRead para cambiar el idioma",
+        "en": "Restart ClearRead to change the language",
+    },
+    "settings.language.restart_message": {
+        "es": "El nuevo idioma se verá la próxima vez que abras ClearRead. "
+        "Tus documentos no cambian.",
+        "en": "The new language will show the next time you open ClearRead. "
+        "Your documents stay the same.",
+    },
+    "settings.backend_url": {
+        "es": "Dirección del asistente",
+        "en": "Assistant address",
+    },
+    "settings.backend_url_reset": {
+        "es": "Usar la dirección original",
+        "en": "Use the original address",
+    },
+    "settings.backend_url_help": {
+        "es": "Solo cámbiala si te lo pide quien mantiene ClearRead.",
+        "en": "Only change it if the person who maintains ClearRead asks you to.",
+    },
+    # --- Ingestion errors (title / message / what you can do) ---
+    "error.password.title": {
+        "es": "No pudimos abrir este documento",
+        "en": "We couldn't open this document",
+    },
+    "error.password.message": {
+        "es": "El PDF tiene contraseña y ClearRead no puede leerlo así.",
+        "en": "This PDF has a password, so ClearRead can't read it as it is.",
+    },
+    "error.password.action": {
+        "es": "Guarda una copia del PDF sin contraseña y ábrela otra vez.",
+        "en": "Save a copy of the PDF without a password and open it again.",
+    },
+    "error.unsupported_format.title": {
+        "es": "Este archivo no sirve",
+        "en": "This file doesn't work",
+    },
+    "error.unsupported_format.message": {
+        "es": "ClearRead abre documentos PDF y fotos JPG, PNG, BMP o TIFF.",
+        "en": "ClearRead opens PDF documents and JPG, PNG, BMP or TIFF photos.",
+    },
+    "error.unsupported_format.action": {
+        "es": "Elige un archivo de uno de esos tipos.",
+        "en": "Choose a file of one of those types.",
+    },
+    "error.file_not_found.title": {
+        "es": "No encontramos el archivo",
+        "en": "We couldn't find the file",
+    },
+    "error.file_not_found.message": {
+        "es": "Puede que lo hayan movido o borrado.",
+        "en": "It may have been moved or deleted.",
+    },
+    "error.file_not_found.action": {
+        "es": "Elige el archivo otra vez desde su carpeta.",
+        "en": "Choose the file again from its folder.",
+    },
+    "error.no_text.title": {
+        "es": "No encontramos palabras",
+        "en": "We couldn't find any words",
+    },
+    "error.no_text.message": {
+        "es": "No logramos leer texto en este documento.",
+        "en": "We couldn't read any text in this document.",
+    },
+    "error.no_text.action": {
+        "es": "Prueba con una foto más nítida, con buena luz y sin sombras.",
+        "en": "Try a sharper photo, with good light and no shadows.",
+    },
+    "error.unreadable.title": {
+        "es": "No pudimos abrir el archivo",
+        "en": "We couldn't open the file",
+    },
+    "error.unreadable.message": {
+        "es": "Puede estar dañado o abierto en otro programa.",
+        "en": "It may be damaged or open in another program.",
+    },
+    "error.unreadable.action": {
+        "es": "Cierra el otro programa o prueba con otra copia del archivo.",
+        "en": "Close the other program or try another copy of the file.",
+    },
+    # --- AI assistant panel ---
+    "ai.explain_word": {"es": "Explicar palabra", "en": "Explain word"},
+    "ai.simplify_paragraph": {"es": "Simplificar párrafo", "en": "Simplify paragraph"},
+    "ai.menu_explain": {"es": "Explicar esta palabra", "en": "Explain this word"},
+    "ai.menu_simplify": {
+        "es": "Simplificar este párrafo",
+        "en": "Simplify this paragraph",
+    },
+    "ai.loading": {
+        "es": "Buscando una explicación…",
+        "en": "Looking for an explanation…",
+    },
+    "ai.loading_hint": {
+        "es": "Suele tardar unos segundos.",
+        "en": "This usually takes a few seconds.",
+    },
+    "ai.waking.title": {
+        "es": "Despertando el asistente…",
+        "en": "Waking up the assistant…",
+    },
+    "ai.waking.detail": {
+        "es": "Estaba descansando porque nadie lo usó en un rato. Puede tardar hasta un "
+        "minuto; puedes seguir leyendo mientras tanto.",
+        "en": "It was resting because nobody used it for a while. It can take up to a "
+        "minute; you can keep reading in the meantime.",
+    },
+    "ai.answer_footer": {
+        "es": "Respuesta creada con IA. Puede tener errores.",
+        "en": "Answer created with AI. It may contain mistakes.",
+    },
+    "ai.session_counter": {
+        "es": "Consultas en esta sesión: {used} de {limit}",
+        "en": "Questions this session: {used} of {limit}",
+    },
+    "ai.offline_tooltip": {
+        "es": "El asistente necesita internet. Lo demás funciona igual.",
+        "en": "The assistant needs internet. Everything else works the same.",
+    },
+    "ai.offline_badge": {"es": "Sin internet", "en": "No internet"},
+    # --- AIErrorKind -> message (key: ai.error.<kind name in lowercase>) ---
+    "ai.error.no_network": {
+        "es": "No pudimos conectar con el asistente. Verifica tu conexión a internet.",
+        "en": "We couldn't reach the assistant. Check your internet connection.",
+    },
+    "ai.error.server_waking": {
+        "es": "El asistente está tardando en despertar. Inténtalo de nuevo en un minuto.",
+        "en": "The assistant is taking a while to wake up. Try again in a minute.",
+    },
+    "ai.error.timeout": {
+        "es": "El asistente tardó demasiado en responder. Inténtalo de nuevo.",
+        "en": "The assistant took too long to answer. Try again.",
+    },
+    "ai.error.session_limit": {
+        "es": "Alcanzaste el máximo de consultas de IA para esta sesión.",
+        "en": "You reached the maximum number of AI questions for this session.",
+    },
+    "ai.error.daily_limit": {
+        "es": "El asistente alcanzó su límite de hoy. Vuelve a intentarlo mañana.",
+        "en": "The assistant reached its limit for today. Try again tomorrow.",
+    },
+    "ai.error.input_too_long": {
+        "es": "El texto seleccionado es demasiado largo. Selecciona un fragmento más corto.",
+        "en": "The selected text is too long. Select a shorter piece.",
+    },
+    "ai.error.service_unavailable": {
+        "es": "El asistente no está disponible en este momento.",
+        "en": "The assistant is not available right now.",
+    },
+    "ai.error.bad_response": {
+        "es": "No pudimos entender la respuesta del asistente.",
+        "en": "We couldn't understand the assistant's answer.",
+    },
+    "ai.hint.no_network": {
+        "es": "Lo demás de ClearRead sigue funcionando sin internet.",
+        "en": "Everything else in ClearRead keeps working without internet.",
+    },
+    "ai.hint.session_limit": {
+        "es": "Cierra y vuelve a abrir ClearRead para empezar una sesión nueva.",
+        "en": "Close and reopen ClearRead to start a new session.",
+    },
+    "ai.hint.service_unavailable": {
+        "es": "Inténtalo más tarde.",
+        "en": "Try again later.",
+    },
+    "ai.hint.bad_response": {"es": "Inténtalo de nuevo.", "en": "Try again."},
+    # --- Privacy notice (NFR-SEC01) ---
+    "privacy.title": {
+        "es": "Antes de usar el asistente",
+        "en": "Before you use the assistant",
+    },
+    "privacy.body": {
+        "es": "Para ayudarte, enviamos por internet la palabra o el párrafo que elijas. "
+        "El resto de tu documento se queda en tu equipo.",
+        "en": "To help you, we send the word or paragraph you choose over the internet. "
+        "The rest of your document stays on your computer.",
+    },
+    "privacy.footer": {
+        "es": "Solo enviamos a internet la palabra o el párrafo que elegiste. "
+        "El resto del documento no sale de tu equipo.",
+        "en": "We only send the word or paragraph you chose over the internet. "
+        "The rest of the document never leaves your computer.",
+    },
+}
+
+
+def tr(key: str, lang: Language | str, **params: object) -> str:
+    """Return the text for ``key`` in ``lang``, filling ``{params}``."""
+    entry = CATALOG.get(key)
+    if entry is None:
+        raise MissingStringError(f"Unknown string key: {key!r}")
+    return entry[Language(lang).value].format(**params)
