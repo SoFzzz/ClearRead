@@ -1,7 +1,14 @@
 import random
 
 import pytest
-from calibrate_ocr import character_error_rate, levenshtein, special_hits, word_f1
+from calibrate_ocr import (
+    character_error_rate,
+    exif_rotation_degrees,
+    levenshtein,
+    special_hits,
+    word_f1,
+)
+from samples.make_samples import SAMPLES_DIR
 
 
 def reference_levenshtein(a: str, b: str) -> int:
@@ -43,3 +50,7 @@ def test_word_f1_of_disjoint_texts_is_zero() -> None:
 
 def test_special_hits_counts_each_character_once_per_occurrence() -> None:
     assert special_hits("niño ñandú ¿sí?", "nino ñandu ¿si?") == (2, 5)
+
+
+def test_exif_rotation_is_reported_for_the_orientation_6_sample() -> None:
+    assert exif_rotation_degrees(SAMPLES_DIR / "sample_photo_exif6.jpg") == 90
