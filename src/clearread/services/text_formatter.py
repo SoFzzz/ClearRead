@@ -2,9 +2,13 @@
 
 import html
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from clearread.services.syllabifier import SpanishSyllabifier
+
+# Bump when the html or the token map change shape: cached documents key on it.
+FORMATTER_VERSION = "1"
 
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # A number such as 3,5 or 12.345,67 is one token; otherwise a word with optional
@@ -44,9 +48,12 @@ def normalise_paragraphs(raw_text: str) -> list[str]:
     """Split on blank lines and collapse every whitespace run to one space.
 
     Qt's HTML import collapses whitespace, so positions must be computed on the
-    already-collapsed text (§8 risk: double spaces and stray line breaks).
+    already-collapsed text (§8 risk: double spaces and stray line breaks). The text
+    is composed to NFC first: a PDF may hand over "o" + U+0301, and Qt keeps those as
+    two characters, which would shift every position after the accent.
     """
-    paragraphs = (" ".join(chunk.split()) for chunk in _PARAGRAPH_BREAK.split(raw_text))
+    composed = unicodedata.normalize("NFC", raw_text)
+    paragraphs = (" ".join(chunk.split()) for chunk in _PARAGRAPH_BREAK.split(composed))
     return [paragraph for paragraph in paragraphs if paragraph]
 
 
