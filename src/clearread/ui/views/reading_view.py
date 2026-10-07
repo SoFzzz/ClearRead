@@ -5,6 +5,7 @@ from enum import Enum
 from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import (
     QColor,
+    QContextMenuEvent,
     QFont,
     QFontMetricsF,
     QKeySequence,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QSlider,
     QTextEdit,
@@ -27,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clearread.services.ai_text import word_query
 from clearread.services.text_formatter import (
     FormattedDocument,
     ReadingStyle,
@@ -43,6 +46,7 @@ from clearread.services.tts_controller import (
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, ThemeTokens
+from clearread.ui.views.ai_panel import AIPanel
 
 COLUMN_MIN_WIDTH = 550
 COLUMN_MAX_WIDTH = 820
@@ -72,10 +76,12 @@ class ReaderWidget(QTextEdit):
     """Read-only text with a spoken-word highlight and a full-width line ruler."""
 
     char_clicked = Signal(int)  # document position of the character that was pressed
+    context_menu_requested = Signal(int, QPoint)  # character position, global point
 
     def __init__(self, tokens: ThemeTokens) -> None:
         super().__init__()
         self._clickable = False
+        self._context_menu_enabled = False
         self.setReadOnly(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -92,6 +98,16 @@ class ReaderWidget(QTextEdit):
         """Turn presses into ``char_clicked`` instead of a caret or a text selection."""
         self._clickable = True
         self.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def enable_context_menu(self, enabled: bool) -> None:
+        self._context_menu_enabled = enabled
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        if self._context_menu_enabled:
+            position = self._char_under(event.pos())
+            self.context_menu_requested.emit(position, event.globalPos())
+        else:
+            super().contextMenuEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if not self._clickable:
@@ -210,6 +226,10 @@ class ReaderWidget(QTextEdit):
 
 class ReadingView(QWidget):
     speed_changed = Signal(int)  # words per minute chosen with the bar's slider
+    explain_requested = Signal(str, str)  # word, sentence that holds it
+    simplify_requested = Signal(str)  # paragraph or selection
+    assistant_open_changed = Signal(bool)
+    aside_finished = Signal()  # the assistant's answer stopped being read aloud
 
     def __init__(
         self,
@@ -225,6 +245,8 @@ class ReadingView(QWidget):
         self.tts_script = ""
         self.current_word_idx = 0
         self.state = PlaybackState.IDLE
+        self._aside = False  # the voice reads an assistant answer, not the document
+        self._ai_anchor: int | None = None  # where the last assistant request pointed
         self._build_ui()
         self._connect_signals()
         self._refresh_texts()
@@ -245,11 +267,19 @@ class ReadingView(QWidget):
         column_layout.addWidget(self.editor, stretch=1)
         column_layout.addWidget(self.status_label)
 
-        layout = QVBoxLayout(self)
+        reader = QVBoxLayout()
+        reader.setContentsMargins(0, 0, 0, 0)
+        reader.setSpacing(0)
+        reader.addLayout(self._centered(column), stretch=1)
+        reader.addWidget(self._build_play_bar())
+
+        self.ai_panel = AIPanel(self._tokens, self._language)
+        self.ai_panel.hide()
+        layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addLayout(self._centered(column), stretch=1)
-        layout.addWidget(self._build_play_bar())
+        layout.addLayout(reader, stretch=1)
+        layout.addWidget(self.ai_panel)
 
     @staticmethod
     def _centered(widget: QWidget) -> QHBoxLayout:
@@ -318,12 +348,14 @@ class ReadingView(QWidget):
         self.stop_button.clicked.connect(self.stop_reading)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.editor.char_clicked.connect(self._on_char_clicked)
+        self.editor.context_menu_requested.connect(self._show_context_menu)
+        self.ai_panel.close_clicked.connect(lambda: self.set_assistant_open(False))
         self._tts.word_spoken.connect(self._on_word_spoken)
         self._tts.playback_ended.connect(self._on_playback_ended)
         self._tts.error_occurred.connect(self._on_error)
         shortcuts = (
             (Qt.Key.Key_Space, self.toggle_play),
-            (Qt.Key.Key_Escape, self.stop_reading),
+            (Qt.Key.Key_Escape, self._on_escape),
         )
         for key, slot in shortcuts:
             shortcut = QShortcut(QKeySequence(key), self)
@@ -375,6 +407,8 @@ class ReadingView(QWidget):
     @Slot(FormattedDocument)
     def load_document(self, document: FormattedDocument) -> None:
         self._tts.stop()
+        self._end_aside()
+        self._ai_anchor = None
         self.token_map = document.token_map
         self.tts_script = document.tts_script
         self.current_word_idx = 0
@@ -396,6 +430,7 @@ class ReadingView(QWidget):
         highlighted.
         """
         self._tokens = THEMES[theme]
+        self.ai_panel.apply_theme(self._tokens)
         self.editor.apply_theme(self._tokens)
         self.editor.set_reading_font(QFont(style.font_family, style.font_size_pt))
         self.editor.set_line_spacing(line_spacing)
@@ -420,6 +455,7 @@ class ReadingView(QWidget):
             self._speak_from(0)
 
     def _speak_from(self, word_index: int) -> None:
+        self._end_aside()
         self.status_label.hide()
         self.current_word_idx = word_index
         remaining = " ".join(token.spoken_text for token in self.token_map[word_index:])
@@ -434,6 +470,7 @@ class ReadingView(QWidget):
 
     def stop_reading(self) -> None:
         self._tts.stop()
+        self._end_aside()
         self.current_word_idx = 0
         self.editor.clear_highlights()
         self._set_state(PlaybackState.IDLE)
@@ -445,6 +482,8 @@ class ReadingView(QWidget):
 
     @Slot(int)
     def _on_word_spoken(self, word_index: int) -> None:
+        if self._aside:
+            return
         if not 0 <= word_index < len(self.token_map):
             return
         self.current_word_idx = word_index
@@ -453,12 +492,109 @@ class ReadingView(QWidget):
 
     @Slot()
     def _on_playback_ended(self) -> None:
+        if self._aside:
+            self._end_aside()
+            return
         self.current_word_idx = 0
         self.editor.clear_highlights()
         self._set_state(PlaybackState.IDLE)
 
     @Slot(str)
     def _on_error(self, kind_name: str) -> None:
+        self._end_aside()
         self.status_label.setText(self._t(_ERROR_KEYS[kind_name]))
         self.status_label.show()
         self._set_state(PlaybackState.IDLE)
+
+    def _on_escape(self) -> None:
+        if self.assistant_open:
+            self.set_assistant_open(False)
+        else:
+            self.stop_reading()
+
+    def set_assistant_available(self, available: bool) -> None:
+        self.editor.enable_context_menu(available)
+
+    @property
+    def assistant_open(self) -> bool:
+        return not self.ai_panel.isHidden()
+
+    def set_assistant_open(self, opened: bool) -> None:
+        if opened == self.assistant_open:
+            return
+        self.ai_panel.setVisible(opened)
+        if opened:
+            self.pause_reading()
+        else:
+            self.stop_aside()
+            self.editor.setFocus()
+        self.assistant_open_changed.emit(opened)
+
+    def pause_reading(self) -> None:
+        if self.state is PlaybackState.PLAYING:
+            self._tts.stop()
+            self._set_state(PlaybackState.PAUSED)
+
+    def speak_aside(self, text: str) -> None:
+        """Read ``text`` with the document's voice, leaving the document's place alone."""
+        self.pause_reading()
+        self._aside = True
+        self._tts.speak_text(text)
+
+    def stop_aside(self) -> None:
+        if self._aside:
+            self._tts.stop()
+            self._end_aside()
+
+    def _end_aside(self) -> None:
+        if self._aside:
+            self._aside = False
+            self.aside_finished.emit()
+
+    def assistant_anchor(self) -> int | None:
+        """Character the assistant works on when there was no new right-click."""
+        if self._ai_anchor is not None:
+            return self._ai_anchor
+        if self.token_map and self.state is not PlaybackState.IDLE:
+            return self.token_map[self.current_word_idx].doc_start_pos
+        return None
+
+    def explain_at(self, position: int) -> None:
+        if not self.token_map:
+            return
+        token = self.token_map[token_index_at(self.token_map, position)]
+        query = word_query(
+            self.editor.toPlainText(), token.doc_start_pos, token.doc_end_pos
+        )
+        self._ai_anchor = token.doc_start_pos
+        self.explain_requested.emit(query.word, query.context_sentence)
+
+    def simplify_at(self, position: int) -> None:
+        text = " ".join(self._text_to_simplify(position).split())
+        if text:
+            self._ai_anchor = position
+            self.simplify_requested.emit(text)
+
+    def _text_to_simplify(self, position: int) -> str:
+        cursor = self.editor.textCursor()
+        if cursor.hasSelection() and (
+            cursor.selectionStart() <= position <= cursor.selectionEnd()
+        ):
+            return cursor.selectedText()
+        return self.editor.document().findBlock(position).text()
+
+    def _word_at(self, position: int) -> bool:
+        if not self.token_map:
+            return False
+        token = self.token_map[token_index_at(self.token_map, position)]
+        return token.doc_start_pos <= position < token.doc_end_pos
+
+    @Slot(int, QPoint)
+    def _show_context_menu(self, position: int, global_point: QPoint) -> None:
+        menu = QMenu(self)
+        if self._word_at(position):
+            explain = menu.addAction(self._t("ai.menu_explain"))
+            explain.triggered.connect(lambda: self.explain_at(position))
+        simplify = menu.addAction(self._t("ai.menu_simplify"))
+        simplify.triggered.connect(lambda: self.simplify_at(position))
+        menu.exec(global_point)
