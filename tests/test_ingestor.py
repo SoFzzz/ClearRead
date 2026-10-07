@@ -123,3 +123,15 @@ def test_pdf_document_is_closed_when_generator_is_abandoned(
     assert closed == []
     pages.close()  # type: ignore[attr-defined]
     assert closed == [True]
+
+
+@pytest.mark.parametrize("suffix", [".jfif", ".jpe", ".JFIF"])
+def test_jpeg_variants_are_loaded_like_jpg(
+    tmp_path: Path, ingestor: DocumentIngestor, suffix: str
+) -> None:
+    path = tmp_path / f"photo{suffix}"
+    path.write_bytes((SAMPLES_DIR / "sample_photo_exif6.jpg").read_bytes())
+    (page,) = list(ingestor.load(path))
+    assert page.source_type is DocumentType.IMAGE
+    assert page.image.shape == (200, 100, 3)  # EXIF rotation still applied
+    assert ingestor.get_page_count(path) == 1
