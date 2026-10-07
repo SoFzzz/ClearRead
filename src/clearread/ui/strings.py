@@ -43,7 +43,63 @@ CATALOG: dict[str, dict[str, str]] = {
     "home.recent_title": {"es": "Documentos recientes", "en": "Recent documents"},
     "home.recent_open": {"es": "Abrir", "en": "Open"},
     "home.recent_remove": {"es": "Quitar de recientes", "en": "Remove from recent"},
+    "home.formats_hint": {
+        "es": "Sirven archivos PDF, JPG, PNG, BMP y TIFF",
+        "en": "PDF, JPG, PNG, BMP and TIFF files work",
+    },
+    "home.file_dialog_title": {
+        "es": "Elegir un documento",
+        "en": "Choose a document",
+    },
+    "home.file_filter": {
+        "es": "Documentos y fotos ({patterns})",
+        "en": "Documents and photos ({patterns})",
+    },
+    "home.recent_pdf": {
+        "es": "PDF · {pages} · {opened}",
+        "en": "PDF · {pages} · {opened}",
+    },
+    "home.recent_photo": {
+        "es": "Foto · {pages} · {opened}",
+        "en": "Photo · {pages} · {opened}",
+    },
+    "home.pages_one": {"es": "1 página", "en": "1 page"},
+    "home.pages_other": {"es": "{count} páginas", "en": "{count} pages"},
+    "home.opened_today": {"es": "Abierto hoy", "en": "Opened today"},
+    "home.opened_yesterday": {"es": "Abierto ayer", "en": "Opened yesterday"},
+    "home.opened_on": {
+        "es": "Abierto el {day} de {month}",
+        "en": "Opened on {month} {day}",
+    },
+    "home.recent_open_named": {"es": "Abrir {name}", "en": "Open {name}"},
+    "home.recent_remove_named": {
+        "es": "Quitar {name} de recientes",
+        "en": "Remove {name} from recent",
+    },
+    "month.1": {"es": "enero", "en": "January"},
+    "month.2": {"es": "febrero", "en": "February"},
+    "month.3": {"es": "marzo", "en": "March"},
+    "month.4": {"es": "abril", "en": "April"},
+    "month.5": {"es": "mayo", "en": "May"},
+    "month.6": {"es": "junio", "en": "June"},
+    "month.7": {"es": "julio", "en": "July"},
+    "month.8": {"es": "agosto", "en": "August"},
+    "month.9": {"es": "septiembre", "en": "September"},
+    "month.10": {"es": "octubre", "en": "October"},
+    "month.11": {"es": "noviembre", "en": "November"},
+    "month.12": {"es": "diciembre", "en": "December"},
     # --- Processing ---
+    "processing.preparing": {
+        "es": "Separando en sílabas y preparando la lectura",
+        "en": "Splitting into syllables and preparing the reading",
+    },
+    "processing.note": {
+        "es": "Puede tardar un poco si el documento tiene muchas páginas. "
+        "Tu archivo no sale de este equipo.",
+        "en": "It can take a while if the document has many pages. "
+        "Your file never leaves this computer.",
+    },
+    "processing.percent": {"es": "{percent} %", "en": "{percent}%"},
     "processing.title": {
         "es": "Preparando tu documento",
         "en": "Getting your document ready",
@@ -129,6 +185,10 @@ CATALOG: dict[str, dict[str, str]] = {
         "es": "Solo cámbiala si te lo pide quien mantiene ClearRead.",
         "en": "Only change it if the person who maintains ClearRead asks you to.",
     },
+    # --- Error dialog ---
+    "dialog.window_title": {"es": "ClearRead", "en": "ClearRead"},
+    "dialog.what_you_can_do": {"es": "Qué puedes hacer", "en": "What you can do"},
+    "dialog.choose_other": {"es": "Elegir otro archivo", "en": "Choose another file"},
     # --- Ingestion errors (title / message / what you can do) ---
     "error.password.title": {
         "es": "No pudimos abrir este documento",
