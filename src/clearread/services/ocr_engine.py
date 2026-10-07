@@ -33,6 +33,8 @@ class OCRResult:
     page_number: int
     raw_text: str = ""
     processing_time_ms: float = 0.0
+    line_count: int = 0  # detections kept after filtering
+    mean_confidence: float = 0.0  # over the kept detections; 0.0 when there are none
 
 
 @dataclass(frozen=True)
@@ -134,9 +136,13 @@ class ClearReadOCR:
     def process_image(self, image: np.ndarray, page_number: int = 1) -> OCRResult:
         """Recognise an RGB (H, W, 3) or grayscale (H, W) image."""
         started = time.perf_counter()
-        paragraphs = build_paragraphs(self._filter(self._recognise(image)))
+        kept = self._filter(self._recognise(image))
+        paragraphs = build_paragraphs([box for box, _ in kept])
         elapsed_ms = (time.perf_counter() - started) * 1000.0
-        return OCRResult(page_number, "\n\n".join(paragraphs), elapsed_ms)
+        confidence = statistics.fmean(score for _, score in kept) if kept else 0.0
+        return OCRResult(
+            page_number, "\n\n".join(paragraphs), elapsed_ms, len(kept), confidence
+        )
 
     def _recognise(self, image: np.ndarray) -> list[tuple[TextBox, float]]:
         settings = self._settings
@@ -151,10 +157,12 @@ class ClearReadOCR:
             for points, text, score in result or []
         ]
 
-    def _filter(self, detections: list[tuple[TextBox, float]]) -> list[TextBox]:
+    def _filter(
+        self, detections: list[tuple[TextBox, float]]
+    ) -> list[tuple[TextBox, float]]:
         minimum = self._settings.min_confidence
         return [
-            box
+            (box, score)
             for box, score in detections
             if score >= minimum and _HAS_ALNUM.search(box.text)
         ]
