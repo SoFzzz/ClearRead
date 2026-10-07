@@ -133,3 +133,21 @@ def test_empty_text_gives_empty_document(
 
 def test_normalise_paragraphs() -> None:
     assert normalise_paragraphs(" a  b\nc \n \n d ") == ["a b c", "d"]
+
+
+def test_decomposed_accents_are_composed_before_positions(
+    formatter: TextFormatter,
+) -> None:
+    decomposed = "El niño leyó una canción.\n\nComió piña."
+    formatted = formatter.format_document(decomposed)
+    assert spoken(formatted) == [
+        "El",
+        "niño",
+        "leyó",
+        "una",
+        "canción",
+        "Comió",
+        "piña",
+    ]
+    assert_tokens_match_qt(formatted)
+    assert "́" not in plain_text_of(formatted)
