@@ -158,6 +158,35 @@ QFrame#ActionBox QLabel { border: none; }
 QLabel#ErrorMark { border: 3px solid $error; border-radius: 22px; color: $error;
                    font-size: 22px; font-weight: 700; }
 
+QPushButton[variant="ghost"] { border-color: transparent; }
+QLabel[role="error"] { color: $error; }
+QFrame#ThemeCard { border: 2px solid $border; border-radius: 12px; background: transparent; }
+QFrame#ThemeCard[selected="true"] { border: 3px solid $text; }
+QFrame#PreviewCard { background: $surface; border: 1px solid $border; border-radius: 12px; }
+QFrame#PreviewCard QLabel { border: none; }
+QFrame#AdvancedBox { background: transparent; border: 1px solid $border; border-radius: 8px; }
+QFrame#AdvancedBox QLabel { border: none; }
+QToolButton#AdvancedToggle { border: none; background: transparent; font-weight: 600; }
+QToolButton#AdvancedToggle:focus { border: 3px solid $focus_ring; border-radius: 6px; }
+QComboBox, QLineEdit { min-height: 40px; padding: 0 12px; border: 2px solid $border;
+                       border-radius: 8px; background: $bg; color: $text; }
+QComboBox:focus, QLineEdit:focus { border: 3px solid $focus_ring; padding: 0 11px; }
+QComboBox::drop-down { border: none; width: 32px; }
+QComboBox QAbstractItemView { background: $bg; color: $text; border: 2px solid $border;
+                              selection-background-color: $secondary_bg_hover;
+                              selection-color: $text; }
+QCheckBox { spacing: 10px; }
+QCheckBox::indicator { width: 22px; height: 22px; border: 2px solid $secondary;
+                       border-radius: 6px; background: transparent; }
+QCheckBox::indicator:checked { background: $primary_bg; }
+QCheckBox::indicator:focus { border: 3px solid $focus_ring; }
+QRadioButton { spacing: 8px; }
+QRadioButton::indicator { width: 18px; height: 18px; border: 2px solid $secondary;
+                          border-radius: 11px; background: transparent; }
+QRadioButton::indicator:checked { background: $primary_bg; }
+QRadioButton::indicator:focus { border: 3px solid $focus_ring; }
+QMessageBox { background: $bg; }
+
 QToolTip { background: $text; color: $bg; border: none; padding: 8px 12px; font-size: 13px; }
 """
 )
