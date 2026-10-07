@@ -150,8 +150,10 @@ class HomeView(QWidget):
         self.drop_zone = QFrame()
         self.drop_zone.setObjectName("DropZone")
         self.drop_zone.setFixedSize(CONTENT_WIDTH, 168)
-        upload = QLabel()
-        upload.setPixmap(load_icon("upload", self._tokens.text).pixmap(20, 20))
+        self.upload_icon = QLabel()
+        self.upload_icon.setPixmap(
+            load_icon("upload", self._tokens.text).pixmap(20, 20)
+        )
         title = QLabel(self._t("home.drop_title"))
         title.setProperty("role", "heading")
         hint = QLabel(self._t("home.formats_hint"))
@@ -170,7 +172,7 @@ class HomeView(QWidget):
         zone_row = QHBoxLayout(self.drop_zone)
         zone_row.setSpacing(20)
         zone_row.addStretch(1)
-        zone_row.addWidget(upload)
+        zone_row.addWidget(self.upload_icon)
         zone_row.addLayout(texts)
         zone_row.addWidget(self.choose_button)
         zone_row.addStretch(1)
@@ -202,6 +204,13 @@ class HomeView(QWidget):
         outer.addLayout(column)
         outer.addStretch(1)
         self.set_recents([], local_today())
+
+    def apply_theme(self, tokens: ThemeTokens) -> None:
+        """Recolour the icons, which are rendered with the theme colours."""
+        self._tokens = tokens
+        self.upload_icon.setPixmap(load_icon("upload", tokens.text).pixmap(20, 20))
+        self.choose_button.setIcon(load_icon("folder", tokens.primary_fg))
+        self.set_recents(self.recent_items, local_today())
 
     def set_recents(self, entries: list[RecentDocument], today: date) -> None:
         while self._recent_layout.count():
