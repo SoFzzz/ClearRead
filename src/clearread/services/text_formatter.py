@@ -14,10 +14,26 @@ _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # A number such as 3,5 or 12.345,67 is one token; otherwise a word with optional
 # inner apostrophes/hyphens. Anything else (punctuation, symbols) is not spoken.
 _TOKEN = re.compile(r"\d+(?:[.,]\d+)+|\w+(?:['’-]\w+)*")
-# No line-height here: Qt applies block properties of a <div> to its first paragraph only,
-# and its proportional line-height is relative to the font's own line pitch, not to the
-# font size. ReaderWidget sets the line spacing on every block instead.
-_DIV_STYLE = "font-family: 'OpenDyslexic'; font-size: 16pt; letter-spacing: 1.5px; word-spacing: 4px;"
+# No line-height in the div style: Qt applies block properties of a <div> to its first
+# paragraph only, and its proportional line-height is relative to the font's own line
+# pitch, not to the font size. ReaderWidget sets the line spacing on every block instead.
+
+
+@dataclass(frozen=True)
+class ReadingStyle:
+    """Typography baked into the html; the values come from AppConfig (§4.6)."""
+
+    font_family: str = "OpenDyslexic"
+    font_size_pt: int = 16
+    letter_spacing_px: float = 1.5
+    word_spacing_px: int = 4
+
+    def css(self) -> str:
+        return (
+            f"font-family: '{self.font_family}'; font-size: {self.font_size_pt}pt; "
+            f"letter-spacing: {self.letter_spacing_px:g}px; "
+            f"word-spacing: {self.word_spacing_px}px;"
+        )
 
 
 @dataclass(frozen=True)
@@ -65,10 +81,14 @@ class TextFormatter:
     """
 
     def __init__(
-        self, syllabifier: SpanishSyllabifier, palette: SyllablePalette
+        self,
+        syllabifier: SpanishSyllabifier,
+        palette: SyllablePalette,
+        style: ReadingStyle | None = None,
     ) -> None:
         self._syllabifier = syllabifier
         self._palette = palette
+        self._style = style or ReadingStyle()
 
     def format_document(
         self, raw_text: str, enable_syllables: bool = True
@@ -85,7 +105,7 @@ class TextFormatter:
             paragraph_start += len(paragraph) + 1  # block separator
         body = "".join(html_paragraphs)
         return FormattedDocument(
-            html_content=f'<div style="{_DIV_STYLE}">{body}</div>',
+            html_content=f'<div style="{self._style.css()}">{body}</div>',
             token_map=token_map,
             tts_script=" ".join(token.spoken_text for token in token_map),
         )
