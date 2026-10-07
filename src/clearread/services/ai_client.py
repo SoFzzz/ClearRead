@@ -47,6 +47,14 @@ class AIResponse:
 class AIClient(ABC):
     """Abstract interface so the UI never depends on a concrete transport."""
 
+    @property
+    def session_calls_used(self) -> int:
+        return 0
+
+    @property
+    def session_calls_limit(self) -> int:
+        return 0
+
     @abstractmethod
     def ensure_awake(self, on_waking: Callable[[], None]) -> None: ...
 
@@ -159,6 +167,14 @@ class BackendAIClient(AIClient):
         self._sleep = sleep
         self._monotonic = monotonic
         self._calls_this_session = 0
+
+    @property
+    def session_calls_used(self) -> int:
+        return self._calls_this_session
+
+    @property
+    def session_calls_limit(self) -> int:
+        return self.MAX_CALLS_PER_SESSION
 
     def ensure_awake(self, on_waking: Callable[[], None]) -> None:
         if self._health_ok():
