@@ -35,3 +35,11 @@ clearread = "clearread.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/clearread"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # silabeador 1.x calls importlib.resources.read_text/open_text (deprecated since
+    # Python 3.11) on every syllabification: ~2800 identical warnings, none from our code.
+    "ignore:read_text is deprecated:DeprecationWarning",
+    "ignore:open_text is deprecated:DeprecationWarning",
+]
