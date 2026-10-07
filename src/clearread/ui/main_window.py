@@ -18,12 +18,14 @@ from PySide6.QtWidgets import (
 )
 
 from clearread.core.config import AppConfig
+from clearread.services.ai_client import AIClient
 from clearread.services.document_library import (
     CachedDocument,
     DocumentLibrary,
     compute_cache_key,
 )
 from clearread.services.ingestor import DocumentIngestor
+from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import OCREngine
 from clearread.services.preprocessor import OCRPreprocessor
 from clearread.services.syllabifier import SpanishSyllabifier
@@ -33,6 +35,7 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import TTSController
+from clearread.ui.ai_assistant import AIAssistant
 from clearread.ui.dialogs import AccessibleErrorDialog
 from clearread.ui.fonts import READING_FONT_FAMILY
 from clearread.ui.icons import load_icon
@@ -73,6 +76,8 @@ class MainWindow(QMainWindow):
         tts: TTSController,
         library: DocumentLibrary,
         config_dir: Path | None = None,
+        ai_client: AIClient | None = None,
+        network: NetworkMonitor | None = None,
     ) -> None:
         super().__init__()
         self._config = config
@@ -91,8 +96,11 @@ class MainWindow(QMainWindow):
         self._raw_text: str | None = None  # text of the document in the reading view
         self._reading_title = ""
         self._settings_origin = Screen.HOME
+        self._online = network.is_online if network else True
+        self.assistant: AIAssistant | None = None
         self.error_dialog: AccessibleErrorDialog | None = None
         self._build_ui()
+        self._build_assistant(ai_client, network)
         self.setStyleSheet(build_stylesheet(self.tokens))
         self._apply_speech_settings()
         self._refresh_reading()
@@ -154,9 +162,51 @@ class MainWindow(QMainWindow):
         for sequence, slot in (
             ("Alt+Left", self.go_back),
             ("Ctrl+,", self.open_settings),
+            ("Ctrl+I", self.toggle_assistant),
         ):
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.activated.connect(slot)
+
+    def _build_assistant(
+        self, client: AIClient | None, network: NetworkMonitor | None
+    ) -> None:
+        if client is None:
+            return
+        self.assistant = AIAssistant(
+            client, self.reading_view, self._config.ai_privacy_accepted, parent=self
+        )
+        self.assistant.privacy_accepted.connect(self._on_privacy_accepted)
+        self.assistant_button.clicked.connect(self.toggle_assistant)
+        self.reading_view.assistant_open_changed.connect(
+            self.assistant_button.setChecked
+        )
+        if network is not None:
+            network.online_changed.connect(self._on_online_changed)
+        self.assistant.set_online(self._online)
+        self._refresh_assistant_button()
+
+    def toggle_assistant(self) -> None:
+        if self.assistant is not None and self.screen_shown is Screen.READING:
+            self.assistant.toggle_panel()
+
+    def _on_online_changed(self, online: bool) -> None:
+        self._online = online
+        if self.assistant is not None:
+            self.assistant.set_online(online)
+        self._refresh_assistant_button()
+
+    def _refresh_assistant_button(self) -> None:
+        available = self.assistant is not None and self.screen_shown is Screen.READING
+        self.assistant_button.setVisible(available)
+        self.assistant_button.setEnabled(self._online)
+        self.offline_badge.setVisible(available and not self._online)
+        tooltip_key = "ai.toggle_tooltip" if self._online else "ai.offline_tooltip"
+        self.assistant_button.setToolTip(self._t(tooltip_key))
+        self.assistant_button.setIcon(load_icon("assistant", self.tokens.secondary))
+
+    def _on_privacy_accepted(self) -> None:
+        self._config.ai_privacy_accepted = True
+        self._save_config()
 
     def _build_top_bar(self) -> QFrame:
         bar = QFrame()
@@ -167,6 +217,13 @@ class MainWindow(QMainWindow):
         self.settings_button.setProperty("variant", "ghost")
         self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
         self.settings_button.setToolTip(f"{self._t('nav.settings')} (Ctrl+,)")
+        self.assistant_button = QPushButton(self._t("nav.assistant"))
+        self.assistant_button.setObjectName("AssistantToggle")
+        self.assistant_button.setCheckable(True)
+        self.assistant_button.hide()
+        self.offline_badge = QLabel(self._t("ai.offline_badge"))
+        self.offline_badge.setObjectName("OfflineBadge")
+        self.offline_badge.hide()
         self.brand_label = QLabel("ClearRead")
         self.brand_label.setObjectName("Brand")
         self.title_label = QLabel()
@@ -176,6 +233,8 @@ class MainWindow(QMainWindow):
         row.addWidget(self.back_button)
         row.addWidget(self.brand_label)
         row.addWidget(self.title_label, stretch=1)
+        row.addWidget(self.offline_badge)
+        row.addWidget(self.assistant_button)
         row.addWidget(self.settings_button)
         return bar
 
@@ -187,6 +246,8 @@ class MainWindow(QMainWindow):
         self.title_label.setVisible(has_title)
         self.settings_button.setVisible(screen is not Screen.SETTINGS)
         self.settings_button.setEnabled(screen is not Screen.PROCESSING)
+        if self.assistant is not None:
+            self._refresh_assistant_button()
         if has_title:
             self._show_title(screen)
         if screen is Screen.HOME:
@@ -363,12 +424,16 @@ class MainWindow(QMainWindow):
         self.reading_view.set_speed(self._config.reading_speed_wpm)
 
     def _on_settings_changed(self, new: AppConfig) -> None:
-        old, self._config = self._config, new
+        old = self._config
+        # The settings screen keeps its own copy, which never learns about the notice.
+        new = replace(new, ai_privacy_accepted=old.ai_privacy_accepted)
+        self._config = new
         if new.theme != old.theme:
             self._theme = ThemeId(new.theme)
             self.setStyleSheet(build_stylesheet(self.tokens))
             self.home_view.apply_theme(self.tokens)
             self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
+            self._refresh_assistant_button()
         if (
             self._appearance_key(old) != self._appearance_key()
             or old.line_spacing != new.line_spacing
@@ -411,6 +476,7 @@ class MainWindow(QMainWindow):
             self.show_screen(self._settings_origin)
         elif self.screen_shown is Screen.READING:
             self.reading_view.stop_reading()
+            self.reading_view.set_assistant_open(False)
             self.show_screen(Screen.HOME)
 
     def _show_error(self, kind: ProcessingErrorKind) -> None:
