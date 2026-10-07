@@ -37,6 +37,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 from samples.make_samples import EXPECTED_TEXT, SAMPLES_DIR
 
 from clearread.services.ingestor import DocumentIngestor
@@ -339,6 +340,122 @@ def run_sweep(source: CaseSource, settings: PreprocessSettings | None) -> None:
         )
 
 
+OUTPUT_DIR = PRIVATE_DIR / "ocr_output"
+EXIF_ORIENTATION_TAG = 0x0112
+EXIF_ROTATION_DEGREES = {3: 180, 6: 90, 8: 270}
+NOREF_STAGE_CONFIGS: dict[str, PreprocessSettings | None] = {
+    "original": None,
+    "preprocessed": PreprocessSettings(),
+    "all_stages": PreprocessSettings(True, True, True, True),
+    **{
+        f"only_{stage}": replace(
+            PreprocessSettings(False, False, False, False), **{stage: True}
+        )
+        for stage in STAGES
+    },
+}
+SAVED_CONFIGS = {"original": "", "preprocessed": ".preprocessed"}
+
+
+@dataclass(frozen=True)
+class NoRefMeasurement:
+    lines: int
+    chars: int
+    confidence: float
+    specials: int
+    pre_ms: float
+    ocr_ms: float
+
+
+def exif_rotation_degrees(path: Path) -> int:
+    with Image.open(path) as image:
+        orientation = image.getexif().get(EXIF_ORIENTATION_TAG, 1)
+    return EXIF_ROTATION_DEGREES.get(orientation, 0)
+
+
+def noref_image_paths() -> list[Path]:
+    if not PRIVATE_DIR.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(PRIVATE_DIR.iterdir())
+        if path.suffix.lower() in DocumentIngestor.SUPPORTED_IMAGE_EXT
+        and reference_for_photo(path) is None
+    ]
+
+
+def measure_noref(
+    engine: ClearReadOCR, case: Case, settings: PreprocessSettings | None
+) -> tuple[NoRefMeasurement, str]:
+    prepared, stage_ms = run_stages(settings, case)
+    result = engine.process_image(prepared)
+    specials = sum(ch in SPECIAL_CHARS for ch in result.raw_text)
+    return (
+        NoRefMeasurement(
+            lines=result.line_count,
+            chars=len(normalise(result.raw_text)),
+            confidence=result.mean_confidence,
+            specials=specials,
+            pre_ms=sum(stage_ms.values()),
+            ocr_ms=result.processing_time_ms,
+        ),
+        result.raw_text,
+    )
+
+
+def save_recognised_text(name: str, config: str, text: str) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = SAVED_CONFIGS[config]
+    (OUTPUT_DIR / f"{name}{suffix}.txt").write_text(text, encoding="utf-8")
+
+
+def run_images_noref(engine: ClearReadOCR) -> int:
+    """Per image: load check, EXIF rotation, size and OCR metrics. Never prints text."""
+    ingestor = DocumentIngestor()
+    confidences: dict[str, list[float]] = {name: [] for name in NOREF_STAGE_CONFIGS}
+    originals: list[float] = []
+    for path in noref_image_paths():
+        try:
+            rotation = exif_rotation_degrees(path)
+            image = next(iter(ingestor.load(path))).image
+        except (OSError, ValueError) as error:  # name the error type, never its message
+            print(f"{path.name:24} carga: ERROR ({type(error).__name__})", flush=True)
+            continue
+        height, width = image.shape[:2]
+        print(
+            f"{path.name:24} carga: ok  {width}x{height}  rotación EXIF aplicada: {rotation}°",
+            flush=True,
+        )
+        case = Case(path.name, image, "", True)
+        for config, settings in NOREF_STAGE_CONFIGS.items():
+            m, text = measure_noref(engine, case, settings)
+            confidences[config].append(m.confidence)
+            if config == "original":
+                originals.append(m.confidence)
+            if config in SAVED_CONFIGS:
+                save_recognised_text(path.name, config, text)
+            print(
+                f"    {config:26} líneas {m.lines:3}  caracteres {m.chars:5}  "
+                f"confianza {m.confidence:5.3f}  especiales {m.specials:3}  "
+                f"pre {m.pre_ms:5.0f} ms  ocr {m.ocr_ms:6.0f} ms",
+                flush=True,
+            )
+    if not originals:
+        return 0
+    print(f"\n== Confianza media sobre {len(originals)} imágenes ==")
+    for config, values in confidences.items():
+        deltas = [v - o for v, o in zip(values, originals, strict=True)]
+        better = sum(delta > 0.01 for delta in deltas)
+        worse = sum(delta < -0.01 for delta in deltas)
+        print(
+            f"{config:26} media {statistics.fmean(values):5.3f}  "
+            f"diferencia vs original {statistics.fmean(deltas):+6.3f}  "
+            f"mejora (>0.01) en {better}, empeora en {worse}"
+        )
+    print(f"\nTexto reconocido guardado en {OUTPUT_DIR} (no se imprime).")
+    return len(originals)
+
+
 def build_source(args: argparse.Namespace) -> tuple[CaseSource, str]:
     if args.synthetic:
         return synthetic_cases, "sintéticas"
@@ -347,12 +464,27 @@ def build_source(args: argparse.Namespace) -> tuple[CaseSource, str]:
     return photo_cases, "fotos"
 
 
+def main_images_noref() -> int:
+    paths = noref_image_paths()
+    if not paths:
+        print(f"Sin imágenes sin referencia en {PRIVATE_DIR}.")
+        return 0
+    engine = ClearReadOCR()
+    engine.process_image(next(iter(DocumentIngestor().load(paths[0]))).image)  # warm-up
+    print(f"Modo: imágenes sin referencia ({len(paths)}). 1 pasada tras calentar.\n")
+    run_images_noref(engine)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--pdf-render", action="store_true", help="render PDF pages")
     modes.add_argument("--photos", action="store_true", help="phone photos (default)")
     modes.add_argument("--synthetic", action="store_true", help="degraded sample pages")
+    modes.add_argument(
+        "--images-noref", action="store_true", help="images without reference text"
+    )
     parser.add_argument(
         "--ablation", action="store_true", help="each stage alone / removed"
     )
@@ -361,6 +493,8 @@ def main() -> int:
     parser.add_argument("--limit-pages", type=int, default=None, help="pages per PDF")
     args = parser.parse_args()
 
+    if args.images_noref:
+        return main_images_noref()
     source, label = build_source(args)
     first = next(source(), None)
     if first is None:
