@@ -231,8 +231,10 @@ class AIPanel(QFrame):
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         self.answer_footer = _label(role="muted")
+        self.saved_label = _label(role="muted")
         card_layout.addWidget(self.answer_title)
         card_layout.addWidget(self.answer_body)
+        card_layout.addWidget(self.saved_label)
         card_layout.addWidget(self.answer_footer)
         self.listen_button = QPushButton()
         self.listen_button.clicked.connect(self.listen_clicked)
@@ -301,6 +303,7 @@ class AIPanel(QFrame):
         self.accept_button.setText(self._t("common.understood"))
         self.cancel_button.setText(self._t("common.cancel"))
         self.answer_footer.setText(self._t("ai.answer_footer"))
+        self.saved_label.setText(self._t("ai.saved_to_words"))
         self.retry_button.setText(self._t("common.retry"))
         self.offline_title.setText(self._t("ai.offline_title"))
         self.offline_body.setText(self._t("ai.offline_tooltip"))
@@ -391,7 +394,8 @@ class AIPanel(QFrame):
         self.status_detail.setText(self._t("ai.waking.detail"))
         self._set_state(PanelState.WAKING)
 
-    def show_answer(self, text: str, mode: AIMode) -> None:
+    def show_answer(self, text: str, mode: AIMode, saved: bool = False) -> None:
+        self.saved_label.setVisible(saved)
         key = (
             "ai.answer_title_word"
             if mode is AIMode.EXPLAIN

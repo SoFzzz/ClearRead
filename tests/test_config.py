@@ -19,8 +19,9 @@ CHANGED = {
     "theme": "dark",
     "font_size_pt": 22,
     "line_spacing": 2.2,
-    "letter_spacing": 2.5,
-    "word_spacing": 8,
+    "reading_font": "Atkinson Hyperlegible",
+    "letter_spacing_em": 0.25,
+    "word_spacing_em": 0.4,
     "syllables_enabled": False,
     "reading_speed_wpm": 210,
     "voice_id": "HKEY_VOICE_7",
@@ -77,10 +78,10 @@ def test_unknown_fields_are_ignored_and_known_ones_kept(tmp_path: Path) -> None:
         ("font_size_pt", 99, 28),
         ("line_spacing", 0.2, 1.4),
         ("line_spacing", 9, 2.6),
-        ("letter_spacing", -3, 0.0),
-        ("letter_spacing", 50, 4.0),
-        ("word_spacing", -1, 0),
-        ("word_spacing", 40, 12),
+        ("letter_spacing_em", -3, 0.0),
+        ("letter_spacing_em", 50, 0.4),
+        ("word_spacing_em", -1, 0.0),
+        ("word_spacing_em", 40, 0.6),
         ("reading_speed_wpm", 10, 80),
         ("reading_speed_wpm", 900, 320),
         ("reading_speed_wpm", 80, 80),
@@ -98,6 +99,8 @@ def test_numbers_out_of_range_are_clamped(
     ("field", "value"),
     [
         ("theme", "neon"),
+        ("theme", "high_contrast"),
+        ("reading_font", "Comic Sans"),
         ("theme", 3),
         ("font_size_pt", "big"),
         ("font_size_pt", True),
@@ -208,3 +211,21 @@ def test_client_token_is_empty_when_unavailable(
         "clearread.core.config.get_resource_path", lambda relative: token_file
     )
     assert load_client_token() == ""
+
+
+def test_defaults_follow_the_moderate_typography_decision() -> None:
+    config = AppConfig()
+    assert (config.reading_font, config.font_size_pt, config.line_spacing) == (
+        "Lexend",
+        18,
+        1.5,
+    )
+    assert (config.letter_spacing_em, config.word_spacing_em) == (0.12, 0.16)
+
+
+def test_an_old_high_contrast_config_opens_in_the_light_theme(tmp_path: Path) -> None:
+    (tmp_path / "config.json").write_text(
+        json.dumps({"theme": "high_contrast", "font_size_pt": 20}), encoding="utf-8"
+    )
+    loaded = AppConfig.load(tmp_path)
+    assert (loaded.theme, loaded.font_size_pt) == ("light", 20)

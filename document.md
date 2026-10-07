@@ -3,8 +3,9 @@
 > **Versión:** 1.5.0 (Núcleo Offline + Asistente IA vía Backend Propio Desplegado — Entrega Académica / Portafolio)  
 > **Fecha de Actualización:** 2026-10-01  
 > **Estado:** Aprobado para Implementación con Spikes Técnicos  
-> **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~13 días calendario (2026-10-02 → 2026-10-14) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
+> **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~14 días calendario (2026-10-02 → 2026-10-15) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
 > **Cambios v1.5.0:** la materia exige el proyecto **desplegado**, por lo que el asistente de IA pasa a llamar a un backend propio (§4.11) en lugar de a DeepSeek directamente; la API key sale de la app.  
+> **Rediseño del Día 12 (2026-10-07), pedido por la usuaria:** solo dos colores de marca (morado `#392F5A` y amarillo `#F4D06F`) y sus tonos; solo temas Claro y Oscuro (se elimina Alto Contraste); tipografía Lexend por defecto con espaciado moderado; Inicio como panel; ejemplo incluido; posición de lectura, modo foco y "Mis palabras". Requisitos nuevos: HOME-F02, HOME-F03, READ-F01, READ-F02, AI-F05, UI-F04 y UI-F05 (§5.1, §4.12). Detalle visual en `docs/design-system/README.md` v2.0.  
 > **Idioma UI:** Español | **Idioma de Código y Nombres Técnicos:** Inglés  
 
 ---
@@ -31,7 +32,7 @@ Sobre el núcleo offline se ofrece un **asistente de IA generativa opcional con 
 1. **OCR con Inteligencia Artificial de Visión:** Núcleo de Deep Learning no negociable para extraer texto legible desde imágenes y PDFs sin intervención de servicios de nube.
 2. **Segmentación Silábica Fonética Determinista:** Coloración alternada de sílabas conforme a la normativa ortográfica de la Real Academia Española (RAE).
 3. **Lectura Aumentada Bimodal Sincronizada:** Síntesis de voz local vinculada a una regleta visual y resaltado por palabra con tolerancia perceptible mínima, incorporando soporte de pausa y reanudación en la oración activa.
-4. **Entorno Visual de Bajo Estrés:** Paletas cromáticas suaves de contraste validado y tipografía OpenDyslexic.
+4. **Entorno Visual de Bajo Estrés:** Solo dos colores de marca (morado y amarillo) y sus tonos, en temas Claro y Oscuro de contraste validado (≥ 7:1), y tipografía Lexend por defecto (Atkinson Hyperlegible y OpenDyslexic como opciones).
 5. **Asistente de IA Opcional vía Backend Propio:** Explicar una palabra en contexto y simplificar un párrafo, a través de nuestro backend desplegado; la app nunca contiene la API key de DeepSeek.
 
 ---
@@ -55,7 +56,7 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Visión Artificial** | opencv-python + Pillow | (versión que exige rapidocr-onnxruntime) / ≥ 10.0 | Apache 2.0 / HPND | Se usa `opencv-python`, **no** `-headless`: `rapidocr-onnxruntime` exige `opencv-python` y, si se instalan los dos, ambos escriben en la misma carpeta `cv2` y se pisan (comprobado en el Día 1). `opencv-python` no se declara aparte: llega como dependencia de RapidOCR. En el `.exe` se excluye `opencv_videoio_ffmpeg` (~30 MB, sin uso). Calibración empírica con set curado de 10 imágenes reales de smartphones/fotocopias. |
 | **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | **== 2.98** | MPL 2.0 / PSF | **Versión fijada:** en el spike del Día 1, pyttsx3 2.99 solo habla en el primer `runAndWait()` de cada motor (la 2.ª frase vuelve en 0.10 s con 1 evento); con 2.98 la 2.ª frase habla completa (9.05 s, 38 eventos). **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
 | **Segmentación Fonética** | silabeador | ≥ 1.1.0 | MIT | Algoritmo determinista RAE. Plan B: módulo interno de reglas regex fonológicas. |
-| **Tipografía Accesible** | OpenDyslexic | Open Font | SIL OFL | Empaquetada localmente en recursos del proyecto. |
+| **Tipografía Accesible** | Lexend (por defecto), Atkinson Hyperlegible y OpenDyslexic | Regular (las tres; OpenDyslexic `compiled/opendyslexic.otf`) | SIL OFL 1.1 | Empaquetadas localmente en `resources/fonts` con su licencia y origen (`resources/fonts/README.md`); se elige una en Ajustes. Lexend y Atkinson se descargaron el 2026-10-07 de sus repositorios oficiales (tarea de desarrollo, nunca en tiempo de ejecución). La elección y su evidencia (y lo que **no** está demostrado) están en `docs/design-system/README.md` §1.4. |
 | **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
 | **Backend API** *(solo `backend/`)* | FastAPI (incluye pydantic, MIT) | ≥ 0.115.0 | MIT | Proyecto aparte con su propio `pyproject.toml`; nunca entra en el `.exe`. Genera `/docs` (OpenAPI) automáticamente. |
 | **Servidor ASGI** *(solo `backend/`)* | uvicorn | ≥ 0.30.0 | BSD-3 | Arranque en Render con `uvicorn ... --host 0.0.0.0 --port $PORT`. |
@@ -161,7 +162,7 @@ sequenceDiagram
     FMT-->>W: formatted_doc
     W->>RV: document_ready(formatted_doc)
     deactivate W
-    RV->>U: Despliega texto en OpenDyslexic con sílabas coloreadas
+    RV->>U: Despliega texto en la fuente de lectura elegida (Lexend por defecto) con sílabas coloreadas
 ```
 
 ---
@@ -563,7 +564,7 @@ class ClearReadOCR:
 **Solución al Problema Crítico #1:** Se erradica la dependencia de índices de caracteres brutos entre SAPI5 y `QTextEdit`. Se establece una **tabla de correspondencia de tokens (*Token Map*)** generada durante el formateo. Cada token sabe exactamente cuál es su orden ordinal, su forma fonética normalizada para el motor TTS y sus coordenadas exactas de cursor `(start_char, end_char)` dentro del documento de Qt.
 
 > [!NOTE]
-> **Colores de sílabas (NFR-A11Y01):** la paleta de cada tema (Claro, Oscuro y Alto Contraste), con sus ratios medidos, está definida en el design system: [`docs/design-system/README.md`](docs/design-system/README.md) (§1.2 tokens, §10.4 `SyllablePalette`). Los colores `#1565C0` y `#D84315` del código de referencia no cumplían 7.0:1 y quedan sustituidos por esos tokens.
+> **Colores de sílabas (NFR-A11Y01):** la paleta de cada tema (Claro y Oscuro; el Alto Contraste se eliminó el 2026-10-07), con sus ratios medidos, está definida en el design system: [`docs/design-system/README.md`](docs/design-system/README.md) (§1.2 tokens, §10.1 `syllable_palette`). Desde el Día 12, `SyllablePalette` lleva además `background_odd`: en el Claro las sílabas impares tienen fondo amarillo muy suave (`#FBF0CC`) y todas el mismo morado; en el Oscuro alternan amarillo y lavanda sin fondo. Los colores `#1565C0` y `#D84315` del código de referencia no cumplían 7.0:1 y quedan sustituidos por esos tokens.
 
 `TextFormatter` **no fija colores propios**: recibe la paleta de sílabas del tema activo por inyección de dependencia (ver `SyllablePalette` abajo), definida y validada en el design system. Al cambiar de tema, la app regenera el `html_content` con la nueva paleta; el `TokenPositionMap` **no se recalcula**, porque el color no altera las posiciones `(doc_start_pos, doc_end_pos)` de cada `WordToken`.
 
@@ -689,8 +690,8 @@ class TextFormatter:
             current_doc_pos += 1
 
         full_html = (
-            f'<div style="font-family: \'OpenDyslexic\'; font-size: 16pt; '
-            f'line-height: 1.8; letter-spacing: 1.5px; word-spacing: 4px;">'
+            f'<div style="font-family: \'Lexend\'; font-size: 18pt; '
+            f'letter-spacing: 2.88px; word-spacing: 3.84px;">'  # 0.12 em y 0.16 em de 24 px
             f'{"".join(html_paragraphs)}</div>'
         )
         tts_script = " ".join(spoken_words)
@@ -896,23 +897,24 @@ from pathlib import Path
 from clearread.core.paths import get_user_data_dir
 
 # The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
-# Placeholder until the real Render URL exists (Day 10, §6.5).
+# Real Render URL (backend deployed on Day 10).
 DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 
 
 @dataclass
 class AppConfig:
-    theme: str = "light"  # ThemeId value: "light" | "dark" | "high_contrast"
-    font_size_pt: int = 16
-    line_spacing: float = 1.8
-    letter_spacing: float = 1.5  # px
-    word_spacing: int = 4  # px
+    theme: str = "light"  # ThemeId value: "light" | "dark" (Alto Contraste eliminado)
+    reading_font: str = "Lexend"  # "Lexend" | "Atkinson Hyperlegible" | "OpenDyslexic"
+    font_size_pt: int = 18
+    line_spacing: float = 1.5
+    letter_spacing_em: float = 0.12  # fracción del tamaño de letra
+    word_spacing_em: float = 0.16  # fracción del tamaño de letra
     syllables_enabled: bool = True
     reading_speed_wpm: int = 150
     voice_id: str = ""  # SAPI5 voice id; empty means the system default voice
     voice_volume: float = 1.0  # fixed: no UI control, the Windows volume applies
     ai_privacy_accepted: bool = False  # privacy notice before the first AI call (NFR-SEC01)
-    backend_url: str = DEFAULT_BACKEND_URL  # editable in "Ajustes avanzados" (CFG-F02)
+    backend_url: str = DEFAULT_BACKEND_URL  # oculto en la interfaz desde el Día 12; solo en config.json
     ui_language: str = "es"  # "es" | "en": interface language only, applied on restart (I18N-F01)
 
     @classmethod
@@ -1196,6 +1198,9 @@ class ReadingView(QWidget):
 
 ### 4.9 Módulo de Vista Principal y Manejo de Errores Accesibles (`ui/views/home_view.py` y `ui/dialogs.py`)
 **Propósito:** Ingestión intuitiva mediante *drag-and-drop* y diálogo de archivos, barra de progreso con etapas comprensibles y diálogos de error de **baja carga cognitiva**: sin cuadros de diálogo estándar de Windows con texto técnico incomprensible ni stack traces, sino mensajes en español con tipografía clara y recomendaciones de acción inmediata.
+
+> [!NOTE]
+> **Rediseño del Día 12:** el código de referencia de abajo es el de la v1. La pantalla de Inicio es ahora un **panel** (tarjeta "Continuar leyendo", zona de arrastre compacta, "Probar con un ejemplo", tarjetas de estadísticas y recientes como tarjetas; HOME-F02, HOME-F03). Los nombres largos se recortan con "…" (*tooltip* con el nombre completo), no hay barra horizontal y el diseño es responsive desde 1024 px. Los colores y bordes de los fragmentos de abajo quedan sustituidos por los tokens de `docs/design-system/README.md` (§1.2 y §3.1).
 
 ```python
 """Home view with drag-and-drop ingestion, progress feedback, and accessible dialogs."""
@@ -1811,6 +1816,23 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 - **Automáticas** (`backend/tests/`, pytest + `TestClient` de FastAPI, **DeepSeek simulado**, sin red ni key real): 200 en `/health`; respuesta correcta de `/v1/explain` y `/v1/simplify`; 401 sin token; 413 con 41/301/1501 caracteres; 422 con cuerpo inválido, con `lang` ausente y con `lang` fuera de `es`/`en`; el system prompt enviado a DeepSeek cambia según `lang`; 429 al superar `DAILY_CALL_LIMIT` (configurado a un valor bajo en el test) y reinicio al cambiar de día; acierto de caché sin consumir tope; traducción 401/402/timeout/JSON roto de DeepSeek a los códigos propios; ningún texto de entrada aparece en los logs capturados (`caplog`).
 - **Manual real** contra el despliegue (skill `deploy-backend`): `/health`, `/docs`, una petición real a `/v1/explain` que responde en español, 429 con un tope temporal de 1, y medición del arranque en frío (BE-NF01).
 
+### 4.12 Rediseño del Día 12: servicios y vistas nuevas
+**Propósito:** recoger en un solo sitio lo que el rediseño añadió al código (la parte visual está en `docs/design-system/README.md` v2.0). Todo es **local y offline**: ningún módulo nuevo toca la red.
+
+| Pieza | Módulo | Qué hace |
+|:---|:---|:---|
+| Tema de dos colores | `ui/theme.py` | `ThemeId` solo tiene `LIGHT` y `DARK`; los tokens son tonos del morado `#392F5A` y del amarillo `#F4D06F` (UI-F05). |
+| Foco de teclado | `ui/focus_ring.py` | `KeyboardFocusRing` es un filtro de eventos de la aplicación: marca la propiedad `keyFocus` solo si el foco llega por `Tab` o `Backtab`; el QSS dibuja el anillo con `[keyFocus="true"]`, nunca con `:focus`. |
+| Tipografía | `ui/fonts.py`, `services/text_formatter.py` | Registra Lexend, Atkinson Hyperlegible y OpenDyslexic; `ReadingStyle` guarda el espaciado en em y lo convierte a píxeles (UI-F04). `FORMATTER_VERSION = "2"` invalida las cachés viejas. `SyllablePalette` añade `background_odd`. |
+| Posición de lectura | `services/document_library.py`, `ReadingView` | `RecentDocument` gana `position` y `total_words` (los índices antiguos siguen cargando con 0). `ReadingView.resume_index` guarda la última palabra leída; `MainWindow` la persiste al pausar, al volver a Inicio y al cerrar (READ-F01). |
+| Modo foco | `ui/views/reading_view.py` | `ReaderWidget.set_focus_mode` añade dos `ExtraSelection` de color atenuado antes y después de la línea visual activa, calculada con `QTextLayout` (READ-F02). Atajo `F`. |
+| Estadísticas | `services/reading_stats.py` | `StatsStore` suma palabras dichas por la voz y segundos con la lectura en marcha; `stats.json` en `%APPDATA%\ClearRead`. Las respuestas del asistente no cuentan. |
+| Mis palabras | `services/glossary.py`, `ui/views/words_view.py` | `GlossaryStore` (`glossary.json`, hasta 500 entradas) guarda palabra, explicación, documento y fecha cuando el asistente explica una palabra (`AIAssistant.word_explained`); búsqueda sin tildes; "Escuchar" usa `ReadingView.speak_aside` (no mueve el documento). No añade llamadas a la IA (AI-F05). |
+| Inicio como panel | `ui/views/home_view.py` | `HomeView` con tarjeta "Continuar leyendo", zona de arrastre compacta, estadísticas y recientes en cuadrícula; `ElidedLabel` recorta con "…"; scroll solo vertical (HOME-F02). |
+| Ejemplo | `resources/samples/ejemplo_es.txt`, `MainWindow.open_sample` | Texto propio sobre la fotosíntesis; no pasa por el OCR; entra en recientes como "Ejemplo: la fotosíntesis" (HOME-F03). |
+
+Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contraste, "Ajustes avanzados" y la línea de atajos de la barra de lectura se eliminaron. Los tests nuevos están en `tests/test_redesign.py` (HOME-F02/F03, READ-F01/F02, AI-F05, UI-F04/F05) y `tests/test_theme.py` (contraste y paleta).
+
 ---
 
 ## 5. Matriz de Requisitos Verificables (RTM Actualizada)
@@ -1833,15 +1855,22 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | **TTS-F01** | TTS | Aislamiento de SAPI5 en hilo permanente STA con soporte de reanudación por `start_offset`. | Pausa y reanudación sin reiniciar desde el inicio ni lanzar excepciones COM. |
 | **UI-F01** | ReaderWidget | Resaltado superpuesto mediante `QTextEdit.ExtraSelection` a 60 FPS. | Ausencia total de parpadeos (*flicker*) durante la lectura a 200 WPM. *(Meta de FPS fuera de alcance de medición en esta entrega, ver §6.5.)* |
 | **UI-F02** | ReaderWidget | Clic en una palabra del `ReaderWidget` inicia la lectura desde el `WordToken` correspondiente (`start_offset`). | Al hacer clic en la palabra N, la síntesis de voz y el resaltado arrancan exactamente en N, no desde el inicio del documento. |
-| **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente, `F6` mueve el foco entre el lector y el panel de IA y `Ctrl++`/`Ctrl+−` agranda/achica la letra un paso (`docs/design-system/README.md` §7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. |
+| **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente, `F6` mueve el foco entre el lector y el panel de IA y `Ctrl++`/`Ctrl+−` agranda/achica la letra un paso, y `F` activa/desactiva el modo foco (READ-F02) (`docs/design-system/README.md` §7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. |
+| **UI-F04** | Tipografía y espaciado | Fuente de lectura por defecto **Lexend** (SIL OFL, empaquetada en `resources/fonts`), con Atkinson Hyperlegible y OpenDyslexic como opciones. Por defecto: 18 pt, interlineado 1,5, letra +0,12 em y palabra +0,16 em; el espaciado se guarda en em y se convierte a píxeles según el tamaño. Interfaz en Segoe UI. | `AppConfig()` da esos valores; las tres fuentes cargan y cubren `ñ á é í ó ú ü ¿ ¡`; cambiar la fuente o el espaciado actualiza el documento abierto sin perder la palabra. La evidencia que respalda cada valor, y lo que no está demostrado, está en `docs/design-system/README.md` §1.4. |
+| **UI-F05** | Tema y foco | Solo **dos colores de marca**: morado `#392F5A` y amarillo `#F4D06F`, más tonos más claros u oscuros derivados. Botones primarios, barras de progreso y deslizadores **amarillos en ambos temas** (texto morado, 8,16:1). Sin bordes de otro color. Anillo de foco **solo con foco de teclado** (Tab/Mayús+Tab), amarillo o morado. Palabra que suena: Claro = fondo morado y letra amarilla, Oscuro = fondo amarillo y letra morada. Error y éxito se distinguen con icono + texto. | `tests/test_theme.py` recalcula todos los ratios (texto ≥ 7:1, componentes ≥ 3:1) y falla ante cualquier hex fuera de la paleta; `tests/test_redesign.py` comprueba que el anillo aparece con `Tab`/`Backtab` y no con el ratón. |
+| **READ-F01** | ReadingView / DocumentLibrary | Recordar la posición de lectura por documento (índice de la última palabra leída, guardado junto a la caché de recientes). Al reabrir un documento dejado a medias se ofrece **"Seguir desde donde lo dejaste"** (o "Empezar de nuevo"). | Tras leer hasta la palabra N y volver a Inicio (o cerrar la app), `recents.json` guarda N; al reabrir aparece el aviso, "Seguir" deja el resaltado en N en pausa y "Empezar de nuevo" lo olvida. Un documento terminado no vuelve a ofrecerse. |
+| **READ-F02** | ReaderWidget | **Modo foco**: atenúa todas las líneas salvo la activa (botón alternable en la barra de lectura y atajo `F`), sin animaciones. Las líneas atenuadas conservan ≥ 7:1 de contraste. | Con el modo activo y una palabra en curso, dos `ExtraSelection` atenúan lo anterior y lo posterior a la línea visual activa y la palabra resaltada sigue siendo la última selección; sin palabra activa no se atenúa nada. |
 | **CFG-F01** | Config | Escritura atómica a disco para persistencia de configuraciones de usuario. | El archivo `config.json` no se corrompe ante terminaciones forzadas del proceso. |
-| **CFG-F02** | Settings View | Pantalla de Ajustes: 3 temas (Claro, Oscuro y Alto Contraste), tamaño de fuente, interlineado, espaciado, velocidad de lectura y voz TTS, más el selector "Idioma de la interfaz" / "Interface language" (`es` o `en`, valor en `AppConfig.ui_language`). **Sin campo de API key** (la key vive solo en el backend). La URL del backend es un valor por defecto en `AppConfig` (`DEFAULT_BACKEND_URL`), editable en "Ajustes avanzados". | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app, **salvo el idioma, que se aplica al reiniciar** y muestra un aviso en el idioma nuevo que lo explica; no existe ningún campo para introducir una API key. |
+| **CFG-F02** | Settings View | Pantalla de Ajustes: **2 temas (Claro y Oscuro; Alto Contraste eliminado)**, **fuente de lectura (Lexend, Atkinson Hyperlegible u OpenDyslexic)**, tamaño de fuente, interlineado, espaciado entre letras y entre palabras (en em), sílabas de colores, velocidad de lectura y voz TTS, más el selector "Idioma de la interfaz" / "Interface language" (`es` o `en`, valor en `AppConfig.ui_language`). **Sin campo de API key** (la key vive solo en el backend). La URL del backend (`DEFAULT_BACKEND_URL`) sigue en `AppConfig.backend_url` pero **no se muestra en la interfaz** (decisión de la usuaria, 2026-10-07). | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app, **salvo el idioma, que se aplica al reiniciar** y muestra un aviso en el idioma nuevo que lo explica; no existe ningún campo para introducir una API key ni una URL. Un `config.json` antiguo con `"high_contrast"` abre en Claro. |
 | **I18N-F01** | Interfaz (`ui/strings.py`) | Soporte de idioma de interfaz español (`es`, por defecto) e inglés (`en`). Solo cambia la interfaz (botones, etiquetas, diálogos, progreso, errores, aviso de privacidad); el contenido de los documentos se sigue tratando como español (OCR latino, silabeo RAE, voz española). Todos los textos visibles viven en un catálogo con claves en inglés y traducciones `es`/`en`; las respuestas del asistente de IA salen en el idioma de la interfaz (`lang`, §4.10). | Todos los textos visibles salen del catálogo; con `en`, ninguna pantalla muestra texto en español salvo el contenido del documento. `tests/test_strings.py` lo verifica: toda clave tiene `es` y `en` no vacíos con los mismos `{parámetros}`, y no hay caracteres `áéíóúñ¿¡` en `src/` fuera de `strings.py`. |
 | **HOME-F01** | HomeView | Lista de documentos recientes con caché local del `FormattedDocument` ya procesado. | Reabrir un documento reciente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. |
+| **HOME-F02** | HomeView | Inicio tipo **panel**: tarjeta "Continuar leyendo" (último documento, barra de progreso y botón), zona de arrastre compacta, tarjetas de estadísticas (palabras leídas, tiempo de lectura y documentos, **calculadas y guardadas solo en el equipo**), documentos recientes como tarjetas con su progreso, y un estado vacío amable la primera vez. Nombres largos recortados con "…" y *tooltip*; botones "Abrir" que nunca se cortan; sin barra horizontal. | A 1024, 1100 y 1400 px no hay barra horizontal ni elementos fuera de vista; un nombre largo termina en "…" y conserva el nombre completo en el *tooltip*. Con cero documentos se ve la bienvenida; con documentos, el panel. `tests/test_redesign.py`; capturas en `docs/design-system/mockups/real/v2/`. |
+| **HOME-F03** | HomeView / MainWindow | "Probar con un ejemplo": abre `resources/samples/ejemplo_es.txt`, un texto propio en español (≈ 165 palabras, sin datos personales ni copyright), sin pasar por el OCR; queda en recientes como "Ejemplo: la fotosíntesis". | Un clic abre la lectura con el texto del ejemplo y lo añade a recientes; el archivo no contiene correos ni direcciones. `tests/test_redesign.py`. |
 | **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra vía `POST /v1/explain` de nuestro backend (§4.11). | Respuesta en el idioma de la interfaz, ≤ 80 tokens (máx. 2 frases); solo disponible con conexión; la app no contiene API key. |
 | **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple vía `POST /v1/simplify` de nuestro backend. | Respuesta en el idioma de la interfaz, ≤ 250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario (≤ 1500 caracteres). |
 | **AI-F03** | AI Assistant | Degradación sin red (detectada sin tráfico mediante `QNetworkInformation`, Qt ≥ 6.1) y con el backend dormido (`GET /health` + espera de hasta 60 s). | Sin red, el botón de IA aparece deshabilitado (o, si `QNetworkInformation` no está disponible, el primer fallo real se informa con un mensaje amable). Con el backend dormido, la UI muestra "Despertando el asistente…" y, si no despierta en 60 s, un mensaje amable (`SERVER_WAKING`). |
 | **AI-F04** | AI Assistant | Las llamadas a `BackendAIClient` corren en un `QRunnable` del `QThreadPool` dedicado (`maxThreadCount=1`); la UI solo recibe resultados por señales Qt. | Inspección de código (skill `offline-audit`): ningún módulo de `ui/` importa `httpx` ni llama directamente a `explain_word`/`simplify_paragraph`. |
+| **AI-F05** | Mis palabras | Glosario **local** con las palabras que el asistente explicó (palabra, explicación, documento y fecha), accesible desde Inicio y desde Lectura: búsqueda simple (sin distinguir mayúsculas ni tildes), botón "Escuchar" (voz SAPI5, sin mover la lectura) y "Borrar". **No hace llamadas nuevas a la IA**: guarda la explicación ya mostrada. | Explicar una palabra la añade a `glossary.json` (una palabra repetida conserva solo su última explicación; máximo 500); simplificar un párrafo no guarda nada; la búsqueda "celula" encuentra "célula". `tests/test_redesign.py`. |
 | **BE-F01** | Backend | Endpoints `POST /v1/explain`, `POST /v1/simplify`, `GET /health` y `/docs` automático (§4.11). | Tests con `TestClient` (DeepSeek simulado) en verde; en el despliegue, `/health` → 200, `/docs` accesible y una petición real a `/v1/explain` responde en español. |
 | **BE-F02** | Backend | Token de cliente, límites de tamaño y tope global diario de llamadas a DeepSeek. | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres → 413; superar `DAILY_CALL_LIMIT` → 429; sin `X-Client-Token` válido → 401. Verificado por tests y por la checklist de `deploy-backend`. |
 | **BE-F03** | Backend | Sin logs de textos: el backend nunca registra los textos recibidos ni las respuestas de DeepSeek. | Test con `caplog` sin el texto de entrada en los logs; revisión de los logs de Render tras una petición real. |
@@ -1852,7 +1881,7 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 |:---|:---|:---|:---|
 | **NFR-MEM01** | Consumo RAM | Meta de diseño estimada: Residencia $\le 450\text{ MB}$ procesando un PDF estándar de 100 páginas a 300 DPI. | Medición de `WorkingSet` en Windows Resource Monitor durante el procesamiento en streaming. |
 | **NFR-LAT01** | Latencia Ingesta | Meta estimada: Renderizado de página $\le 1.2\text{ s}$ en Intel Core i5-8250U / 8GB RAM (o equivalente). | Benchmark interno mediante `time.perf_counter()` en pruebas de carga controlada. |
-| **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en todos los temas visuales (Claro, Oscuro y Alto Contraste). | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa. *(Tokens y ratios medidos en `docs/design-system/README.md`.)* |
+| **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en texto, y $\ge 3.0:1$ en componentes, en los **dos temas visuales (Claro y Oscuro)**; todo color es el morado `#392F5A`, el amarillo `#F4D06F` o un tono derivado de ellos. | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa (`tests/test_theme.py`, que también recorre `theme.py` y falla ante un hex fuera de la paleta). *(Tokens y ratios medidos en `docs/design-system/README.md` §1.1–§1.3.)* |
 | **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
 | **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. **Día 3, fichas reales densas (A4, 300 DPI, 15 páginas):** media ~7 s por página (4.3–12.8 s); la meta de 2.5 s solo vale para páginas con poco texto. |
@@ -1956,9 +1985,10 @@ VC_RUNTIME_DLLS = ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")
 # OpenCV video I/O is never used (~30 MB).
 UNUSED_BINARY_PREFIX = "opencv_videoio_ffmpeg"
 
-# Recolección de activos estáticos: tipografías OpenDyslexic y modelos offline
+# Recolección de activos estáticos: tipografías (Lexend, Atkinson Hyperlegible y OpenDyslexic), texto de ejemplo y modelos offline
 datas = [
     ("resources/fonts", "resources/fonts"),
+    ("resources/samples", "resources/samples"),  # ejemplo de HOME-F03
     ("resources/models", "resources/models"),
 ]
 # RapidOCR trae sus modelos ONNX y su config.yaml dentro del paquete.
@@ -2038,6 +2068,7 @@ coll = COLLECT(
 > - Se excluye `opencv_videoio_ffmpeg` (~30 MB, sin uso): `dist/` del spike bajó de 238.0 MB a 208.5 MB y siguió dando `SPIKE OK`.
 > - `collect_data_files('pypdfium2')` sobra: el hook de PyInstaller ya recoge `pypdfium2_raw/pdfium.dll`.
 > - El `.exe` no debe contener `fastapi` ni `uvicorn` (verificación de la skill `package-exe`).
+> - **Icono de la app:** `clearread.spec` debe usar `icon='resources/icons/app.ico'` en `EXE(...)` (icono del archivo `.exe`). La app además carga ese mismo `.ico` en tiempo de ejecución (`QApplication.setWindowIcon`, ventana y barra de tareas), así que `resources/icons` debe ir en `datas` y el plugin `imageformats/qico` de Qt debe quedar en `dist/`; verificarlo con `package-exe` en el Día 12. El `.ico` (16, 24, 32, 48, 64, 128 y 256 px) se genera desde `resources/icons/app_logo.png` con `tests/manual/make_app_icon.py`.
 
 ---
 
@@ -2088,12 +2119,12 @@ if __name__ == "__main__":
 
 ---
 
-### 6.5 Cronograma Realista de Desarrollo (~13 Días Calendario)
-Cronograma de **13 días**, del **2026-10-02** al **2026-10-14** (replanificado en v1.5.0 al incorporar el backend obligatorio). Se antepone el documento de design system (Día 2) a cualquier pantalla de UI, y se deja la capa de IA (backend, despliegue y panel) para el tramo final, sobre un núcleo offline ya funcional:
+### 6.5 Cronograma Realista de Desarrollo (~14 Días Calendario)
+Cronograma de **14 días**, del **2026-10-02** al **2026-10-15** (replanificado en v1.5.0 al incorporar el backend obligatorio, y el 2026-10-07 al añadir el rediseño del Día 12). Se antepone el documento de design system (Día 2) a cualquier pantalla de UI, y se deja la capa de IA (backend, despliegue y panel) para el tramo final, sobre un núcleo offline ya funcional:
 
 ```mermaid
 gantt
-    title Cronograma ClearRead (~13 Días Calendario)
+    title Cronograma ClearRead (~14 Días Calendario)
     dateFormat  YYYY-MM-DD
     section Núcleo y Diseño
     D1 Estructura + Spike (venv + .exe)                  :active, d1, 2026-10-02, 1d
@@ -2109,8 +2140,9 @@ gantt
     D9 Backend local + tests                             :d9, after d8, 1d
     D10 Despliegue en Render + BackendAIClient           :d10, after d9, 1d
     D11 Panel de IA (clic derecho)                       :d11, after d10, 1d
-    D12 .exe en Máquina Limpia (sin red y con red)       :d12, after d11, 1d
-    D13 Buffer + Video                                   :crit, d13, after d12, 1d
+    D12 Rediseño (2 colores, Lexend, Inicio panel, foco)  :d12, after d11, 1d
+    D13 .exe final con clearread.spec                     :d13, after d12, 1d
+    D14 Máquina limpia (sin red y con red) + Video        :crit, d14, after d13, 1d
 ```
 
 | Día | Fecha | Entregables Principales |
@@ -2121,13 +2153,14 @@ gantt
 | **D4** | 2026-10-05 | Silabeador RAE y `TextFormatter` con `TokenPositionMap`. |
 | **D5** | 2026-10-06 | Catálogo de textos `ui/strings.py` (es/en, I18N-F01) **antes de la primera pantalla**; `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. Validar con OpenDyslexic real y una captura que la alternancia de sílabas morado/marrón (`#392F5A`/`#703800`, tema Claro) se distingue; si no, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). |
 | **D6** | 2026-10-07 | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
-| **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz, **selector de idioma de la interfaz (se aplica al reiniciar, con aviso)**; "Ajustes avanzados" con la URL del backend (CFG-F02); `AppConfig` atómico. |
+| **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz, **selector de idioma de la interfaz (se aplica al reiniciar, con aviso)**; "Ajustes avanzados" con la URL del backend (CFG-F02; **retirados de la interfaz en el Día 12**, el valor sigue en `AppConfig`); `AppConfig` atómico. |
 | **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado (UI-F03). |
 | **D9** | 2026-10-10 | Backend en local (`backend/`, §4.11): endpoints, límites, tope diario, caché, sin logs de textos; tests con `TestClient` y DeepSeek simulado (BE-F01–BE-F03). |
 | **D10** | 2026-10-11 | Despliegue en Render (§6.6, lo ejecuta o autoriza la usuaria) con la checklist de `deploy-backend`; medición del arranque en frío (BE-NF01); `BackendAIClient` en la app con la URL real en `core/config.py`. |
 | **D11** | 2026-10-12 | Panel de IA: clic derecho sobre una palabra o párrafo → explicar / simplificar, aviso "Despertando el asistente…" y aviso de privacidad (AI-F01–AI-F04). |
-| **D12** | 2026-10-13 | Compilación `.exe` con `clearread.spec`; prueba en máquina limpia sin Python **sin red** (NFR-OFF01) y **con red contra el backend desplegado**; `.zip` en GitHub Releases (§6.6). |
-| **D13** | 2026-10-14 | Buffer de contingencia y video de entrega. |
+| **D12** | 2026-10-13 | **Rediseño** (pedido por la usuaria): design system v2 (dos colores de marca, solo Claro y Oscuro, Lexend por defecto, espaciado moderado), Inicio tipo panel (HOME-F02), ejemplo incluido (HOME-F03), posición de lectura (READ-F01), modo foco (READ-F02), "Mis palabras" (AI-F05), tipografía (UI-F04), tema y foco de teclado (UI-F05); sin Alto Contraste ni "Ajustes avanzados" en la interfaz. Capturas reales en `docs/design-system/mockups/real/v2/`. |
+| **D13** | 2026-10-14 | Compilación `.exe` con `clearread.spec` (con `resources/samples/`, las fuentes nuevas y los iconos); verificación de `dist/` (skill `package-exe`); `.zip` en GitHub Releases (§6.6). |
+| **D14** | 2026-10-15 | Prueba en máquina limpia sin Python **sin red** (NFR-OFF01) y **con red contra el backend desplegado**; video de entrega; buffer de contingencia. |
 
 > [!NOTE]
 > **Si da tiempo (stretch, fuera del compromiso base):** exportar el documento procesado a TXT/PDF, modo foco (oscurece todas las líneas excepto la activa, sin ocultar los controles), recordar la posición de lectura entre sesiones.
@@ -2197,6 +2230,17 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 ---
 
 ## 8. Pendientes Abiertos
+
+> **Renumeración del 2026-10-07:** el cronograma (§6.5) ahora es D12 = rediseño, D13 = `.exe` final y D14 = prueba en máquina limpia y video. Donde los puntos de abajo dicen "Día 12" para compilar o probar el `.exe`, léase **Día 13** (compilar) o **Día 14** (máquina limpia).
+
+- **Rediseño del Día 12 (2026-10-07), pendientes y límites:**
+  - **Fuentes sin validar con personas.** Lexend y Atkinson Hyperlegible se eligieron por forma, licencia y cobertura del español; **no verificamos ningún estudio revisado por pares sobre ellas**. Los valores de espaciado (+0,12 em, +0,16 em) son una decisión de la usuaria y son **más moderados** que los del estudio de Zorzi et al. 2012 (≈ +0,18 em). Evidencia verificada y correcciones sobre las citas del encargo en `docs/design-system/README.md` §1.4: el estudio de Kuster et al. 2018 es sobre la fuente **Dyslexie**, no sobre OpenDyslexic; y el de tamaño de letra (18 pt) es de Rello, Pielot y Marcos (CHI 2016).
+  - **Modo foco discreto.** Las líneas atenuadas deben cumplir 7:1, así que el contraste solo baja de 10,12:1 a 7,35:1 (Claro) y de 9,16:1 a 7,36:1 (Oscuro). Si la usuaria quiere un atenuado más fuerte, hay que aceptar una excepción al 7:1 para esas líneas.
+  - **Estadísticas.** "Palabras leídas" cuenta las palabras que dice la voz; leer sin voz no suma. Las cifras de las capturas del Inicio son valores ilustrativos.
+  - **UI-F03 incompleto:** `F6` (foco entre lector y panel de IA) y `Ctrl++`/`Ctrl+−` siguen sin implementar; el orden de Tab no se fijó con `setTabOrder`.
+  - **Sin probar:** escalado de Windows al 150 %, Narrador, "Mostrar animaciones en Windows" y lectores con dislexia.
+  - **`clearread.spec` (Día 13)** debe incluir `resources/samples/`, las dos fuentes nuevas y los iconos nuevos (`focus.svg`, `words.svg`, etc.).
+  - **Mockups v1** de `docs/design-system/mockups/` obsoletos (3 temas, turquesa y naranja); se conservan solo como historial.
 
 - ~~**Requisito de "desplegada":** confirmar con el profesor si la entrega exige un backend accesible remotamente.~~ **RESUELTO (2026-10-01): sí.** La materia exige el proyecto desplegado; se incorpora el backend propio en Render (§4.11, §6.6).
 - **Riesgos del spike técnico por verificar:**

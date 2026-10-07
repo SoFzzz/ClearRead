@@ -30,10 +30,45 @@ CATALOG: dict[str, dict[str, str]] = {
     "nav.back_home": {"es": "← Inicio", "en": "← Home"},
     "nav.back": {"es": "← Volver", "en": "← Back"},
     "nav.assistant": {"es": "Asistente", "en": "Assistant"},
+    "nav.my_words": {"es": "Mis palabras", "en": "My words"},
     # --- Home ---
     "home.title": {
         "es": "Abre un documento para empezar",
         "en": "Open a document to start",
+    },
+    "home.dashboard_title": {
+        "es": "Tu espacio de lectura",
+        "en": "Your reading space",
+    },
+    "home.continue_title": {"es": "Continuar leyendo", "en": "Continue reading"},
+    "home.continue_button": {"es": "Continuar", "en": "Continue"},
+    "home.progress": {"es": "{percent} % leído", "en": "{percent}% read"},
+    "home.try_sample": {"es": "Probar con un ejemplo", "en": "Try an example"},
+    "home.sample_title": {
+        "es": "Ejemplo: la fotosíntesis",
+        "en": "Example: photosynthesis",
+    },
+    "home.stats.words": {"es": "Palabras leídas", "en": "Words read"},
+    "home.stats.time": {"es": "Tiempo de lectura", "en": "Reading time"},
+    "home.stats.documents": {"es": "Documentos", "en": "Documents"},
+    "home.stats.minutes": {"es": "{minutes} min", "en": "{minutes} min"},
+    "home.stats.hours": {
+        "es": "{hours} h {minutes} min",
+        "en": "{hours} h {minutes} min",
+    },
+    "home.stats.hint": {
+        "es": "Estas cifras se calculan en tu equipo y no se envían a ningún sitio.",
+        "en": "These numbers are worked out on your computer and never sent anywhere.",
+    },
+    "home.empty.title": {
+        "es": "Te damos la bienvenida a ClearRead",
+        "en": "Welcome to ClearRead",
+    },
+    "home.empty.body": {
+        "es": "Arrastra un PDF o una foto, o prueba primero con un ejemplo. "
+        "Todo se queda en tu equipo.",
+        "en": "Drag in a PDF or a photo, or start with an example. "
+        "Everything stays on your computer.",
     },
     "home.drop_title": {
         "es": "Arrastra aquí tu PDF o tu foto",
@@ -62,6 +97,10 @@ CATALOG: dict[str, dict[str, str]] = {
     "home.recent_photo": {
         "es": "Foto · {pages} · {opened}",
         "en": "Photo · {pages} · {opened}",
+    },
+    "home.recent_text": {
+        "es": "Texto · {pages} · {opened}",
+        "en": "Text · {pages} · {opened}",
     },
     "home.pages_one": {"es": "1 página", "en": "1 page"},
     "home.pages_other": {"es": "{count} páginas", "en": "{count} pages"},
@@ -122,10 +161,18 @@ CATALOG: dict[str, dict[str, str]] = {
     "reading.tooltip": {"es": "{action} ({shortcut})", "en": "{action} ({shortcut})"},
     "reading.key_space": {"es": "Espacio", "en": "Space"},
     "reading.key_esc": {"es": "Esc", "en": "Esc"},
-    "reading.shortcuts": {
-        "es": "Espacio: pausar · Esc: detener",
-        "en": "Space: pause · Esc: stop",
+    "reading.key_f": {"es": "F", "en": "F"},
+    "reading.focus": {"es": "Modo foco", "en": "Focus mode"},
+    "reading.resume_title": {
+        "es": "Seguir desde donde lo dejaste",
+        "en": "Pick up where you left off",
     },
+    "reading.resume_detail": {
+        "es": "Estabas en la palabra {current} de {total}.",
+        "en": "You were at word {current} of {total}.",
+    },
+    "reading.resume_continue": {"es": "Seguir", "en": "Continue"},
+    "reading.resume_restart": {"es": "Empezar de nuevo", "en": "Start over"},
     "reading.error.tts_init": {
         "es": "No pudimos iniciar la voz. Revisa que Windows tenga una voz en español instalada.",
         "en": "We could not start the voice. Check that Windows has a Spanish voice installed.",
@@ -144,10 +191,24 @@ CATALOG: dict[str, dict[str, str]] = {
     "settings.section.text": {"es": "Texto", "en": "Text"},
     "settings.section.voice": {"es": "Voz", "en": "Voice"},
     "settings.section.language": {"es": "Idioma", "en": "Language"},
-    "settings.section.advanced": {"es": "Ajustes avanzados", "en": "Advanced settings"},
     "settings.theme.light": {"es": "Claro", "en": "Light"},
     "settings.theme.dark": {"es": "Oscuro", "en": "Dark"},
-    "settings.theme.high_contrast": {"es": "Alto contraste", "en": "High contrast"},
+    "settings.font": {"es": "Fuente de lectura", "en": "Reading font"},
+    "settings.font.lexend": {
+        "es": "Lexend (recomendada)",
+        "en": "Lexend (recommended)",
+    },
+    "settings.font.atkinson": {
+        "es": "Atkinson Hyperlegible",
+        "en": "Atkinson Hyperlegible",
+    },
+    "settings.font.opendyslexic": {"es": "OpenDyslexic", "en": "OpenDyslexic"},
+    "settings.font_note": {
+        "es": "Ninguna fuente funciona igual para todas las personas: "
+        "elige la que te resulte más cómoda.",
+        "en": "No font works the same for everyone: choose the one that feels "
+        "most comfortable.",
+    },
     "settings.font_size": {"es": "Tamaño de letra", "en": "Text size"},
     "settings.line_spacing": {"es": "Espacio entre líneas", "en": "Line spacing"},
     "settings.letter_spacing": {"es": "Espacio entre letras", "en": "Letter spacing"},
@@ -175,7 +236,7 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "settings.speed": {"es": "Velocidad de lectura", "en": "Reading speed"},
     "settings.value.points": {"es": "{value} puntos", "en": "{value} points"},
-    "settings.value.px": {"es": "{value} px", "en": "{value} px"},
+    "settings.value.em": {"es": "{value} em", "en": "{value} em"},
     "settings.on": {"es": "Sí", "en": "Yes"},
     "settings.off": {"es": "No", "en": "No"},
     "settings.no_voices": {
@@ -195,10 +256,6 @@ CATALOG: dict[str, dict[str, str]] = {
     "settings.save_failed": {
         "es": "No se pudieron guardar los ajustes. Valen hasta que cierres ClearRead.",
         "en": "Your settings could not be saved. They last until you close ClearRead.",
-    },
-    "settings.backend_url_invalid": {
-        "es": "La dirección debe empezar por https",
-        "en": "The address must start with https",
     },
     "settings.privacy.title": {"es": "Tu privacidad", "en": "Your privacy"},
     "settings.privacy.assistant": {
@@ -232,18 +289,37 @@ CATALOG: dict[str, dict[str, str]] = {
         "es": "Documentos recientes borrados.",
         "en": "Recent documents deleted.",
     },
-    "settings.backend_url": {
-        "es": "Dirección del asistente",
-        "en": "Assistant address",
+    # --- My words (glossary) ---
+    "words.title": {"es": "Mis palabras", "en": "My words"},
+    "words.search_placeholder": {
+        "es": "Buscar una palabra",
+        "en": "Search for a word",
     },
-    "settings.backend_url_reset": {
-        "es": "Usar la dirección original",
-        "en": "Use the original address",
+    "words.count_one": {"es": "1 palabra guardada", "en": "1 saved word"},
+    "words.count_other": {
+        "es": "{count} palabras guardadas",
+        "en": "{count} saved words",
     },
-    "settings.backend_url_help": {
-        "es": "Solo cámbiala si te lo pide quien mantiene ClearRead.",
-        "en": "Only change it if the person who maintains ClearRead asks you to.",
+    "words.listen": {"es": "Escuchar", "en": "Listen"},
+    "words.listen_named": {"es": "Escuchar {word}", "en": "Listen to {word}"},
+    "words.delete": {"es": "Borrar", "en": "Delete"},
+    "words.delete_named": {"es": "Borrar {word}", "en": "Delete {word}"},
+    "words.empty_title": {
+        "es": "Aún no hay palabras guardadas",
+        "en": "No saved words yet",
     },
+    "words.empty_body": {
+        "es": "Cuando el asistente te explique una palabra, la guardamos aquí para "
+        "que puedas repasarla. Todo queda en tu equipo.",
+        "en": "When the assistant explains a word to you, we keep it here so you can "
+        "go over it again. Everything stays on your computer.",
+    },
+    "words.no_results": {
+        "es": "No encontramos esa palabra.",
+        "en": "We couldn't find that word.",
+    },
+    "words.date": {"es": "{day} de {month}", "en": "{month} {day}"},
+    "words.meta": {"es": "{document} · {date}", "en": "{document} · {date}"},
     # --- Error dialog ---
     "dialog.window_title": {"es": "ClearRead", "en": "ClearRead"},
     "dialog.what_you_can_do": {"es": "Qué puedes hacer", "en": "What you can do"},
@@ -428,6 +504,10 @@ CATALOG: dict[str, dict[str, str]] = {
     "ai.offline_title": {
         "es": "El asistente está apagado",
         "en": "The assistant is off",
+    },
+    "ai.saved_to_words": {
+        "es": "Guardada en Mis palabras.",
+        "en": "Saved in My words.",
     },
     # --- Privacy notice (NFR-SEC01) ---
     "privacy.title": {

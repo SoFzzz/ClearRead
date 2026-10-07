@@ -1,4 +1,4 @@
-"""Main window: Home -> Processing -> Reading -> (Back) Home (design system 7)."""
+"""Main window: Home -> Processing -> Reading, plus Settings and My words (design system 7)."""
 
 from dataclasses import replace
 from enum import Enum
@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -18,16 +19,19 @@ from PySide6.QtWidgets import (
 )
 
 from clearread.core.config import AppConfig
+from clearread.core.paths import get_resource_path
 from clearread.services.ai_client import AIClient
 from clearread.services.document_library import (
     CachedDocument,
     DocumentLibrary,
     compute_cache_key,
 )
+from clearread.services.glossary import GlossaryEntry, GlossaryStore
 from clearread.services.ingestor import DocumentIngestor
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import OCREngine
 from clearread.services.preprocessor import OCRPreprocessor
+from clearread.services.reading_stats import StatsStore
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import (
     FormattedDocument,
@@ -37,7 +41,7 @@ from clearread.services.text_formatter import (
 from clearread.services.tts_controller import TTSController
 from clearread.ui.ai_assistant import AIAssistant
 from clearread.ui.dialogs import AccessibleErrorDialog
-from clearread.ui.fonts import READING_FONT_FAMILY
+from clearread.ui.focus_ring import KeyboardFocusRing
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import (
@@ -50,6 +54,7 @@ from clearread.ui.theme import (
 from clearread.ui.views.home_view import HomeView, ProcessingView, local_today
 from clearread.ui.views.reading_view import ReadingView
 from clearread.ui.views.settings_view import SettingsView
+from clearread.ui.views.words_view import WordsView
 from clearread.workers.ocr_worker import (
     DocumentProcessWorker,
     ProcessedDocument,
@@ -59,6 +64,7 @@ from clearread.workers.ocr_worker import (
 MIN_WINDOW_SIZE = (1024, 700)
 TOP_BAR_HEIGHT = 56
 TITLE_MAX_CHARS = 60
+SAMPLE_RESOURCE = Path("resources") / "samples" / "ejemplo_es.txt"
 
 
 class Screen(Enum):
@@ -66,6 +72,7 @@ class Screen(Enum):
     PROCESSING = 1
     READING = 2
     SETTINGS = 3
+    WORDS = 4
 
 
 class MainWindow(QMainWindow):
@@ -78,6 +85,8 @@ class MainWindow(QMainWindow):
         config_dir: Path | None = None,
         ai_client: AIClient | None = None,
         network: NetworkMonitor | None = None,
+        glossary: GlossaryStore | None = None,
+        stats: StatsStore | None = None,
     ) -> None:
         super().__init__()
         self._config = config
@@ -87,6 +96,8 @@ class MainWindow(QMainWindow):
         self._ocr_engine = ocr_engine
         self._tts = tts
         self._library = library
+        self._glossary = glossary or GlossaryStore()
+        self._stats = stats or StatsStore()
         self._ingestor = DocumentIngestor()
         self._preprocessor = OCRPreprocessor()
         self._syllabifier = SpanishSyllabifier()
@@ -95,15 +106,19 @@ class MainWindow(QMainWindow):
         self._pending: tuple[Path, str] | None = None
         self._raw_text: str | None = None  # text of the document in the reading view
         self._reading_title = ""
+        self._reading_key: str | None = None
         self._settings_origin = Screen.HOME
+        self._words_origin = Screen.HOME
         self._online = network.is_online if network else True
         self.assistant: AIAssistant | None = None
         self.error_dialog: AccessibleErrorDialog | None = None
+        self._focus_ring = KeyboardFocusRing(self)
         self._build_ui()
         self._build_assistant(ai_client, network)
         self.setStyleSheet(build_stylesheet(self.tokens))
         self._apply_speech_settings()
         self._refresh_reading()
+        self._install_focus_ring()
         self.show_screen(Screen.HOME)
 
     @property
@@ -121,6 +136,11 @@ class MainWindow(QMainWindow):
     def _t(self, key: str, **params: object) -> str:
         return tr(key, self._language, **params)
 
+    def _install_focus_ring(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self._focus_ring)
+
     def _build_ui(self) -> None:
         self.setMinimumSize(*MIN_WINDOW_SIZE)
         self.setWindowTitle("ClearRead")
@@ -130,12 +150,15 @@ class MainWindow(QMainWindow):
         self.settings_view = SettingsView(
             replace(self._config), self._language, self._syllabifier
         )
+        self.words_view = WordsView(self.tokens, self._language)
+        self.words_view.set_entries(self._glossary.entries())
         self._stack = QStackedWidget()
         for view in (
             self.home_view,
             self.processing_view,
             self.reading_view,
             self.settings_view,
+            self.words_view,
         ):
             self._stack.addWidget(view)
 
@@ -148,17 +171,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self.home_view.file_chosen.connect(self.open_document)
+        self.home_view.sample_requested.connect(self.open_sample)
         self.home_view.recent_open_requested.connect(self.open_recent)
         self.home_view.recent_remove_requested.connect(self.remove_recent)
         self.processing_view.cancel_requested.connect(self.cancel_processing)
         self.reading_view.speed_changed.connect(self._on_reading_speed_changed)
+        self.reading_view.reading_session.connect(self._on_reading_session)
         self.settings_view.config_changed.connect(self._on_settings_changed)
         self.settings_view.clear_recents_requested.connect(self.clear_recents)
         self.settings_view.back_requested.connect(self.go_back)
         self.settings_view.set_voices(self._tts.voices)
         self._tts.voices_listed.connect(self.settings_view.set_voices)
+        self.words_view.listen_requested.connect(self.reading_view.speak_aside)
+        self.words_view.delete_requested.connect(self.delete_word)
         self.back_button.clicked.connect(self.go_back)
         self.settings_button.clicked.connect(self.open_settings)
+        self.words_button.clicked.connect(self.open_words)
         for sequence, slot in (
             ("Alt+Left", self.go_back),
             ("Ctrl+,", self.open_settings),
@@ -173,9 +201,14 @@ class MainWindow(QMainWindow):
         if client is None:
             return
         self.assistant = AIAssistant(
-            client, self.reading_view, self._config.ai_privacy_accepted, parent=self
+            client,
+            self.reading_view,
+            self._config.ai_privacy_accepted,
+            parent=self,
+            saves_words=True,
         )
         self.assistant.privacy_accepted.connect(self._on_privacy_accepted)
+        self.assistant.word_explained.connect(self._on_word_explained)
         self.assistant_button.clicked.connect(self.toggle_assistant)
         self.reading_view.assistant_open_changed.connect(
             self.assistant_button.setChecked
@@ -208,6 +241,21 @@ class MainWindow(QMainWindow):
         self._config.ai_privacy_accepted = True
         self._save_config()
 
+    def _on_word_explained(self, word: str, explanation: str) -> None:
+        self._glossary.add(
+            GlossaryEntry(
+                word=word,
+                explanation=explanation,
+                document=self._reading_title,
+                added_on=local_today().isoformat(),
+            )
+        )
+        self.words_view.set_entries(self._glossary.entries())
+
+    def delete_word(self, word: str) -> None:
+        self._glossary.remove(word)
+        self.words_view.set_entries(self._glossary.entries())
+
     def _build_top_bar(self) -> QFrame:
         bar = QFrame()
         bar.setObjectName("TopBar")
@@ -217,6 +265,9 @@ class MainWindow(QMainWindow):
         self.settings_button.setProperty("variant", "ghost")
         self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
         self.settings_button.setToolTip(f"{self._t('nav.settings')} (Ctrl+,)")
+        self.words_button = QPushButton(self._t("nav.my_words"))
+        self.words_button.setProperty("variant", "ghost")
+        self.words_button.setIcon(load_icon("words", self.tokens.secondary))
         self.assistant_button = QPushButton(self._t("nav.assistant"))
         self.assistant_button.setObjectName("AssistantToggle")
         self.assistant_button.setCheckable(True)
@@ -231,44 +282,58 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout(bar)
         row.setContentsMargins(24, 0, 24, 0)
         row.addWidget(self.back_button)
-        row.addWidget(self.brand_label)
+        row.addWidget(self.brand_label, stretch=1)
         row.addWidget(self.title_label, stretch=1)
         row.addWidget(self.offline_badge)
         row.addWidget(self.assistant_button)
+        row.addWidget(self.words_button)
         row.addWidget(self.settings_button)
         return bar
 
     def show_screen(self, screen: Screen) -> None:
         self._stack.setCurrentIndex(screen.value)
-        has_title = screen in (Screen.READING, Screen.SETTINGS)
+        has_title = screen in (Screen.READING, Screen.SETTINGS, Screen.WORDS)
         self.back_button.setVisible(has_title)
         self.brand_label.setVisible(not has_title)
         self.title_label.setVisible(has_title)
-        self.settings_button.setVisible(screen is not Screen.SETTINGS)
+        self.settings_button.setVisible(screen not in (Screen.SETTINGS, Screen.WORDS))
         self.settings_button.setEnabled(screen is not Screen.PROCESSING)
+        self.words_button.setVisible(screen in (Screen.HOME, Screen.READING))
         if self.assistant is not None:
             self._refresh_assistant_button()
         if has_title:
             self._show_title(screen)
         if screen is Screen.HOME:
-            self.home_view.set_recents(self._library.recents(), local_today())
+            self._refresh_home()
             self.home_view.choose_button.setFocus()
         elif screen is Screen.READING:
             self.reading_view.editor.setFocus()
 
+    def _refresh_home(self) -> None:
+        self.home_view.set_recents(self._library.recents(), local_today())
+        self.home_view.set_stats(self._stats.stats)
+
     def _show_title(self, screen: Screen) -> None:
-        reading = screen is Screen.READING
-        back_key = "nav.back_home" if reading else "nav.back"
+        back_key = "nav.back_home" if screen is Screen.READING else "nav.back"
+        titles = {
+            Screen.READING: self._reading_title,
+            Screen.SETTINGS: self._t("settings.title"),
+            Screen.WORDS: self._t("words.title"),
+        }
         self.back_button.setText(self._t(back_key))
         self.back_button.setToolTip(f"{self._t(back_key)} (Alt+←)")
-        self.title_label.setText(
-            self._reading_title if reading else self._t("settings.title")
-        )
+        self.title_label.setText(titles[screen])
 
     def open_settings(self) -> None:
         if self.screen_shown in (Screen.HOME, Screen.READING):
             self._settings_origin = self.screen_shown
             self.show_screen(Screen.SETTINGS)
+
+    def open_words(self) -> None:
+        if self.screen_shown in (Screen.HOME, Screen.READING):
+            self._words_origin = self.screen_shown
+            self.words_view.set_entries(self._glossary.entries())
+            self.show_screen(Screen.WORDS)
 
     def open_document(self, path: str) -> None:
         if self._worker is not None:
@@ -284,6 +349,26 @@ class MainWindow(QMainWindow):
             return
         self._pending = (source, key)
         self._start_worker(source)
+
+    def open_sample(self) -> None:
+        """Open the bundled Spanish example: its text needs no OCR."""
+        if self._worker is not None:
+            return
+        source = get_resource_path(SAMPLE_RESOURCE)
+        name = self._t("home.sample_title")
+        try:
+            key = compute_cache_key(source)
+            raw_text = source.read_text(encoding="utf-8")
+        except OSError:
+            self._show_error(ProcessingErrorKind.FILE_NOT_FOUND)
+            return
+        if self._library.has(key) and self._show_cached(key, name):
+            self._library.touch(key)
+            return
+        formatted = self._format(raw_text)
+        cached = CachedDocument(raw_text, formatted, self._appearance_key())
+        self._library.store(key, source, cached, 1, False, display_name=name)
+        self._show_reading(formatted, name, raw_text, key)
 
     def _start_worker(self, source: Path) -> None:
         formatter = self._make_formatter()
@@ -350,7 +435,7 @@ class MainWindow(QMainWindow):
         self._library.store(
             key, source, cached, processed.page_count, processed.is_photo
         )
-        self._show_reading(processed.formatted, source.name, processed.raw_text)
+        self._show_reading(processed.formatted, source.name, processed.raw_text, key)
 
     def _on_error(self, kind_value: str) -> None:
         if self._release_worker() is None:
@@ -359,7 +444,7 @@ class MainWindow(QMainWindow):
         self._show_error(ProcessingErrorKind(kind_value))
 
     def open_recent(self, key: str) -> None:
-        recent = next((r for r in self._library.recents() if r.key == key), None)
+        recent = self._library.recent(key)
         if recent is None or not self._show_cached(key, recent.name):
             self._library.remove(key)
             self.show_screen(Screen.HOME)
@@ -374,22 +459,25 @@ class MainWindow(QMainWindow):
         formatted = cached.formatted
         if cached.appearance != self._appearance_key():
             formatted = self._format(cached.raw_text)
-        self._show_reading(formatted, name, cached.raw_text)
+        recent = self._library.recent(key)
+        position = recent.position if recent else 0
+        self._show_reading(formatted, name, cached.raw_text, key, position)
         return True
 
     def _style(self) -> ReadingStyle:
         return ReadingStyle(
-            font_family=READING_FONT_FAMILY,
+            font_family=self._config.reading_font,
             font_size_pt=self._config.font_size_pt,
-            letter_spacing_px=self._config.letter_spacing,
-            word_spacing_px=self._config.word_spacing,
+            letter_spacing_em=self._config.letter_spacing_em,
+            word_spacing_em=self._config.word_spacing_em,
         )
 
     def _appearance_key(self, config: AppConfig | None = None) -> str:
         config = config or self._config
         return (
-            f"{config.theme}|{config.font_size_pt}|{config.letter_spacing:g}|"
-            f"{config.word_spacing}|{config.syllables_enabled}"
+            f"{config.theme}|{config.reading_font}|{config.font_size_pt}|"
+            f"{config.letter_spacing_em:g}|{config.word_spacing_em:g}|"
+            f"{config.syllables_enabled}"
         )
 
     def _make_formatter(self) -> TextFormatter:
@@ -403,14 +491,32 @@ class MainWindow(QMainWindow):
         )
 
     def _show_reading(
-        self, formatted: FormattedDocument, name: str, raw_text: str
+        self,
+        formatted: FormattedDocument,
+        name: str,
+        raw_text: str,
+        key: str | None = None,
+        position: int = 0,
     ) -> None:
+        self._save_position()
         self._raw_text = raw_text
-        self.reading_view.load_document(formatted)
+        self.reading_view.load_document(formatted, position)
+        self._reading_key = key
         self._reading_title = (
             name if len(name) <= TITLE_MAX_CHARS else name[:TITLE_MAX_CHARS] + "…"
         )
         self.show_screen(Screen.READING)
+
+    def _save_position(self) -> None:
+        """Remember where the open document was left (READ-F01)."""
+        if self._reading_key and self.reading_view.token_map:
+            self._library.set_position(
+                self._reading_key, self.reading_view.resume_index
+            )
+
+    def _on_reading_session(self, words: int, seconds: float) -> None:
+        self._stats.add(words, seconds)
+        self._save_position()
 
     def _refresh_reading(self) -> None:
         """Re-render the open document: same text, so the token map stays valid."""
@@ -432,7 +538,9 @@ class MainWindow(QMainWindow):
             self._theme = ThemeId(new.theme)
             self.setStyleSheet(build_stylesheet(self.tokens))
             self.home_view.apply_theme(self.tokens)
+            self.words_view.apply_theme(self.tokens)
             self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
+            self.words_button.setIcon(load_icon("words", self.tokens.secondary))
             self._refresh_assistant_button()
         if (
             self._appearance_key(old) != self._appearance_key()
@@ -467,16 +575,20 @@ class MainWindow(QMainWindow):
 
     def remove_recent(self, key: str) -> None:
         self._library.remove(key)
-        self.home_view.set_recents(self._library.recents(), local_today())
+        self._refresh_home()
 
     def go_back(self) -> None:
         if self.screen_shown is Screen.PROCESSING:
             self.cancel_processing()
         elif self.screen_shown is Screen.SETTINGS:
             self.show_screen(self._settings_origin)
+        elif self.screen_shown is Screen.WORDS:
+            self.reading_view.stop_aside()
+            self.show_screen(self._words_origin)
         elif self.screen_shown is Screen.READING:
             self.reading_view.stop_reading()
             self.reading_view.set_assistant_open(False)
+            self._save_position()
             self.show_screen(Screen.HOME)
 
     def _show_error(self, kind: ProcessingErrorKind) -> None:
@@ -494,7 +606,11 @@ class MainWindow(QMainWindow):
             self.home_view.choose_file()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._tts.stop()
+        self.reading_view.stop_reading()
+        self._save_position()
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self._focus_ring)
         if self._worker is not None:
             self._worker.cancel()
             self._detach(self._worker)

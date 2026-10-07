@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from clearread.services.syllabifier import SpanishSyllabifier
 
 # Bump when the html or the token map change shape: cached documents key on it.
-FORMATTER_VERSION = "1"
+FORMATTER_VERSION = "2"
 
+CSS_PX_PER_PT = 96 / 72
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # A number such as 3,5 or 12.345,67 is one token; otherwise a word with optional
 # inner apostrophes/hyphens. Anything else (punctuation, symbols) is not spoken.
@@ -24,16 +25,21 @@ _TOKEN = re.compile(r"\d+(?:[.,]\d+)+|\w+(?:['’-]\w+)*")
 class ReadingStyle:
     """Typography baked into the html; the values come from AppConfig (§4.6)."""
 
-    font_family: str = "OpenDyslexic"
-    font_size_pt: int = 16
-    letter_spacing_px: float = 1.5
-    word_spacing_px: int = 4
+    font_family: str = "Lexend"
+    font_size_pt: int = 18
+    letter_spacing_em: float = 0.12
+    word_spacing_em: float = 0.16
+
+    @property
+    def font_size_px(self) -> float:
+        return self.font_size_pt * CSS_PX_PER_PT
 
     def css(self) -> str:
+        # Qt's rich text takes spacing in px, so the em values are scaled by the font size.
         return (
             f"font-family: '{self.font_family}'; font-size: {self.font_size_pt}pt; "
-            f"letter-spacing: {self.letter_spacing_px:g}px; "
-            f"word-spacing: {self.word_spacing_px}px;"
+            f"letter-spacing: {self.letter_spacing_em * self.font_size_px:.2f}px; "
+            f"word-spacing: {self.word_spacing_em * self.font_size_px:.2f}px;"
         )
 
 
@@ -52,6 +58,7 @@ class SyllablePalette:
 
     color_even: str
     color_odd: str
+    background_odd: str | None = None  # soft fill behind every odd syllable
 
 
 @dataclass(frozen=True)
@@ -156,8 +163,15 @@ class TextFormatter:
         )
         if "".join(syllables) != word:
             syllables = (word,)
-        colours = (self._palette.color_even, self._palette.color_odd)
         return "".join(
-            f'<span style="color: {colours[index % 2]};">{html.escape(syllable)}</span>'
+            f'<span style="{self._syllable_style(index)}">{html.escape(syllable)}</span>'
             for index, syllable in enumerate(syllables)
         )
+
+    def _syllable_style(self, index: int) -> str:
+        if index % 2 == 0:
+            return f"color: {self._palette.color_even};"
+        style = f"color: {self._palette.color_odd};"
+        if self._palette.background_odd:
+            style += f" background-color: {self._palette.background_odd};"
+        return style

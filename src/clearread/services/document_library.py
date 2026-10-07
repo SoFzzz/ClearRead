@@ -32,6 +32,18 @@ class RecentDocument:
     opened_at: str  # ISO 8601
     pages: int
     is_photo: bool
+    position: int = 0  # index of the last word read (READ-F01)
+    total_words: int = 0
+
+    @property
+    def progress_percent(self) -> int:
+        if self.total_words <= 0:
+            return 0
+        return min(100, round(100 * (self.position + 1) / self.total_words))
+
+    @property
+    def can_resume(self) -> bool:
+        return 0 < self.position < self.total_words - 1
 
 
 @dataclass(frozen=True)
@@ -68,6 +80,7 @@ class DocumentLibrary:
         cached: CachedDocument,
         pages: int,
         is_photo: bool,
+        display_name: str | None = None,
     ) -> None:
         formatted = cached.formatted
         payload = {
@@ -78,15 +91,32 @@ class DocumentLibrary:
             "tokens": [asdict(token) for token in formatted.token_map],
         }
         self._write_json(self._cache_path(key), payload)
+        before = self.recent(key)
         entry = RecentDocument(
             key=key,
-            name=source.name,
+            name=display_name or source.name,
             path=str(source),
             opened_at=self._clock().isoformat(timespec="seconds"),
             pages=pages,
             is_photo=is_photo,
+            position=before.position if before else 0,
+            total_words=len(formatted.token_map),
         )
         self._save_index([entry, *(r for r in self.recents() if r.key != key)])
+
+    def recent(self, key: str) -> RecentDocument | None:
+        return next((r for r in self.recents() if r.key == key), None)
+
+    def set_position(self, key: str, position: int) -> None:
+        """Remember the last word read; the order of the recent list does not change."""
+        entries = self.recents()
+        for index, entry in enumerate(entries):
+            if entry.key == key and entry.position != position:
+                entries[index] = RecentDocument(
+                    **{**asdict(entry), "position": position}
+                )
+                self._save_index(entries)
+                return
 
     def touch(self, key: str) -> None:
         """Move an already cached document to the top of the recent list."""

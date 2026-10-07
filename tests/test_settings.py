@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from pytestqt.qtbot import QtBot
 from samples.make_samples import SAMPLES_DIR
 
-from clearread.core.config import DEFAULT_BACKEND_URL, AppConfig
+from clearread.core.config import AppConfig
 from clearread.services.document_library import DocumentLibrary
 from clearread.services.tts_controller import (
     TTSController,
@@ -106,27 +106,25 @@ def test_every_setting_changed_in_the_view_is_saved_and_reloaded(
     view.theme_buttons["dark"].setChecked(True)
     view.sliders["font_size_pt"].setValue(22)
     view.sliders["line_spacing"].setValue(22)  # 2.2
-    view.sliders["letter_spacing"].setValue(5)  # 2.5 px
-    view.sliders["word_spacing"].setValue(8)
+    view.font_combo.setCurrentIndex(view.font_combo.findData("OpenDyslexic"))
+    view.sliders["letter_spacing_em"].setValue(25)  # 0.25 em
+    view.sliders["word_spacing_em"].setValue(40)  # 0.4 em
     view.sliders["reading_speed_wpm"].setValue(210)
     view.syllables_check.setChecked(False)
     view.voice_combo.setCurrentIndex(view.voice_combo.findData("en-1"))
     view.language_combo.setCurrentIndex(view.language_combo.findData("en"))
-    view.advanced_toggle.setChecked(True)
-    view.url_edit.setText("https://example.test/api")
-    view.url_edit.editingFinished.emit()
 
     saved = AppConfig.load(config_dir)
     assert saved == AppConfig(
         theme="dark",
         font_size_pt=22,
         line_spacing=2.2,
-        letter_spacing=2.5,
-        word_spacing=8,
+        reading_font="OpenDyslexic",
+        letter_spacing_em=0.25,
+        word_spacing_em=0.4,
         syllables_enabled=False,
         reading_speed_wpm=210,
         voice_id="en-1",
-        backend_url="https://example.test/api",
         ui_language="en",
     )
 
@@ -136,13 +134,13 @@ def test_every_setting_changed_in_the_view_is_saved_and_reloaded(
     assert again.theme_buttons["dark"].isChecked()
     assert again.sliders["font_size_pt"].value() == 22
     assert again.sliders["line_spacing"].value() == 22
-    assert again.sliders["letter_spacing"].value() == 5
-    assert again.sliders["word_spacing"].value() == 8
+    assert again.font_combo.currentData() == "OpenDyslexic"
+    assert again.sliders["letter_spacing_em"].value() == 25
+    assert again.sliders["word_spacing_em"].value() == 40
     assert again.sliders["reading_speed_wpm"].value() == 210
     assert not again.syllables_check.isChecked()
     assert again.voice_combo.currentData() == "en-1"
     assert again.language_combo.currentData() == "en"
-    assert again.url_edit.text() == "https://example.test/api"
 
 
 def test_a_failed_save_is_reported_and_the_change_still_applies(
@@ -159,37 +157,20 @@ def test_a_failed_save_is_reported_and_the_change_still_applies(
     assert not window.settings_view.save_error_label.isHidden()
 
 
-def test_reset_restores_the_defaults_but_keeps_voice_language_and_address(
+def test_reset_restores_the_defaults_but_keeps_voice_and_language(
     qtbot: QtBot, tts: TTSController, library: DocumentLibrary, config_dir: Path
 ) -> None:
     config = AppConfig(
         theme="dark",
         font_size_pt=24,
+        reading_font="OpenDyslexic",
         voice_id="x",
         ui_language="en",
-        backend_url="http://a.b",
     )
     window = make_window(qtbot, tts, library, config_dir, config)
     window.settings_view.reset_button.click()
     saved = AppConfig.load(config_dir)
-    assert saved == AppConfig(voice_id="x", ui_language="en", backend_url="http://a.b")
-
-
-def test_an_invalid_address_is_refused_and_the_old_one_stays(
-    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, config_dir: Path
-) -> None:
-    window = make_window(qtbot, tts, library, config_dir)
-    view = window.settings_view
-    view.advanced_toggle.setChecked(True)
-    view.url_edit.setText("not an address")
-    view.url_edit.editingFinished.emit()
-    assert view.url_edit.text() == DEFAULT_BACKEND_URL
-    assert not view.url_error_label.isHidden()
-    view.url_edit.setText("https://other.test")
-    view.url_edit.editingFinished.emit()
-    view.url_reset_button.click()
-    assert view.url_edit.text() == DEFAULT_BACKEND_URL
-    assert AppConfig.load(config_dir).backend_url == DEFAULT_BACKEND_URL
+    assert saved == AppConfig(voice_id="x", ui_language="en")
 
 
 # ---- navigation ----------------------------------------------------------
@@ -260,8 +241,8 @@ def test_size_and_spacing_changes_reach_the_open_document_without_losing_the_wor
     view = window.settings_view
 
     view.sliders["font_size_pt"].setValue(24)
-    view.sliders["letter_spacing"].setValue(4)
-    view.sliders["word_spacing"].setValue(10)
+    view.sliders["letter_spacing_em"].setValue(20)  # 0.2 em of 32 px
+    view.sliders["word_spacing_em"].setValue(30)  # 0.3 em of 32 px
     view.sliders["line_spacing"].setValue(24)
 
     assert reading.editor.reading_font.pointSize() == 24
@@ -269,8 +250,8 @@ def test_size_and_spacing_changes_reach_the_open_document_without_losing_the_wor
     cursor.setPosition(token_map[2].doc_start_pos + 1)
     font = cursor.charFormat().font()
     assert font.pointSize() == 24
-    assert font.letterSpacing() == 2.0
-    assert font.wordSpacing() == 10.0
+    assert font.letterSpacing() == pytest.approx(6.4, abs=0.01)
+    assert font.wordSpacing() == pytest.approx(9.6, abs=0.01)
     assert reading.token_map == token_map
     highlighted = reading.editor.highlighted_range()
     assert highlighted is not None
@@ -283,10 +264,10 @@ def test_turning_syllable_colours_off_leaves_one_colour_per_word(
     window = make_window(qtbot, tts, library, config_dir)
     open_sample(qtbot, window)
     reading = window.reading_view
-    odd = THEMES[ThemeId.LIGHT].syllable_odd.lower()
-    assert odd in reading.editor.toHtml().lower()
+    odd_fill = THEMES[ThemeId.LIGHT].syllable_odd_bg.lower()
+    assert odd_fill in reading.editor.toHtml().lower()
     window.settings_view.syllables_check.setChecked(False)
-    assert odd not in reading.editor.toHtml().lower()
+    assert odd_fill not in reading.editor.toHtml().lower()
     assert reading.token_map
 
 
@@ -298,11 +279,11 @@ def test_a_document_opened_later_uses_the_saved_look(
     open_sample(qtbot, window)
     assert "20pt" in window.reading_view.editor.toHtml()
     window.go_back()
-    window.settings_view.theme_buttons["high_contrast"].setChecked(True)
+    window.settings_view.theme_buttons["dark"].setChecked(True)
     window.open_recent(library.recents()[0].key)
     assert window.screen_shown is Screen.READING
     assert "20pt" in window.reading_view.editor.toHtml()
-    assert THEMES[ThemeId.HIGH_CONTRAST].syllable_odd.lower() in (
+    assert THEMES[ThemeId.DARK].syllable_odd.lower() in (
         window.reading_view.editor.toHtml().lower()
     )
 
@@ -547,8 +528,6 @@ def test_in_english_no_screen_shows_spanish_catalog_text_after_a_restart(
     assert window.settings_view.dialog is not None
     assert spanish_leaks(window.settings_view.dialog) == []
     window.settings_view.dialog.close()
-    window.settings_view.url_edit.setText("nope")
-    window.settings_view.url_edit.editingFinished.emit()
     assert spanish_leaks(window.settings_view) == []
 
     window.show_screen(Screen.HOME)

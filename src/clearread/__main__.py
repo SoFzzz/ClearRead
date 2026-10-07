@@ -8,20 +8,27 @@ from clearread.core.config import AppConfig, load_client_token
 from clearread.core.paths import get_user_data_dir
 from clearread.services.ai_client import BackendAIClient, DiskResponseCache
 from clearread.services.document_library import DocumentLibrary
+from clearread.services.glossary import GlossaryStore
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import LazyOCREngine
+from clearread.services.reading_stats import StatsStore
 from clearread.services.tts_controller import TTSController
+from clearread.ui.app_icon import load_app_icon, set_windows_app_id
 from clearread.ui.fonts import load_reading_font
 from clearread.ui.main_window import MainWindow
 
 CACHE_DIR_NAME = "cache"
 AI_CACHE_FILE = "ai_cache.json"
+GLOSSARY_FILE = "glossary.json"
+STATS_FILE = "stats.json"
 
 
 def main() -> int:
     """Start ClearRead Desktop and return the process exit code."""
+    set_windows_app_id()
     app = QApplication(sys.argv)
     app.setApplicationName("ClearRead")
+    app.setWindowIcon(load_app_icon())
     load_reading_font()
     config = AppConfig.load()
     ai_client = BackendAIClient(
@@ -37,6 +44,8 @@ def main() -> int:
         library=DocumentLibrary(get_user_data_dir() / CACHE_DIR_NAME),
         ai_client=ai_client,
         network=NetworkMonitor.from_system(),
+        glossary=GlossaryStore(get_user_data_dir() / GLOSSARY_FILE),
+        stats=StatsStore(get_user_data_dir() / STATS_FILE),
     )
     window.resize(1280, 800)
     window.show()

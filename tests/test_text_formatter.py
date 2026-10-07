@@ -160,15 +160,20 @@ def test_reading_style_goes_into_the_html_and_never_moves_the_positions() -> Non
     styled = TextFormatter(
         SpanishSyllabifier(),
         PALETTE,
-        ReadingStyle(font_size_pt=24, letter_spacing_px=0.5, word_spacing_px=10),
+        ReadingStyle(font_size_pt=24, letter_spacing_em=0.25, word_spacing_em=0.5),
     )
     text = "El niño leyó una canción."
     plain = default.format_document(text)
     big = styled.format_document(text)
     assert "font-size: 24pt" in big.html_content
-    assert "letter-spacing: 0.5px" in big.html_content
-    assert "word-spacing: 10px" in big.html_content
-    assert "font-size: 16pt" in plain.html_content
+    # 24 pt are 32 px: 0.25 em = 8 px and 0.5 em = 16 px.
+    assert "letter-spacing: 8.00px" in big.html_content
+    assert "word-spacing: 16.00px" in big.html_content
+    assert "font-size: 18pt" in plain.html_content
+    assert "font-family: 'Lexend'" in plain.html_content
+    # Defaults: 18 pt = 24 px, so +0.12 em = 2.88 px and +0.16 em = 3.84 px.
+    assert "letter-spacing: 2.88px" in plain.html_content
+    assert "word-spacing: 3.84px" in plain.html_content
     assert big.token_map == plain.token_map
 
 
@@ -195,3 +200,16 @@ def test_token_index_at_picks_the_word_under_the_character_or_the_next_one(
     assert token_index_at(token_map, plain.index(".")) == 2  # up to the next paragraph
     assert token_index_at(token_map, len(plain) + 5) == len(token_map) - 1
     assert token_index_at(token_map, 0) == 0
+
+
+def test_odd_syllables_get_a_soft_fill_only_when_the_palette_has_one() -> None:
+    plain = TextFormatter(SpanishSyllabifier(), PALETTE).format_document("canción")
+    assert "background-color" not in plain.html_content
+    filled = TextFormatter(
+        SpanishSyllabifier(),
+        SyllablePalette("#111111", "#222222", background_odd="#FBF0CC"),
+    ).format_document("canción")
+    spans = filled.html_content.split("<span")[1:]
+    assert len(spans) == 2
+    assert "background-color" not in spans[0]
+    assert "background-color: #FBF0CC" in spans[1]

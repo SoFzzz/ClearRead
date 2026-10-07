@@ -18,12 +18,13 @@ DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 CLIENT_TOKEN_ENV_VAR = "CLEARREAD_CLIENT_TOKEN"
 CLIENT_TOKEN_FILE = Path("resources") / "client_token.local.json"
 
-THEME_IDS = ("light", "dark", "high_contrast")
+THEME_IDS = ("light", "dark")
+READING_FONTS = ("Lexend", "Atkinson Hyperlegible", "OpenDyslexic")
 UI_LANGUAGES = ("es", "en")
 FONT_SIZE_RANGE_PT = (12, 28)
 LINE_SPACING_RANGE = (1.4, 2.6)
-LETTER_SPACING_RANGE_PX = (0.0, 4.0)
-WORD_SPACING_RANGE_PX = (0, 12)
+LETTER_SPACING_RANGE_EM = (0.0, 0.4)
+WORD_SPACING_RANGE_EM = (0.0, 0.6)
 READING_SPEED_RANGE_WPM = (80, 320)
 _URL_SCHEMES = ("https", "http")
 
@@ -86,11 +87,12 @@ def _backend_url(value: object) -> str:
 
 @dataclass
 class AppConfig:
-    theme: str = "light"  # ThemeId value: "light" | "dark" | "high_contrast"
-    font_size_pt: int = 16
-    line_spacing: float = 1.8
-    letter_spacing: float = 1.5  # px
-    word_spacing: int = 4  # px
+    theme: str = "light"  # ThemeId value: "light" | "dark"
+    reading_font: str = "Lexend"  # one of READING_FONTS
+    font_size_pt: int = 18
+    line_spacing: float = 1.5
+    letter_spacing_em: float = 0.12  # fraction of the font size
+    word_spacing_em: float = 0.16  # fraction of the font size
     syllables_enabled: bool = True
     reading_speed_wpm: int = 150
     voice_id: str = ""  # SAPI5 voice id; empty means the system default voice
@@ -126,20 +128,24 @@ class AppConfig:
         base = fallback or AppConfig()
         return AppConfig(
             theme=_choice(self.theme, THEME_IDS, base.theme),
+            reading_font=_choice(self.reading_font, READING_FONTS, base.reading_font),
             font_size_pt=_number(
                 self.font_size_pt, FONT_SIZE_RANGE_PT, base.font_size_pt, int
             ),
             line_spacing=_number(
                 self.line_spacing, LINE_SPACING_RANGE, base.line_spacing, float
             ),
-            letter_spacing=_number(
-                self.letter_spacing,
-                LETTER_SPACING_RANGE_PX,
-                base.letter_spacing,
+            letter_spacing_em=_number(
+                self.letter_spacing_em,
+                LETTER_SPACING_RANGE_EM,
+                base.letter_spacing_em,
                 float,
             ),
-            word_spacing=_number(
-                self.word_spacing, WORD_SPACING_RANGE_PX, base.word_spacing, int
+            word_spacing_em=_number(
+                self.word_spacing_em,
+                WORD_SPACING_RANGE_EM,
+                base.word_spacing_em,
+                float,
             ),
             syllables_enabled=_boolean(self.syllables_enabled, base.syllables_enabled),
             reading_speed_wpm=_number(

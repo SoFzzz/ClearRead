@@ -50,9 +50,9 @@ class AIRequest:
 
 
 class AIAssistant(QObject):
-    privacy_accepted = (
-        Signal()
-    )  # the first-use notice was accepted: keep it in the config
+    # The first-use notice was accepted: keep it in the config.
+    privacy_accepted = Signal()
+    word_explained = Signal(str, str)  # word, explanation (AI-F05)
 
     def __init__(
         self,
@@ -61,8 +61,10 @@ class AIAssistant(QObject):
         privacy_accepted: bool,
         pool: QThreadPool | None = None,
         parent: QObject | None = None,
+        saves_words: bool = False,
     ) -> None:
         super().__init__(parent)
+        self._saves_words = saves_words
         self._client = client
         self._view = view
         self._panel = view.ai_panel
@@ -167,7 +169,12 @@ class AIAssistant(QObject):
     def _on_finished(self, text: str) -> None:
         if self._settle() and self._last is not None:
             self._answer = text
-            self._panel.show_answer(text, self._last.mode)
+            explained = self._last.mode is AIMode.EXPLAIN
+            self._panel.show_answer(
+                text, self._last.mode, saved=explained and self._saves_words
+            )
+            if explained and self._saves_words:
+                self.word_explained.emit(self._last.text, text)
             self._refresh_counter()
 
     @Slot(object)

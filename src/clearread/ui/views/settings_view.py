@@ -11,27 +11,24 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QRadioButton,
     QScrollArea,
     QSlider,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from clearread.core.config import (
-    DEFAULT_BACKEND_URL,
     FONT_SIZE_RANGE_PT,
-    LETTER_SPACING_RANGE_PX,
+    LETTER_SPACING_RANGE_EM,
     LINE_SPACING_RANGE,
+    READING_FONTS,
     READING_SPEED_RANGE_WPM,
     UI_LANGUAGES,
-    WORD_SPACING_RANGE_PX,
+    WORD_SPACING_RANGE_EM,
     AppConfig,
-    is_backend_url,
 )
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import (
@@ -56,6 +53,11 @@ PREVIEW_TEXT_WIDTH = PREVIEW_WIDTH - 2 * (PREVIEW_CARD_MARGIN + PREVIEW_VIEW_MAR
 PREVIEW_WORD_INDEX = 5
 SLIDER_WIDTH = 300
 THEME_CARD_HEIGHT = 84
+FONT_KEYS = {
+    "Lexend": "settings.font.lexend",
+    "Atkinson Hyperlegible": "settings.font.atkinson",
+    "OpenDyslexic": "settings.font.opendyslexic",
+}
 
 
 @dataclass(frozen=True)
@@ -91,22 +93,22 @@ SLIDERS = (
         False,
     ),
     SliderSpec(
-        "letter_spacing",
+        "letter_spacing_em",
         "settings.letter_spacing",
-        LETTER_SPACING_RANGE_PX[0],
-        LETTER_SPACING_RANGE_PX[1],
-        2,
-        "settings.value.px",
+        LETTER_SPACING_RANGE_EM[0],
+        LETTER_SPACING_RANGE_EM[1],
+        100,
+        "settings.value.em",
         False,
     ),
     SliderSpec(
-        "word_spacing",
+        "word_spacing_em",
         "settings.word_spacing",
-        WORD_SPACING_RANGE_PX[0],
-        WORD_SPACING_RANGE_PX[1],
-        1,
-        "settings.value.px",
-        True,
+        WORD_SPACING_RANGE_EM[0],
+        WORD_SPACING_RANGE_EM[1],
+        100,
+        "settings.value.em",
+        False,
     ),
 )
 SPEED_SPEC = SliderSpec(
@@ -176,6 +178,11 @@ class SettingsView(QWidget):
         left.addWidget(self._heading("settings.section.theme"))
         left.addLayout(self._build_theme_cards())
         left.addWidget(self._heading("settings.section.text"))
+        left.addLayout(self._build_font_row())
+        font_note = QLabel(self._t("settings.font_note"))
+        font_note.setProperty("role", "muted")
+        font_note.setWordWrap(True)
+        left.addWidget(font_note)
         for spec in SLIDERS:
             left.addLayout(self._slider_row(spec))
         left.addLayout(self._build_syllables_row())
@@ -184,7 +191,6 @@ class SettingsView(QWidget):
         left.addLayout(self._build_voice_row())
         left.addWidget(self._heading("settings.section.language"))
         left.addLayout(self._build_language_row())
-        left.addWidget(self._build_advanced())
         left.addStretch(1)
 
         right = QVBoxLayout()
@@ -300,6 +306,17 @@ class SettingsView(QWidget):
         row.addWidget(self.voice_combo)
         return row
 
+    def _build_font_row(self) -> QHBoxLayout:
+        self.font_combo = QComboBox()
+        self.font_combo.setMinimumWidth(SLIDER_WIDTH + 130)
+        for family in READING_FONTS:
+            self.font_combo.addItem(self._t(FONT_KEYS[family]), family)
+        self.font_combo.currentIndexChanged.connect(self._on_font)
+        row = QHBoxLayout()
+        row.addWidget(QLabel(self._t("settings.font")), stretch=1)
+        row.addWidget(self.font_combo)
+        return row
+
     def _build_language_row(self) -> QHBoxLayout:
         self.language_combo = QComboBox()
         self.language_combo.setMinimumWidth(SLIDER_WIDTH + 130)
@@ -310,47 +327,6 @@ class SettingsView(QWidget):
         row.addWidget(QLabel(self._t("settings.language.label")), stretch=1)
         row.addWidget(self.language_combo)
         return row
-
-    def _build_advanced(self) -> QFrame:
-        self.advanced_toggle = QToolButton()
-        self.advanced_toggle.setObjectName("AdvancedToggle")
-        self.advanced_toggle.setText(self._t("settings.section.advanced"))
-        self.advanced_toggle.setCheckable(True)
-        self.advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
-        self.advanced_toggle.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        self.advanced_toggle.toggled.connect(self._on_advanced_toggled)
-
-        self.url_edit = QLineEdit()
-        self.url_edit.setAccessibleName(self._t("settings.backend_url"))
-        self.url_edit.editingFinished.connect(self._on_url_edited)
-        self.url_reset_button = QPushButton(self._t("settings.backend_url_reset"))
-        self.url_reset_button.clicked.connect(self._reset_url)
-        help_label = QLabel(self._t("settings.backend_url_help"))
-        help_label.setProperty("role", "muted")
-        help_label.setWordWrap(True)
-        self.url_error_label = QLabel(self._t("settings.backend_url_invalid"))
-        self.url_error_label.setProperty("role", "error")
-        self.url_error_label.hide()
-
-        self._advanced_body = QWidget()
-        body = QVBoxLayout(self._advanced_body)
-        body.setContentsMargins(0, 8, 0, 0)
-        body.addWidget(QLabel(self._t("settings.backend_url")))
-        body.addWidget(self.url_edit)
-        body.addWidget(self.url_error_label)
-        body.addWidget(self.url_reset_button, alignment=Qt.AlignmentFlag.AlignLeft)
-        body.addWidget(help_label)
-        self._advanced_body.hide()
-
-        frame = QFrame()
-        frame.setObjectName("AdvancedBox")
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.addWidget(self.advanced_toggle)
-        layout.addWidget(self._advanced_body)
-        return frame
 
     def _build_preview_card(self) -> QFrame:
         self.preview = ReaderWidget(THEMES[ThemeId(self._config.theme)])
@@ -458,7 +434,11 @@ class SettingsView(QWidget):
         self.voice_combo.blockSignals(True)
         self.voice_combo.setCurrentIndex(max(index, 0))
         self.voice_combo.blockSignals(False)
-        self.url_edit.setText(config.backend_url)
+        self.font_combo.blockSignals(True)
+        self.font_combo.setCurrentIndex(
+            max(self.font_combo.findData(config.reading_font), 0)
+        )
+        self.font_combo.blockSignals(False)
         self._refresh_preview()
 
     def _show_value(self, spec: SliderSpec, value: float) -> None:
@@ -489,9 +469,10 @@ class SettingsView(QWidget):
         config = self._config
         tokens = THEMES[ThemeId(config.theme)]
         style = ReadingStyle(
+            font_family=config.reading_font,
             font_size_pt=config.font_size_pt,
-            letter_spacing_px=config.letter_spacing,
-            word_spacing_px=config.word_spacing,
+            letter_spacing_em=config.letter_spacing_em,
+            word_spacing_em=config.word_spacing_em,
         )
         palette: SyllablePalette = syllable_palette(tokens)
         formatter = TextFormatter(self._syllabifier, palette, style)
@@ -526,6 +507,12 @@ class SettingsView(QWidget):
         self._config.syllables_enabled = enabled
         self._commit()
 
+    def _on_font(self, index: int) -> None:
+        family = self.font_combo.itemData(index)
+        if family and family != self._config.reading_font:
+            self._config.reading_font = family
+            self._commit()
+
     def _on_voice(self, index: int) -> None:
         voice_id = self.voice_combo.itemData(index)
         if voice_id and voice_id != self._config.voice_id:
@@ -552,37 +539,16 @@ class SettingsView(QWidget):
         )
         self._show_dialog(box)
 
-    def _on_advanced_toggled(self, expanded: bool) -> None:
-        self._advanced_body.setVisible(expanded)
-        self.advanced_toggle.setArrowType(
-            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
-        )
-
-    def _on_url_edited(self) -> None:
-        text = self.url_edit.text().strip()
-        valid = is_backend_url(text)
-        self.url_error_label.setVisible(not valid)
-        if valid and text != self._config.backend_url:
-            self._config.backend_url = text
-            self._commit()
-        elif not valid:
-            self.url_edit.setText(self._config.backend_url)
-
-    def _reset_url(self) -> None:
-        self.url_error_label.hide()
-        if self._config.backend_url != DEFAULT_BACKEND_URL:
-            self._config.backend_url = DEFAULT_BACKEND_URL
-            self._commit()
-
     def reset_to_defaults(self) -> None:
-        """Back to the default look and speed; voice, language and address stay."""
+        """Back to the default look and speed; voice and language stay."""
         defaults = AppConfig()
         for field in (
             "theme",
+            "reading_font",
             "font_size_pt",
             "line_spacing",
-            "letter_spacing",
-            "word_spacing",
+            "letter_spacing_em",
+            "word_spacing_em",
             "syllables_enabled",
             "reading_speed_wpm",
         ):
