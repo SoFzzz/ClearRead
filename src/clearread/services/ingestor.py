@@ -34,7 +34,9 @@ class PageResult:
 
 
 class DocumentIngestor:
-    SUPPORTED_IMAGE_EXT = frozenset({".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"})
+    SUPPORTED_IMAGE_EXT = frozenset(
+        {".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".tiff", ".tif"}
+    )
     SUPPORTED_PDF_EXT = frozenset({".pdf"})
     DEFAULT_DPI = 300
     DIGITAL_TEXT_THRESHOLD = 50
