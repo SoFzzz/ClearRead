@@ -187,6 +187,19 @@ QRadioButton::indicator:checked { background: $primary_bg; }
 QRadioButton::indicator:focus { border: 3px solid $focus_ring; }
 QMessageBox { background: $bg; }
 
+QFrame#AIPanel { background: $surface; border: none; border-left: 1px solid $border; }
+QWidget#AIPage, QStackedWidget#AIPage { background: transparent; }
+QFrame#AICard { background: $bg; border: 1px solid $border; border-radius: 12px; }
+QFrame#PrivacyCard { background: $bg; border: 2px solid $text; border-radius: 12px; }
+QFrame#AICard QLabel, QFrame#PrivacyCard QLabel { border: none; }
+QFrame#AICard QLabel#ErrorMark { border: 3px solid $error; border-radius: 20px; }
+QLabel#WordChip { background: $word_highlight_bg; color: $word_highlight_fg;
+                  border-radius: 8px; padding: 4px 12px; font-weight: 700; }
+QLabel#AnswerBody { font-family: "OpenDyslexic"; font-size: 17px; }
+QLabel#OfflineBadge { border: 1px solid $border; border-radius: 12px; padding: 2px 10px;
+                      font-size: 13px; font-weight: 600; }
+QPushButton#AssistantToggle:checked { background: $secondary_bg_hover; }
+
 QToolTip { background: $text; color: $bg; border: none; padding: 8px 12px; font-size: 13px; }
 """
 )
