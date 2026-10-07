@@ -1,5 +1,6 @@
 """Main window: Home -> Processing -> Reading -> (Back) Home (design system 7)."""
 
+from dataclasses import replace
 from enum import Enum
 from pathlib import Path
 
@@ -26,9 +27,15 @@ from clearread.services.ingestor import DocumentIngestor
 from clearread.services.ocr_engine import OCREngine
 from clearread.services.preprocessor import OCRPreprocessor
 from clearread.services.syllabifier import SpanishSyllabifier
-from clearread.services.text_formatter import FormattedDocument, TextFormatter
+from clearread.services.text_formatter import (
+    FormattedDocument,
+    ReadingStyle,
+    TextFormatter,
+)
 from clearread.services.tts_controller import TTSController
 from clearread.ui.dialogs import AccessibleErrorDialog
+from clearread.ui.fonts import READING_FONT_FAMILY
+from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import (
     THEMES,
@@ -39,6 +46,7 @@ from clearread.ui.theme import (
 )
 from clearread.ui.views.home_view import HomeView, ProcessingView, local_today
 from clearread.ui.views.reading_view import ReadingView
+from clearread.ui.views.settings_view import SettingsView
 from clearread.workers.ocr_worker import (
     DocumentProcessWorker,
     ProcessedDocument,
@@ -54,6 +62,7 @@ class Screen(Enum):
     HOME = 0
     PROCESSING = 1
     READING = 2
+    SETTINGS = 3
 
 
 class MainWindow(QMainWindow):
@@ -63,9 +72,11 @@ class MainWindow(QMainWindow):
         ocr_engine: OCREngine,
         tts: TTSController,
         library: DocumentLibrary,
+        config_dir: Path | None = None,
     ) -> None:
         super().__init__()
         self._config = config
+        self._config_dir = config_dir
         self._language = Language(config.ui_language)
         self._theme = ThemeId(config.theme)
         self._ocr_engine = ocr_engine
@@ -77,9 +88,14 @@ class MainWindow(QMainWindow):
         self._worker: DocumentProcessWorker | None = None
         self._retired_workers: set[DocumentProcessWorker] = set()
         self._pending: tuple[Path, str] | None = None
+        self._raw_text: str | None = None  # text of the document in the reading view
+        self._reading_title = ""
+        self._settings_origin = Screen.HOME
         self.error_dialog: AccessibleErrorDialog | None = None
         self._build_ui()
         self.setStyleSheet(build_stylesheet(self.tokens))
+        self._apply_speech_settings()
+        self._refresh_reading()
         self.show_screen(Screen.HOME)
 
     @property
@@ -103,8 +119,16 @@ class MainWindow(QMainWindow):
         self.home_view = HomeView(self.tokens, self._language)
         self.processing_view = ProcessingView(self._language)
         self.reading_view = ReadingView(self._tts, self._theme, self._language)
+        self.settings_view = SettingsView(
+            replace(self._config), self._language, self._syllabifier
+        )
         self._stack = QStackedWidget()
-        for view in (self.home_view, self.processing_view, self.reading_view):
+        for view in (
+            self.home_view,
+            self.processing_view,
+            self.reading_view,
+            self.settings_view,
+        ):
             self._stack.addWidget(view)
 
         central = QWidget()
@@ -119,16 +143,30 @@ class MainWindow(QMainWindow):
         self.home_view.recent_open_requested.connect(self.open_recent)
         self.home_view.recent_remove_requested.connect(self.remove_recent)
         self.processing_view.cancel_requested.connect(self.cancel_processing)
+        self.reading_view.speed_changed.connect(self._on_reading_speed_changed)
+        self.settings_view.config_changed.connect(self._on_settings_changed)
+        self.settings_view.clear_recents_requested.connect(self.clear_recents)
+        self.settings_view.back_requested.connect(self.go_back)
+        self.settings_view.set_voices(self._tts.voices)
+        self._tts.voices_listed.connect(self.settings_view.set_voices)
         self.back_button.clicked.connect(self.go_back)
-        shortcut = QShortcut(QKeySequence("Alt+Left"), self)
-        shortcut.activated.connect(self.go_back)
+        self.settings_button.clicked.connect(self.open_settings)
+        for sequence, slot in (
+            ("Alt+Left", self.go_back),
+            ("Ctrl+,", self.open_settings),
+        ):
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(slot)
 
     def _build_top_bar(self) -> QFrame:
         bar = QFrame()
         bar.setObjectName("TopBar")
         bar.setFixedHeight(TOP_BAR_HEIGHT)
-        self.back_button = QPushButton(self._t("nav.back_home"))
-        self.back_button.setToolTip(f"{self._t('nav.back_home')} (Alt+←)")
+        self.back_button = QPushButton()
+        self.settings_button = QPushButton(self._t("nav.settings"))
+        self.settings_button.setProperty("variant", "ghost")
+        self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
+        self.settings_button.setToolTip(f"{self._t('nav.settings')} (Ctrl+,)")
         self.brand_label = QLabel("ClearRead")
         self.brand_label.setObjectName("Brand")
         self.title_label = QLabel()
@@ -138,19 +176,38 @@ class MainWindow(QMainWindow):
         row.addWidget(self.back_button)
         row.addWidget(self.brand_label)
         row.addWidget(self.title_label, stretch=1)
+        row.addWidget(self.settings_button)
         return bar
 
     def show_screen(self, screen: Screen) -> None:
         self._stack.setCurrentIndex(screen.value)
-        reading = screen is Screen.READING
-        self.back_button.setVisible(reading)
-        self.brand_label.setVisible(not reading)
-        self.title_label.setVisible(reading)
+        has_title = screen in (Screen.READING, Screen.SETTINGS)
+        self.back_button.setVisible(has_title)
+        self.brand_label.setVisible(not has_title)
+        self.title_label.setVisible(has_title)
+        self.settings_button.setVisible(screen is not Screen.SETTINGS)
+        self.settings_button.setEnabled(screen is not Screen.PROCESSING)
+        if has_title:
+            self._show_title(screen)
         if screen is Screen.HOME:
             self.home_view.set_recents(self._library.recents(), local_today())
             self.home_view.choose_button.setFocus()
         elif screen is Screen.READING:
             self.reading_view.editor.setFocus()
+
+    def _show_title(self, screen: Screen) -> None:
+        reading = screen is Screen.READING
+        back_key = "nav.back_home" if reading else "nav.back"
+        self.back_button.setText(self._t(back_key))
+        self.back_button.setToolTip(f"{self._t(back_key)} (Alt+←)")
+        self.title_label.setText(
+            self._reading_title if reading else self._t("settings.title")
+        )
+
+    def open_settings(self) -> None:
+        if self.screen_shown in (Screen.HOME, Screen.READING):
+            self._settings_origin = self.screen_shown
+            self.show_screen(Screen.SETTINGS)
 
     def open_document(self, path: str) -> None:
         if self._worker is not None:
@@ -168,13 +225,14 @@ class MainWindow(QMainWindow):
         self._start_worker(source)
 
     def _start_worker(self, source: Path) -> None:
-        formatter = TextFormatter(self._syllabifier, syllable_palette(self.tokens))
+        formatter = self._make_formatter()
         worker = DocumentProcessWorker(
             str(source),
             self._ingestor,
             self._preprocessor,
             self._ocr_engine,
             formatter,
+            self._config.syllables_enabled,
         )
         worker.progress_changed.connect(self.processing_view.set_progress)
         worker.formatting_started.connect(self.processing_view.set_preparing)
@@ -226,12 +284,12 @@ class MainWindow(QMainWindow):
             return
         source, key = pending
         cached = CachedDocument(
-            processed.raw_text, processed.formatted, self._theme.value
+            processed.raw_text, processed.formatted, self._appearance_key()
         )
         self._library.store(
             key, source, cached, processed.page_count, processed.is_photo
         )
-        self._show_reading(processed.formatted, source.name)
+        self._show_reading(processed.formatted, source.name, processed.raw_text)
 
     def _on_error(self, kind_value: str) -> None:
         if self._release_worker() is None:
@@ -253,20 +311,94 @@ class MainWindow(QMainWindow):
         if cached is None:
             return False
         formatted = cached.formatted
-        if cached.theme != self._theme.value:
+        if cached.appearance != self._appearance_key():
             formatted = self._format(cached.raw_text)
-        self._show_reading(formatted, name)
+        self._show_reading(formatted, name, cached.raw_text)
         return True
 
-    def _format(self, raw_text: str) -> FormattedDocument:
-        formatter = TextFormatter(self._syllabifier, syllable_palette(self.tokens))
-        return formatter.format_document(raw_text)
+    def _style(self) -> ReadingStyle:
+        return ReadingStyle(
+            font_family=READING_FONT_FAMILY,
+            font_size_pt=self._config.font_size_pt,
+            letter_spacing_px=self._config.letter_spacing,
+            word_spacing_px=self._config.word_spacing,
+        )
 
-    def _show_reading(self, formatted: FormattedDocument, name: str) -> None:
+    def _appearance_key(self, config: AppConfig | None = None) -> str:
+        config = config or self._config
+        return (
+            f"{config.theme}|{config.font_size_pt}|{config.letter_spacing:g}|"
+            f"{config.word_spacing}|{config.syllables_enabled}"
+        )
+
+    def _make_formatter(self) -> TextFormatter:
+        return TextFormatter(
+            self._syllabifier, syllable_palette(self.tokens), self._style()
+        )
+
+    def _format(self, raw_text: str) -> FormattedDocument:
+        return self._make_formatter().format_document(
+            raw_text, self._config.syllables_enabled
+        )
+
+    def _show_reading(
+        self, formatted: FormattedDocument, name: str, raw_text: str
+    ) -> None:
+        self._raw_text = raw_text
         self.reading_view.load_document(formatted)
-        shown = name if len(name) <= TITLE_MAX_CHARS else name[:TITLE_MAX_CHARS] + "…"
-        self.title_label.setText(shown)
+        self._reading_title = (
+            name if len(name) <= TITLE_MAX_CHARS else name[:TITLE_MAX_CHARS] + "…"
+        )
         self.show_screen(Screen.READING)
+
+    def _refresh_reading(self) -> None:
+        """Re-render the open document: same text, so the token map stays valid."""
+        html = self._format(self._raw_text).html_content if self._raw_text else ""
+        self.reading_view.apply_appearance(
+            self._theme, self._style(), self._config.line_spacing, html
+        )
+
+    def _apply_speech_settings(self) -> None:
+        self._tts.set_voice(self._config.voice_id)
+        self.reading_view.set_speed(self._config.reading_speed_wpm)
+
+    def _on_settings_changed(self, new: AppConfig) -> None:
+        old, self._config = self._config, new
+        if new.theme != old.theme:
+            self._theme = ThemeId(new.theme)
+            self.setStyleSheet(build_stylesheet(self.tokens))
+            self.home_view.apply_theme(self.tokens)
+            self.settings_button.setIcon(load_icon("settings", self.tokens.secondary))
+        if (
+            self._appearance_key(old) != self._appearance_key()
+            or old.line_spacing != new.line_spacing
+        ):
+            self._refresh_reading()
+        if new.reading_speed_wpm != old.reading_speed_wpm:
+            self.reading_view.set_speed(new.reading_speed_wpm)
+        if new.voice_id != old.voice_id:
+            self._tts.set_voice(new.voice_id)
+        self._save_config()
+
+    def _on_reading_speed_changed(self, wpm: int) -> None:
+        if wpm == self._config.reading_speed_wpm:
+            return
+        self._config.reading_speed_wpm = wpm
+        self.settings_view.set_speed(wpm)
+        self._save_config()
+
+    def _save_config(self) -> None:
+        try:
+            self._config.save(self._config_dir)
+        except OSError:
+            self.settings_view.show_save_error(True)
+        else:
+            self.settings_view.show_save_error(False)
+
+    def clear_recents(self) -> None:
+        self._library.clear()
+        self.home_view.set_recents([], local_today())
+        self.settings_view.show_recents_cleared()
 
     def remove_recent(self, key: str) -> None:
         self._library.remove(key)
@@ -275,6 +407,8 @@ class MainWindow(QMainWindow):
     def go_back(self) -> None:
         if self.screen_shown is Screen.PROCESSING:
             self.cancel_processing()
+        elif self.screen_shown is Screen.SETTINGS:
+            self.show_screen(self._settings_origin)
         elif self.screen_shown is Screen.READING:
             self.reading_view.stop_reading()
             self.show_screen(Screen.HOME)
