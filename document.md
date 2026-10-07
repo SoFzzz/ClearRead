@@ -1598,6 +1598,7 @@ backend/
   .env                    # solo desarrollo, ignorado por git (regla ".env" de .gitignore)
   src/clearread_backend/
     main.py               # app FastAPI, endpoints y manejadores de error
+    prompts.py            # system prompts por idioma (entrada del modelo)
     settings.py           # lectura de variables de entorno
     deepseek.py           # llamada a DeepSeek y traducción de errores
     quota.py              # tope diario global
@@ -1652,11 +1653,14 @@ Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos
 | Variable | Contenido | Dónde vive |
 |:---|:---|:---|
 | `DEEPSEEK_API_KEY` | API key de DeepSeek | Solo en el panel de Render y en `backend/.env` (desarrollo) |
-| `DEEPSEEK_MODEL_ID` | `deepseek-flash` | Render / `.env` |
-| `CLIENT_TOKEN` | Token que envía la app en `X-Client-Token` | Render / `.env` y constante en `core/config.py` de la app |
-| `DAILY_CALL_LIMIT` | `45` (ver cálculo abajo) | Render / `.env` |
+| `DEEPSEEK_MODEL` | Nombre del modelo; por defecto `deepseek-flash` | Render / `.env` |
+| `DEEPSEEK_BASE_URL` | URL base de la API; por defecto `https://api.deepseek.com` | Render / `.env` |
+| `CLIENT_TOKEN` | Token que envía la app en `X-Client-Token`. Sin él configurado, todas las peticiones reciben 401 | Render / `.env`. En la app **no** se versiona: en desarrollo, variable de entorno `CLEARREAD_CLIENT_TOKEN`; en el build, un archivo generado e ignorado por git (§6.6) |
+| `DAILY_CALL_LIMIT` | `45` (ver cálculo abajo); por defecto 45 | Render / `.env` |
 
-**Fuente del proveedor (consultada el 2026-10-01, https://api-docs.deepseek.com/):** API compatible con el formato OpenAI; *base URL* `https://api.deepseek.com`, ruta `POST /chat/completions`; nombre de modelo indicado por la documentación: `deepseek-flash` (los nombres heredados `deepseek-v4-flash` siguen aceptándose, pero sus modelos fueron retirados). El *base URL* es una constante del backend; el `model_id` se lee de `DEEPSEEK_MODEL_ID` para poder cambiarlo sin redesplegar código si DeepSeek renombra modelos.
+**Fuente del proveedor (consultada el 2026-10-01, https://api-docs.deepseek.com/):** API compatible con el formato OpenAI; *base URL* `https://api.deepseek.com`, ruta `POST /chat/completions`; nombre de modelo indicado por la documentación: `deepseek-flash` (los nombres heredados `deepseek-v4-flash` siguen aceptándose, pero sus modelos fueron retirados). El modelo y el *base URL* se leen de `DEEPSEEK_MODEL` y `DEEPSEEK_BASE_URL` (con esos valores por defecto) para poder cambiarlos desde el panel de Render sin tocar código si DeepSeek renombra modelos o cambia de dirección.
+
+**«Thinking» desactivado:** cada petición a DeepSeek envía `"thinking": {"type": "disabled"}`. Con el razonamiento activado (el valor por defecto del modelo), sus *tokens* de razonamiento consumen el `max_tokens` (80 u 250) y la respuesta llega vacía o cortada; se comprobó con una llamada real. Desactivarlo también evita pagar tokens de razonamiento, que se cobran como salida.
 
 #### Control de Costo y Límites
 | Control | Valor |
@@ -1668,6 +1672,7 @@ Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos
 | Caché | En memoria, por `(endpoint, texto normalizado)`, máx. 500 entradas; un acierto de caché no consume tope |
 | Timeout hacia DeepSeek | 20 s |
 | Longitud de respuesta | Si `finish_reason == "length"`, se recorta a la última frase completa |
+| Razonamiento (`thinking`) | Desactivado en cada petición (ver arriba) |
 
 **Cálculo del tope diario** (precios de https://api-docs.deepseek.com/quick_start/pricing, consultados el 2026-10-01, USD por 1M de tokens para `deepseek-flash` en horario pico, el caso más caro: entrada sin caché $0.30, salida $1.20; fuera de pico cuestan la mitad):
 
@@ -1719,7 +1724,9 @@ SIMPLIFY_SYSTEM_PROMPTS = {
 }
 
 settings = Settings.from_env()
-gateway = DeepSeekGateway(settings.deepseek_api_key, settings.deepseek_model_id)
+gateway = DeepSeekGateway(
+    settings.deepseek_api_key, settings.deepseek_model, settings.deepseek_base_url
+)
 quota = DailyQuota(settings.daily_call_limit)
 app = FastAPI(title="ClearRead API", version="1.5.0")
 
@@ -2138,7 +2145,7 @@ py -3.11 -m venv backend\.venv
 .\backend\.venv\Scripts\python -m pip install -e ".\backend[dev]"
 .\backend\.venv\Scripts\python -m pytest backend/tests -v
 # Con las variables de backend/.env cargadas en la sesión
-# (DEEPSEEK_API_KEY, DEEPSEEK_MODEL_ID, CLIENT_TOKEN, DAILY_CALL_LIMIT):
+# (DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL, CLIENT_TOKEN, DAILY_CALL_LIMIT):
 .\backend\.venv\Scripts\python -m uvicorn clearread_backend.main:app --host 127.0.0.1 --port 8000
 ```
 `backend/.env` queda fuera de git por la regla `.env` del `.gitignore`.
@@ -2153,10 +2160,15 @@ Pasos tomados de la documentación oficial de Render, **consultada el 2026-10-01
 | Root Directory | `backend` (build y start se ejecutan relativos a esa carpeta) |
 | Build Command | `pip install .` (la guía de Render usa `requirements.txt`; aquí se instala desde `backend/pyproject.toml`) |
 | Start Command | `uvicorn clearread_backend.main:app --host 0.0.0.0 --port $PORT` |
-| Variables de entorno | `PYTHON_VERSION` (versión 3.11 completa, igual a la local; Render la exige completa con esta variable), `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL_ID`, `CLIENT_TOKEN`, `DAILY_CALL_LIMIT` |
+| Variables de entorno | `PYTHON_VERSION=3.11.9` (versión completa, igual a la local; Render la exige completa con esta variable), `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_BASE_URL`, `CLIENT_TOKEN`, `DAILY_CALL_LIMIT` |
 | Health Check Path | `/health` |
 
+Estos ajustes están también en el *Blueprint* `render.yaml` de la raíz del repositorio (variables secretas con `sync: false`, sin valores), verificado contra https://render.com/docs/blueprint-spec el 2026-10-07. La guía paso a paso para la usuaria es `docs/deploy.md`.
+
 La URL resultante (`https://<servicio>.onrender.com`) reemplaza el *placeholder* `DEFAULT_BACKEND_URL` de `core/config.py` (§4.6). El despliegue y la introducción de la API key los ejecuta o autoriza la usuaria.
+
+#### Token del cliente en el `.exe`
+El token **no se versiona**. `load_client_token()` (`core/config.py`) lo busca en este orden: variable de entorno `CLEARREAD_CLIENT_TOKEN` (desarrollo) y el archivo `resources/client_token.local.json` (`{"client_token": "..."}`), que el build genera con ese mismo valor y que `*.local.json` mantiene fuera de git. `clearread.spec` debe incluirlo como dato (lo define el *packager* en el Día 12). Quien tenga el `.exe` puede extraer el token (§4.11, límite honesto).
 
 #### Distribución del `.exe`
 1. Compilar con `clearread.spec` (§6.3) y pasar la verificación de `package-exe` (recursos presentes, sin `fastapi`/`uvicorn`, sin API key en `dist/`).
@@ -2199,6 +2211,8 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 - **Medir el arranque en frío (BE-NF01):** la cifra de ~1 min es de la documentación de Render, no una medición propia. Verificar también la hipótesis de §4.10 de que un servicio dormido mantiene la petición abierta (se manifiesta como *timeout*, no como error de conexión).
 - **El `.exe` no debe contener FastAPI ni uvicorn:** verificarlo en `dist/` (skill `package-exe`) en los Días 1 y 12.
 - **Horizonte del tope diario:** el cálculo de `DAILY_CALL_LIMIT = 45` supone 60 días de servicio (§4.11); confirmar hasta cuándo debe estar desplegado el backend.
-- **Contador diario en memoria:** se reinicia cuando Render duerme o redespliega el servicio (§4.11); se acepta porque el saldo prepagado de DeepSeek es el tope duro final.
+- **Contador diario en memoria:** el contador de `DAILY_CALL_LIMIT` y la caché viven en la memoria del proceso y **se reinician cuando Render duerme el servicio** (15 min sin tráfico) o lo redespliega (§4.11). Por eso el tope diario no es una garantía: la protección real del gasto es el **saldo prepagado de DeepSeek ($1.99, sin posibilidad de sobrecargo)**, junto con el token del cliente (que se puede extraer del `.exe`, así que solo filtra tráfico casual) y los límites de tamaño de entrada y de salida.
+- **Prueba contra el despliegue de Render (Día 10):** la prueba real de `BackendAIClient` se hizo solo contra el backend **local**. Falta repetirla contra la URL de Render cuando exista, medir el arranque en frío y reemplazar `DEFAULT_BACKEND_URL`.
+- **Inyección del token en el build final:** `clearread.spec` debe incluir `resources/client_token.local.json`, generado en el build (§6.6); lo define el *packager* en el Día 12.
 - **Máquina limpia de prueba:** aún no se definió qué equipo (marca/modelo, versión de Windows) se usará para la prueba sin Python, sin red y con red del Día 12.
 - **Python 3.11 en el equipo de desarrollo:** a 2026-10-01 solo hay Python 3.13 instalado (`py -3.11` falla); hay que instalar Python 3.11 x64 antes del Día 1.
