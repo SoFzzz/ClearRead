@@ -4,8 +4,8 @@ from collections.abc import Iterator
 
 import pytest
 from fakes import EngineSource, FakeEngine
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut, QShortcutEvent
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QKeySequence, QShortcut, QShortcutEvent, QTextCursor
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
@@ -15,7 +15,7 @@ from clearread.services.text_formatter import (
     ReadingStyle,
     TextFormatter,
 )
-from clearread.services.tts_controller import TTSController
+from clearread.services.tts_controller import TTSController, sapi_rate_for
 from clearread.ui.fonts import READING_FONT_FAMILY, load_reading_font
 from clearread.ui.strings import Language
 from clearread.ui.theme import THEMES, ThemeId, syllable_palette
@@ -206,7 +206,7 @@ def test_speed_slider_updates_the_label_and_the_engine_rate(
     assert view.speed_value_label.text() == "200 palabras/min"
     view.toggle_play()
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    assert engines.latest.properties["rate"] == 200
+    assert engines.latest.properties["rate"] == sapi_rate_for(200)
 
 
 def test_tts_failure_is_shown_in_the_view_and_returns_to_idle(
@@ -233,4 +233,142 @@ def test_toggle_without_a_document_does_nothing(
     empty = ReadingView(tts)
     qtbot.addWidget(empty)
     empty.toggle_play()
+    assert empty.state is PlaybackState.IDLE
+
+
+# ---- click on a word (UI-F02) ------------------------------------------------
+
+
+def shown(view: ReadingView, qtbot: QtBot) -> ReadingView:
+    view.resize(900, 500)
+    view.show()
+    qtbot.waitExposed(view)
+    return view
+
+
+def x_of(view: ReadingView, position: int) -> tuple[int, int]:
+    cursor = QTextCursor(view.editor.document())
+    cursor.setPosition(position)
+    rect = view.editor.cursorRect(cursor)
+    return rect.x(), rect.center().y()
+
+
+def click_at(view: ReadingView, qtbot: QtBot, x: int, y: int) -> None:
+    qtbot.mouseClick(
+        view.editor.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(x, y)
+    )
+
+
+def click_word(view: ReadingView, qtbot: QtBot, index: int) -> None:
+    token = view.token_map[index]
+    start_x, y = x_of(view, token.doc_start_pos)
+    end_x, end_y = x_of(view, token.doc_end_pos)
+    assert y == end_y, "the test text must not wrap in the middle of the word"
+    click_at(view, qtbot, (start_x + end_x) // 2, y)
+
+
+def record_words(view: ReadingView) -> list[int]:
+    events: list[int] = []
+    view._tts.word_spoken.connect(events.append)
+    return events
+
+
+def test_click_on_a_word_reads_from_it_and_the_first_event_is_that_word(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    events = record_words(view)
+    target = 6
+    click_word(view, qtbot, target)
+    assert view.state is PlaybackState.PLAYING
+    assert view.current_word_idx == target
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    assert events[0] == target
+    assert events == list(range(target, len(view.token_map)))
+    script = " ".join(token.spoken_text for token in view.token_map[target:])
+    assert engines.latest.said[-1] == script
+
+
+def test_click_while_playing_restarts_from_that_word_without_two_voices(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    events = record_words(view)
+    view.toggle_play()
+    qtbot.waitUntil(lambda: view.current_word_idx >= 3, timeout=TIMEOUT_MS)
+    target = 1
+    already = len(events)
+    click_word(view, qtbot, target)
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    after_click = events[already:]
+    assert after_click == list(range(target, len(view.token_map)))
+    assert engines.voices.peak == 1
+
+
+def test_click_while_paused_reads_from_the_clicked_word(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    view.toggle_play()
+    qtbot.waitUntil(lambda: view.current_word_idx >= 2, timeout=TIMEOUT_MS)
+    view.toggle_play()
+    assert view.state is PlaybackState.PAUSED
+    events = record_words(view)
+    click_word(view, qtbot, 7)
+    assert view.state is PlaybackState.PLAYING
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    assert events[0] == 7
+
+
+def test_click_on_a_space_or_punctuation_chooses_the_next_word(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    plain = view.editor.toPlainText()
+    events = record_words(view)
+    for position in (plain.index("."), plain.index(" ")):  # period, first space
+        expected = next(
+            t.word_index for t in view.token_map if t.doc_start_pos > position
+        )
+        x, y = x_of(view, position)
+        click_at(view, qtbot, x + 2, y)  # inside the left half of that character
+        assert view.current_word_idx == expected
+        qtbot.waitUntil(lambda: bool(events), timeout=TIMEOUT_MS)
+        assert events[0] == expected
+        events.clear()
+
+
+def test_click_on_the_right_half_of_a_last_letter_still_picks_that_word(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    token = view.token_map[1]
+    end_x, y = x_of(view, token.doc_end_pos)
+    click_at(view, qtbot, end_x - 2, y)
+    assert view.current_word_idx == token.word_index
+
+
+def test_double_click_selects_no_text_and_words_show_a_hand_cursor(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    token = view.token_map[2]
+    x, y = x_of(view, token.doc_start_pos)
+    qtbot.mouseDClick(
+        view.editor.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(x + 6, y)
+    )
+    assert not view.editor.textCursor().hasSelection()
+    view.editor.viewport().setCursor(Qt.CursorShape.IBeamCursor)
+    qtbot.mouseMove(view.editor.viewport(), QPoint(x + 6, y))
+    assert view.editor.viewport().cursor().shape() == Qt.CursorShape.IBeamCursor
+    view.editor.enable_char_clicks()
+    assert view.editor.viewport().cursor().shape() == Qt.CursorShape.PointingHandCursor
+
+
+def test_click_without_a_document_does_nothing(
+    tts: TTSController, qtbot: QtBot
+) -> None:
+    empty = ReadingView(tts)
+    qtbot.addWidget(empty)
+    empty._on_char_clicked(3)
     assert empty.state is PlaybackState.IDLE
