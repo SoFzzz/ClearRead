@@ -16,6 +16,13 @@ from typing import Any
 
 from PySide6.QtCore import QCoreApplication
 
+from clearread.services.ai_client import (
+    AIClient,
+    AIErrorKind,
+    AIResponse,
+    AIUnavailableError,
+)
+
 WORD = re.compile(r"\S+")
 
 
@@ -136,3 +143,49 @@ class EngineSource:
     @property
     def latest(self) -> FakeEngine:
         return self.created[-1]
+
+
+class FakeAIClient(AIClient):
+    """AI client double: scripted outcome, optional wake-up and gates to observe states."""
+
+    def __init__(
+        self,
+        text: str = "Respuesta de prueba.",
+        error: AIErrorKind | None = None,
+        waking: bool = False,
+    ) -> None:
+        self.text = text
+        self.error = error
+        self.waking = waking
+        self.calls: list[tuple[str, tuple[str, ...]]] = []
+        self.hold = threading.Event()  # the call waits until the test sets it
+        self.hold.set()
+        self.woke = threading.Event()
+
+    @property
+    def session_calls_used(self) -> int:
+        return len(self.calls)
+
+    @property
+    def session_calls_limit(self) -> int:
+        return 30
+
+    def ensure_awake(self, on_waking: Callable[[], None]) -> None:
+        if self.waking:
+            on_waking()
+            self.woke.set()
+            self.hold.wait(timeout=10)
+
+    def explain_word(self, word: str, context_sentence: str) -> AIResponse:
+        self.calls.append(("explain", (word, context_sentence)))
+        return self._answer()
+
+    def simplify_paragraph(self, text: str) -> AIResponse:
+        self.calls.append(("simplify", (text,)))
+        return self._answer()
+
+    def _answer(self) -> AIResponse:
+        self.hold.wait(timeout=10)
+        if self.error is not None:
+            raise AIUnavailableError(self.error)
+        return AIResponse(self.text)
