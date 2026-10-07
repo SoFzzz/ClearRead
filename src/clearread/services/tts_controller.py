@@ -4,6 +4,7 @@ import bisect
 import gc
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
 
@@ -17,6 +18,21 @@ MIN_RATE_WPM = 80
 MAX_RATE_WPM = 320
 _WORD = re.compile(r"\S+")
 _SHUTDOWN_WAIT_MS = 2000
+
+
+@dataclass(frozen=True)
+class VoiceInfo:
+    id: str
+    name: str
+
+    @property
+    def is_spanish(self) -> bool:
+        return SPANISH_VOICE.search(self.name) is not None
+
+
+def sort_voices(voices: list[VoiceInfo]) -> list[VoiceInfo]:
+    """Spanish voices first, each group in alphabetical order."""
+    return sorted(voices, key=lambda voice: (not voice.is_spanish, voice.name.lower()))
 
 
 class TTSErrorKind(Enum):
@@ -59,6 +75,7 @@ class SAPI5Worker(QObject):
     word_started = Signal(int, int)  # generation, global word index
     speech_finished = Signal(int)  # generation
     error_occurred = Signal(str)  # TTSErrorKind name
+    voices_listed = Signal(object)  # list[VoiceInfo], Spanish first
 
     def __init__(self, engine_factory: EngineFactory) -> None:
         super().__init__()
@@ -67,6 +84,8 @@ class SAPI5Worker(QObject):
         self._com_initialised = False
         self._is_speaking = False
         self._rate = DEFAULT_RATE_WPM
+        self._voice_id = ""  # empty: the first Spanish voice, if any
+        self._voices: list[VoiceInfo] = []
         self._valid_generation = 0
         self._active_generation = 0
         self._base_word_index = 0
@@ -79,13 +98,15 @@ class SAPI5Worker(QObject):
             pythoncom.CoInitialize()
             self._com_initialised = True
             self._engine = self._create_engine()
+            self.voices_listed.emit(self._voices)
         except Exception:  # noqa: BLE001 - any SAPI/COM failure is reported by kind
             self._engine = None
             self.error_occurred.emit(TTSErrorKind.INIT_FAILED.name)
 
     def _create_engine(self) -> SpeechEngine:
         engine = self._engine_factory()
-        self._select_spanish_voice(engine)
+        self._voices = self._installed_voices(engine)
+        self._select_voice(engine)
         engine.setProperty("volume", 1.0)
         engine.connect("started-word", self._on_word_boundary)
         return engine
@@ -106,11 +127,22 @@ class SAPI5Worker(QObject):
             self.error_occurred.emit(TTSErrorKind.INIT_FAILED.name)
 
     @staticmethod
-    def _select_spanish_voice(engine: SpeechEngine) -> None:
-        for voice in engine.getProperty("voices"):
-            if SPANISH_VOICE.search(voice.name):
-                engine.setProperty("voice", voice.id)
-                return
+    def _installed_voices(engine: SpeechEngine) -> list[VoiceInfo]:
+        return sort_voices(
+            [VoiceInfo(voice.id, voice.name) for voice in engine.getProperty("voices")]
+        )
+
+    def _select_voice(self, engine: SpeechEngine) -> None:
+        chosen = next((v for v in self._voices if v.id == self._voice_id), None)
+        if chosen is None:
+            chosen = next((v for v in self._voices if v.is_spanish), None)
+        if chosen is not None:
+            engine.setProperty("voice", chosen.id)
+
+    @Slot(str)
+    def set_voice(self, voice_id: str) -> None:
+        """Remember the voice; it is applied when the next utterance starts."""
+        self._voice_id = voice_id
 
     @Slot(str, int, int)
     def speak(self, text: str, start_offset: int, generation: int) -> None:
@@ -125,6 +157,7 @@ class SAPI5Worker(QObject):
         self._word_starts = [match.start() for match in _WORD.finditer(text)]
         self._is_speaking = True
         try:
+            self._select_voice(self._engine)
             self._engine.setProperty("rate", self._rate)
             self._engine.say(text)
             self._engine.runAndWait()
@@ -180,14 +213,17 @@ class TTSController(QObject):
 
     sig_speak = Signal(str, int, int)
     sig_set_rate = Signal(int)
+    sig_set_voice = Signal(str)
 
     word_spoken = Signal(int)  # global word index, only for the current utterance
     playback_ended = Signal()  # the current utterance ran to its end
     error_occurred = Signal(str)  # TTSErrorKind name
+    voices_listed = Signal(object)  # list[VoiceInfo], Spanish first
 
     def __init__(self, engine_factory: EngineFactory = create_sapi_engine) -> None:
         super().__init__()
         self._generation = 0
+        self.voices: list[VoiceInfo] = []  # filled once the engine is up
         self._thread = QThread()
         self._worker = SAPI5Worker(engine_factory)
         self._worker.moveToThread(self._thread)
@@ -196,6 +232,8 @@ class TTSController(QObject):
         self._thread.finished.connect(self._worker.cleanup)
         self.sig_speak.connect(self._worker.speak)
         self.sig_set_rate.connect(self._worker.set_rate)
+        self.sig_set_voice.connect(self._worker.set_voice)
+        self._worker.voices_listed.connect(self._on_voices_listed)
         self._worker.word_started.connect(self._on_word_started)
         self._worker.speech_finished.connect(self._on_speech_finished)
         self._worker.error_occurred.connect(self.error_occurred)
@@ -214,10 +252,18 @@ class TTSController(QObject):
     def set_speed(self, wpm: int) -> None:
         self.sig_set_rate.emit(wpm)
 
+    def set_voice(self, voice_id: str) -> None:
+        self.sig_set_voice.emit(voice_id)
+
     def shutdown(self) -> None:
         self.stop()
         self._thread.quit()
         self._thread.wait(_SHUTDOWN_WAIT_MS)
+
+    @Slot(object)
+    def _on_voices_listed(self, voices: list[VoiceInfo]) -> None:
+        self.voices = voices
+        self.voices_listed.emit(voices)
 
     @Slot(int, int)
     def _on_word_started(self, generation: int, word_index: int) -> None:
