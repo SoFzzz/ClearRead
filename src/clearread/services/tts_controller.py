@@ -16,6 +16,28 @@ SPANISH_VOICE = re.compile(r"spanish|espa.ol|helena|sabina|es-es|es-mx", re.IGNO
 DEFAULT_RATE_WPM = 150
 MIN_RATE_WPM = 80
 MAX_RATE_WPM = 320
+# (words per minute heard, rate handed to pyttsx3), one entry per integer SAPI5 step.
+# Measured with tests/manual/measure_tts_rate.py on Microsoft Helena; see section 4.5.
+# pyttsx3 2.98 turns the rate into SAPI's integer step with int(log(rate / 156.63, 1.11)),
+# so each rate below sits inside its step. Another voice speaks at another pace.
+_RATE_STEPS: tuple[tuple[float, int], ...] = (
+    (68.6, 64),
+    (76.5, 72),
+    (77.5, 80),
+    (86.8, 88),
+    (104.7, 98),
+    (107.9, 109),
+    (122.0, 121),
+    (127.3, 134),
+    (142.1, 157),
+    (164.4, 183),
+    (179.3, 203),
+    (205.3, 226),
+    (227.9, 251),
+    (258.6, 278),
+    (288.3, 309),
+    (306.5, 343),
+)
 _WORD = re.compile(r"\S+")
 _SHUTDOWN_WAIT_MS = 2000
 
@@ -28,6 +50,14 @@ class VoiceInfo:
     @property
     def is_spanish(self) -> bool:
         return SPANISH_VOICE.search(self.name) is not None
+
+
+def sapi_rate_for(displayed_wpm: int) -> int:
+    """Rate for pyttsx3 whose measured pace is closest to ``displayed_wpm``.
+
+    The engine's rate is not in words per minute: at 200 it spoke 179 and at 280 only 259.
+    """
+    return min(_RATE_STEPS, key=lambda step: abs(step[0] - displayed_wpm))[1]
 
 
 def sort_voices(voices: list[VoiceInfo]) -> list[VoiceInfo]:
@@ -90,6 +120,7 @@ class SAPI5Worker(QObject):
         self._active_generation = 0
         self._base_word_index = 0
         self._word_starts: list[int] = []  # char offset of each word in the sent text
+        self._pending: tuple[str, int, int] | None = None
 
     @Slot()
     def initialize(self) -> None:
@@ -146,6 +177,18 @@ class SAPI5Worker(QObject):
 
     @Slot(str, int, int)
     def speak(self, text: str, start_offset: int, generation: int) -> None:
+        if self._is_speaking:
+            # pyttsx3's loop pumps Qt events of this thread, so a request made while
+            # an utterance is being cancelled arrives nested inside its runAndWait()
+            # (Day 8 real check): on the engine being stopped it would end in silence.
+            self._pending = (text, start_offset, generation)
+            return
+        request: tuple[str, int, int] | None = (text, start_offset, generation)
+        while request is not None:
+            self._speak_now(*request)
+            request, self._pending = self._pending, None
+
+    def _speak_now(self, text: str, start_offset: int, generation: int) -> None:
         if generation != self._valid_generation:
             return  # cancelled while still queued behind another utterance
         if self._engine is None:
@@ -158,7 +201,7 @@ class SAPI5Worker(QObject):
         self._is_speaking = True
         try:
             self._select_voice(self._engine)
-            self._engine.setProperty("rate", self._rate)
+            self._engine.setProperty("rate", sapi_rate_for(self._rate))
             self._engine.say(text)
             self._engine.runAndWait()
         except Exception:  # noqa: BLE001 - any engine failure is reported by kind

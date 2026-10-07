@@ -1,5 +1,6 @@
 """Linguistic text formatter and Token Position Map for bimodal reading."""
 
+import bisect
 import html
 import re
 import unicodedata
@@ -71,6 +72,20 @@ def normalise_paragraphs(raw_text: str) -> list[str]:
     composed = unicodedata.normalize("NFC", raw_text)
     paragraphs = (" ".join(chunk.split()) for chunk in _PARAGRAPH_BREAK.split(composed))
     return [paragraph for paragraph in paragraphs if paragraph]
+
+
+def token_index_at(token_map: list[WordToken], char_index: int) -> int:
+    """Index of the word that contains ``char_index``, or of the next one.
+
+    A space or punctuation mark between two words belongs to the word that follows;
+    past the last word the last one is returned. ``token_map`` must not be empty.
+    """
+    candidate = bisect.bisect_right(
+        token_map, char_index, key=lambda token: token.doc_start_pos
+    )
+    if candidate > 0 and char_index < token_map[candidate - 1].doc_end_pos:
+        return candidate - 1
+    return min(candidate, len(token_map) - 1)
 
 
 class TextFormatter:

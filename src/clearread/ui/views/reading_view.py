@@ -2,12 +2,13 @@
 
 from enum import Enum
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QFont,
     QFontMetricsF,
     QKeySequence,
+    QMouseEvent,
     QPalette,
     QShortcut,
     QTextBlockFormat,
@@ -30,6 +31,7 @@ from clearread.services.text_formatter import (
     FormattedDocument,
     ReadingStyle,
     WordToken,
+    token_index_at,
 )
 from clearread.services.tts_controller import (
     DEFAULT_RATE_WPM,
@@ -69,8 +71,11 @@ class PlaybackState(Enum):
 class ReaderWidget(QTextEdit):
     """Read-only text with a spoken-word highlight and a full-width line ruler."""
 
+    char_clicked = Signal(int)  # document position of the character that was pressed
+
     def __init__(self, tokens: ThemeTokens) -> None:
         super().__init__()
+        self._clickable = False
         self.setReadOnly(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -82,6 +87,46 @@ class ReaderWidget(QTextEdit):
             ReadingStyle().font_family, ReadingStyle().font_size_pt
         )
         self.apply_theme(tokens)
+
+    def enable_char_clicks(self) -> None:
+        """Turn presses into ``char_clicked`` instead of a caret or a text selection."""
+        self._clickable = True
+        self.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if not self._clickable:
+            super().mousePressEvent(event)
+        elif event.button() == Qt.MouseButton.LeftButton:
+            self.char_clicked.emit(self._char_under(event.position().toPoint()))
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if not self._clickable:
+            super().mouseDoubleClickEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if not self._clickable:
+            super().mouseMoveEvent(event)
+
+    def _char_under(self, point: QPoint) -> int:
+        # cursorForPosition() answers with the nearest gap between characters: the right
+        # half of a letter would resolve to the character after it. The gap's own x tells
+        # which side of it the press landed on.
+        gap = self.cursorForPosition(point)
+        gap_x = self.cursorRect(gap).x()
+        return gap.position() - 1 if point.x() < gap_x else gap.position()
+
+    def fit_height(self, text_width: int, minimum: int, maximum: int) -> None:
+        """Make the widget as tall as its text at ``text_width``, within the limits.
+
+        There is no scroll bar: beyond ``maximum`` the text is cut and the view stays
+        on the highlighted word.
+        """
+        self.document().setTextWidth(text_width)
+        margins = self.viewportMargins()
+        needed = (
+            round(self.document().size().height()) + margins.top() + margins.bottom()
+        )
+        self.setFixedHeight(max(minimum, min(maximum, needed)))
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         palette = self.palette()
@@ -186,6 +231,7 @@ class ReadingView(QWidget):
 
     def _build_ui(self) -> None:
         self.editor = ReaderWidget(self._tokens)
+        self.editor.enable_char_clicks()
         self.status_label = QLabel()
         self.status_label.setProperty("role", "muted")
         self.status_label.setWordWrap(True)
@@ -271,6 +317,7 @@ class ReadingView(QWidget):
         self.play_button.clicked.connect(self.toggle_play)
         self.stop_button.clicked.connect(self.stop_reading)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
+        self.editor.char_clicked.connect(self._on_char_clicked)
         self._tts.word_spoken.connect(self._on_word_spoken)
         self._tts.playback_ended.connect(self._on_playback_ended)
         self._tts.error_occurred.connect(self._on_error)
@@ -377,7 +424,13 @@ class ReadingView(QWidget):
         self.current_word_idx = word_index
         remaining = " ".join(token.spoken_text for token in self.token_map[word_index:])
         self._set_state(PlaybackState.PLAYING)
+        self.editor.highlight_token(self.token_map[word_index])
         self._tts.speak_text(remaining, start_offset=word_index)
+
+    @Slot(int)
+    def _on_char_clicked(self, char_index: int) -> None:
+        if self.token_map:
+            self._speak_from(token_index_at(self.token_map, char_index))
 
     def stop_reading(self) -> None:
         self._tts.stop()

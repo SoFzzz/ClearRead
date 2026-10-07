@@ -48,6 +48,11 @@ CACHE_FOLDER_LABEL = "%APPDATA%\\ClearRead\\cache"
 CONTENT_WIDTH = 1120
 PREVIEW_WIDTH = 420
 PREVIEW_HEIGHT = 230
+PREVIEW_MAX_HEIGHT = 360
+PREVIEW_CARD_MARGIN = 20
+PREVIEW_VIEW_MARGIN_X = 16
+PREVIEW_VIEW_MARGIN_Y = 8
+PREVIEW_TEXT_WIDTH = PREVIEW_WIDTH - 2 * (PREVIEW_CARD_MARGIN + PREVIEW_VIEW_MARGIN_X)
 PREVIEW_WORD_INDEX = 5
 SLIDER_WIDTH = 300
 THEME_CARD_HEIGHT = 84
@@ -349,7 +354,13 @@ class SettingsView(QWidget):
 
     def _build_preview_card(self) -> QFrame:
         self.preview = ReaderWidget(THEMES[ThemeId(self._config.theme)])
-        self.preview.setViewportMargins(16, 8, 16, 8)
+        self.preview.setViewportMargins(
+            PREVIEW_VIEW_MARGIN_X,
+            PREVIEW_VIEW_MARGIN_Y,
+            PREVIEW_VIEW_MARGIN_X,
+            PREVIEW_VIEW_MARGIN_Y,
+        )
+        self.preview.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.preview.setFixedHeight(PREVIEW_HEIGHT)
         self.preview.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         caption = QLabel(self._t("settings.preview_caption"))
@@ -359,7 +370,7 @@ class SettingsView(QWidget):
         card.setObjectName("PreviewCard")
         card.setFixedWidth(PREVIEW_WIDTH)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setContentsMargins(PREVIEW_CARD_MARGIN, 16, PREVIEW_CARD_MARGIN, 16)
         layout.addWidget(self._heading("settings.preview_title"))
         layout.addWidget(self.preview)
         layout.addWidget(caption)
@@ -491,6 +502,7 @@ class SettingsView(QWidget):
         self.preview.set_reading_font(QFont(style.font_family, style.font_size_pt))
         self.preview.set_line_spacing(config.line_spacing)
         self.preview.set_content(document.html_content)
+        self.preview.fit_height(PREVIEW_TEXT_WIDTH, PREVIEW_HEIGHT, PREVIEW_MAX_HEIGHT)
         self.preview.highlight_token(document.token_map[PREVIEW_WORD_INDEX])
 
     # ---- user actions -------------------------------------------------
