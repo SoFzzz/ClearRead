@@ -21,7 +21,7 @@ from samples.make_samples import EXPECTED_TEXT
 
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import SyllablePalette, TextFormatter
-from clearread.ui.fonts import load_reading_fonts
+from clearread.ui.fonts import load_reading_font
 
 SAMPLE = "ó é á í ú ñ  leyó explicó comió construcción Qué Dónde"
 
@@ -69,7 +69,7 @@ def render(out_dir: Path) -> None:
 
 def main() -> None:
     app = QApplication(sys.argv)
-    load_reading_fonts()
+    load_reading_font()
     report_normalisation()
     out_dir = Path(sys.argv[1])
     out_dir.mkdir(parents=True, exist_ok=True)

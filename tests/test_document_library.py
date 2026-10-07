@@ -86,3 +86,15 @@ def test_remove_deletes_entry_and_cache_file(
     library.remove("a")
     assert library.recents() == []
     assert not library.has("a")
+
+
+def test_clear_removes_every_cached_document_and_the_recent_list(
+    library: DocumentLibrary, tmp_path: Path
+) -> None:
+    for key in ("k1", "k2"):
+        library.store(key, tmp_path / f"{key}.pdf", cached(), pages=1, is_photo=False)
+    assert len(library.recents()) == 2
+    library.clear()
+    assert library.recents() == []
+    assert not library.has("k1")
+    assert list(library._root.iterdir()) == []

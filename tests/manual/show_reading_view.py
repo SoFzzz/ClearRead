@@ -28,7 +28,7 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import TTSController
-from clearread.ui.fonts import load_reading_fonts
+from clearread.ui.fonts import load_reading_font
 from clearread.ui.theme import (
     THEMES,
     ThemeId,
@@ -64,7 +64,7 @@ def format_for(theme: ThemeId, text: str) -> FormattedDocument:
 
 
 def build_view(app: QApplication, theme: ThemeId, text: str) -> ReadingView:
-    load_reading_fonts()
+    load_reading_font()
     app.setStyleSheet(build_stylesheet(THEMES[theme]))
     view = ReadingView(TTSController(), theme)
     view.resize(*WINDOW_SIZE)

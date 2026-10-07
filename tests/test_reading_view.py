@@ -5,12 +5,18 @@ from collections.abc import Iterator
 import pytest
 from fakes import EngineSource, FakeEngine
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut, QShortcutEvent
+from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from clearread.services.syllabifier import SpanishSyllabifier
-from clearread.services.text_formatter import FormattedDocument, TextFormatter
+from clearread.services.text_formatter import (
+    FormattedDocument,
+    ReadingStyle,
+    TextFormatter,
+)
 from clearread.services.tts_controller import TTSController
-from clearread.ui.fonts import READING_FONT_FAMILY, load_reading_fonts
+from clearread.ui.fonts import READING_FONT_FAMILY, load_reading_font
 from clearread.ui.strings import Language
 from clearread.ui.theme import THEMES, ThemeId, syllable_palette
 from clearread.ui.views.reading_view import PlaybackState, ReadingView
@@ -44,8 +50,8 @@ def view(tts: TTSController, qtbot: QtBot) -> ReadingView:
     return widget
 
 
-def test_the_real_reading_font_is_bundled_and_loadable(qapp: object) -> None:
-    assert load_reading_fonts() == READING_FONT_FAMILY
+def test_the_single_weight_reading_font_is_bundled_and_loadable(qapp: object) -> None:
+    assert load_reading_font() == READING_FONT_FAMILY
 
 
 def test_highlighted_word_is_the_one_of_the_received_event(view: ReadingView) -> None:
@@ -125,7 +131,7 @@ def test_changing_theme_regenerates_html_but_not_the_token_map(
     view._tts.word_spoken.emit(3)
     view.state = PlaybackState.PAUSED
     highlighted = view.editor.highlighted_range()
-    view.apply_theme(ThemeId.DARK, dark.html_content)
+    view.apply_appearance(ThemeId.DARK, ReadingStyle(), 1.8, dark.html_content)
 
     assert view.token_map == light_map
     assert view.editor.toHtml() != light_html
@@ -135,7 +141,7 @@ def test_changing_theme_regenerates_html_but_not_the_token_map(
 
 def test_theme_colours_reach_the_syllables_and_the_highlight(view: ReadingView) -> None:
     dark = format_text(ThemeId.DARK)
-    view.apply_theme(ThemeId.DARK, dark.html_content)
+    view.apply_appearance(ThemeId.DARK, ReadingStyle(), 1.8, dark.html_content)
     html = view.editor.toHtml().lower()
     assert THEMES[ThemeId.DARK].syllable_even.lower() in html
     assert THEMES[ThemeId.DARK].syllable_odd.lower() in html
@@ -147,17 +153,26 @@ def test_theme_colours_reach_the_syllables_and_the_highlight(view: ReadingView) 
     assert selection.format.fontUnderline()
 
 
+def press_shortcut(view: ReadingView, key: Qt.Key) -> None:
+    """Fire the QShortcut bound to ``key`` through Qt's own shortcut event.
+
+    Real key presses reach a QShortcut only while the window is the active one, which
+    on Windows depends on what the desktop does with the foreground; the shortcut
+    event is what the shortcut map sends once that check has passed.
+    """
+    sequence = QKeySequence(key)
+    shortcut = next(s for s in view.findChildren(QShortcut) if s.key() == sequence)
+    assert shortcut.context() is Qt.ShortcutContext.WidgetWithChildrenShortcut
+    QApplication.sendEvent(shortcut, QShortcutEvent(sequence, shortcut.id()))
+
+
+@pytest.mark.filterwarnings("ignore:Function.*QShortcut.id:DeprecationWarning")
 def test_space_and_escape_shortcuts(view: ReadingView, qtbot: QtBot) -> None:
-    view.show()
-    view.activateWindow()
-    qtbot.waitActive(view)
-    view.editor.setFocus()
-    qtbot.waitUntil(view.editor.hasFocus, timeout=TIMEOUT_MS)
-    qtbot.keyClick(view.editor, Qt.Key.Key_Space)
+    press_shortcut(view, Qt.Key.Key_Space)
     qtbot.waitUntil(lambda: view.state is PlaybackState.PLAYING, timeout=TIMEOUT_MS)
-    qtbot.keyClick(view.editor, Qt.Key.Key_Space)
+    press_shortcut(view, Qt.Key.Key_Space)
     qtbot.waitUntil(lambda: view.state is PlaybackState.PAUSED, timeout=TIMEOUT_MS)
-    qtbot.keyClick(view.editor, Qt.Key.Key_Escape)
+    press_shortcut(view, Qt.Key.Key_Escape)
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
 
 

@@ -66,6 +66,7 @@ class DocumentProcessWorker(QThread):
         preprocessor: OCRPreprocessor,
         ocr_engine: OCREngine,
         formatter: TextFormatter,
+        enable_syllables: bool = True,
     ) -> None:
         super().__init__()
         self._file_path = file_path
@@ -73,6 +74,7 @@ class DocumentProcessWorker(QThread):
         self._preprocessor = preprocessor
         self._ocr_engine = ocr_engine
         self._formatter = formatter
+        self._enable_syllables = enable_syllables
         self._cancelled = threading.Event()
 
     def cancel(self) -> None:
@@ -111,9 +113,8 @@ class DocumentProcessWorker(QThread):
             raise NoTextRecognizedError(self._file_path)
         self.formatting_started.emit()
         raw_text = "\n\n".join(texts)
-        return ProcessedDocument(
-            raw_text, self._formatter.format_document(raw_text), total_pages, is_photo
-        )
+        formatted = self._formatter.format_document(raw_text, self._enable_syllables)
+        return ProcessedDocument(raw_text, formatted, total_pages, is_photo)
 
     def _recognise(self, image: np.ndarray, is_photo: bool) -> str:
         clean = self._preprocessor.process(image, is_camera_photo=is_photo)

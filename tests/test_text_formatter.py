@@ -4,6 +4,7 @@ from PySide6.QtGui import QTextDocument
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import (
     FormattedDocument,
+    ReadingStyle,
     SyllablePalette,
     TextFormatter,
     normalise_paragraphs,
@@ -151,3 +152,27 @@ def test_decomposed_accents_are_composed_before_positions(
     ]
     assert_tokens_match_qt(formatted)
     assert "́" not in plain_text_of(formatted)
+
+
+def test_reading_style_goes_into_the_html_and_never_moves_the_positions() -> None:
+    default = TextFormatter(SpanishSyllabifier(), PALETTE)
+    styled = TextFormatter(
+        SpanishSyllabifier(),
+        PALETTE,
+        ReadingStyle(font_size_pt=24, letter_spacing_px=0.5, word_spacing_px=10),
+    )
+    text = "El niño leyó una canción."
+    plain = default.format_document(text)
+    big = styled.format_document(text)
+    assert "font-size: 24pt" in big.html_content
+    assert "letter-spacing: 0.5px" in big.html_content
+    assert "word-spacing: 10px" in big.html_content
+    assert "font-size: 16pt" in plain.html_content
+    assert big.token_map == plain.token_map
+
+
+def test_without_syllables_each_word_has_a_single_colour(
+    formatter: TextFormatter,
+) -> None:
+    formatted = formatter.format_document("canción", enable_syllables=False)
+    assert formatted.html_content.count("<span") == 1

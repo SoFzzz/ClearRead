@@ -25,7 +25,7 @@ from clearread.core.config import AppConfig
 from clearread.services.document_library import DocumentLibrary
 from clearread.services.ocr_engine import LazyOCREngine, OCRResult
 from clearread.services.tts_controller import TTSController
-from clearread.ui.fonts import load_reading_fonts
+from clearread.ui.fonts import load_reading_font
 from clearread.ui.main_window import MainWindow, Screen
 
 WAIT_STEP_S = 0.01
@@ -63,7 +63,7 @@ def wait_until(app: QApplication, condition: object) -> None:
 
 
 def build(app: QApplication, cache: Path) -> tuple[MainWindow, CountingOCR]:
-    load_reading_fonts()
+    load_reading_font()
     ocr = CountingOCR()
     window = MainWindow(AppConfig(), ocr, TTSController(), DocumentLibrary(cache))
     window.resize(*WINDOW_SIZE)

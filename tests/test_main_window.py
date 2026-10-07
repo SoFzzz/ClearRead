@@ -17,7 +17,7 @@ from clearread.core.config import AppConfig
 from clearread.services.document_library import DocumentLibrary
 from clearread.services.ocr_engine import LazyOCREngine, OCRResult
 from clearread.services.tts_controller import TTSController
-from clearread.ui.fonts import load_reading_fonts
+from clearread.ui.fonts import load_reading_font
 from clearread.ui.main_window import MainWindow, Screen
 from clearread.workers.ocr_worker import ProcessingErrorKind
 
@@ -60,7 +60,7 @@ def library(tmp_path: Path) -> DocumentLibrary:
 def make_window(
     qtbot: QtBot, tts: TTSController, library: DocumentLibrary, ocr: object
 ) -> MainWindow:
-    load_reading_fonts()
+    load_reading_font()
     window = MainWindow(AppConfig(), ocr, tts, library)  # type: ignore[arg-type]
     qtbot.addWidget(window)
     window.show()
