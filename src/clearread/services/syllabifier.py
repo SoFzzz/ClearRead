@@ -5,6 +5,8 @@ from functools import lru_cache
 
 from silabeador import syllabify
 
+_SUB_R = "subr"
+
 
 @dataclass(frozen=True)
 class SyllabificationResult:
@@ -43,6 +45,10 @@ def _library_split(word: str) -> tuple[str, ...]:
     library's Latin branch return a list where it expects a string (TypeError);
     retrying without its exception rules still yields a valid division.
     """
+    if word.lower().startswith(_SUB_R):
+        # "sub" + r keeps the trilled r together with the prefix coda: sub-ra-yar,
+        # not su-bra-yar (a flap), which is how the library would divide it.
+        return ("sub", *_library_split(word[len(_SUB_R) - 1 :]))
     for exceptions in (1, 0):
         try:
             return tuple(syllabify(word, exceptions=exceptions))
