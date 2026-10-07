@@ -9,8 +9,10 @@ from typing import Any
 import pytest
 
 from clearread.core.config import (
+    CLIENT_TOKEN_ENV_VAR,
     DEFAULT_BACKEND_URL,
     AppConfig,
+    load_client_token,
 )
 
 CHANGED = {
@@ -170,3 +172,39 @@ def test_saved_file_holds_every_field_as_utf8_json(tmp_path: Path) -> None:
     AppConfig(voice_id="voz-ñ").save(tmp_path)
     data = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert data == asdict(AppConfig(voice_id="voz-ñ"))
+
+
+def test_client_token_prefers_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(CLIENT_TOKEN_ENV_VAR, "  from-env ")
+    monkeypatch.setattr(
+        "clearread.core.config.get_resource_path", lambda relative: tmp_path / "x"
+    )
+    assert load_client_token() == "from-env"
+
+
+def test_client_token_reads_build_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv(CLIENT_TOKEN_ENV_VAR, raising=False)
+    token_file = tmp_path / "token.json"
+    token_file.write_text('{"client_token": "from-file"}', encoding="utf-8")
+    monkeypatch.setattr(
+        "clearread.core.config.get_resource_path", lambda relative: token_file
+    )
+    assert load_client_token() == "from-file"
+
+
+@pytest.mark.parametrize("content", [None, "{broken", "[1]", '{"client_token": 3}'])
+def test_client_token_is_empty_when_unavailable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, content: str | None
+) -> None:
+    monkeypatch.delenv(CLIENT_TOKEN_ENV_VAR, raising=False)
+    token_file = tmp_path / "token.json"
+    if content is not None:
+        token_file.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(
+        "clearread.core.config.get_resource_path", lambda relative: token_file
+    )
+    assert load_client_token() == ""
