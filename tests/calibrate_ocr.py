@@ -1,29 +1,39 @@
 """Day 3 calibration: OCR accuracy and timing with and without preprocessing.
 
-Not a pytest test. Run from the repo root:
+Not a pytest test. Run from the repo root (modes are exclusive):
 
-    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py              # real photos
-    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --ablation   # + one stage on/off at a time
-    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --sweep      # + OCR parameter grid
-    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --synthetic  # degraded copies of the sample page
+    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --pdf-render   # PDF pages rendered, digital text as reference
+    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --photos       # phone photos named <Ficha>_p<N>_<condition>.jpg
+    .\\.venv\\Scripts\\python tests\\calibrate_ocr.py --synthetic    # degraded copies of the sample page
 
-Real photos live in tests/samples/private/ (git-ignored), each with a
-<name>.txt holding the expected text. Privacy (CLAUDE.md §n): this script prints
-file names and metrics only, never recognised or expected text.
+Options: --ablation (each preprocessing stage on/off), --sweep (OCR parameter
+grid), --sweep-preprocessed, --limit-pages N (first N pages of each PDF).
 
-CER = Levenshtein distance / expected length, after collapsing whitespace.
-"Specials" counts ñ, tildes, ü, ¿ and ¡ of the expected text that appear in
-place in the OCR output. Timings use time.perf_counter().
+Reference text. PDF pages and photos use the digital text layer of the page
+(photos name their page: "Poema_p3_sombra.jpg" -> page 3 of the PDF whose name
+contains "Poema"). Legacy pairs "<photo>.jpg" + "<photo>.txt" also work.
+
+Privacy (CLAUDE.md §n): prints file names, page numbers and metrics only,
+never recognised or reference text.
+
+Metrics. CER = Levenshtein distance / reference length after collapsing
+whitespace. Word F1 = bag-of-words F1 (case-insensitive): unlike CER it ignores
+reading order, which differs from the digital text on cards with columns or
+boxes. "Specials" counts ñ, tildes, ü, ¿ and ¡ of the reference that the OCR
+output also contains (per-character multiset, order independent). Timings use
+time.perf_counter().
 """
 
 import argparse
-import difflib
 import itertools
+import re
 import statistics
 import sys
 import time
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -40,6 +50,8 @@ STAGES = ("remove_shadows", "denoise", "deskew", "enhance_contrast")
 SWEEP_BOX_THRESH = (0.4, 0.5, 0.6)
 SWEEP_UNCLIP = (1.6, 2.0)
 SWEEP_CONFIDENCE = (0.3, 0.45, 0.6)
+PHOTO_NAME = re.compile(r"^(?P<ficha>.+)_p(?P<page>\d+)_(?P<condition>.+)$")
+WORD = re.compile(r"\w+")
 
 
 @dataclass(frozen=True)
@@ -47,11 +59,16 @@ class Case:
     name: str
     image: np.ndarray
     expected: str
+    is_camera_photo: bool
+
+
+CaseSource = Callable[[], Iterator[Case]]
 
 
 @dataclass(frozen=True)
 class Measurement:
     cer: float
+    f1: float
     specials: int
     specials_total: int
     pre_ms: float
@@ -63,18 +80,30 @@ def normalise(text: str) -> str:
 
 
 def levenshtein(a: str, b: str) -> int:
-    if len(a) < len(b):
-        a, b = b, a
-    previous = list(range(len(b) + 1))
-    for i, char_a in enumerate(a, start=1):
-        current = [i]
-        for j, char_b in enumerate(b, start=1):
-            cost = 0 if char_a == char_b else 1
-            current.append(
-                min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost)
-            )
-        previous = current
-    return previous[-1]
+    """Edit distance with the Myers/Hyyrö bit-vector algorithm (fast for long pages)."""
+    if not a or not b:
+        return len(a) or len(b)
+    mask = (1 << len(a)) - 1
+    high = 1 << (len(a) - 1)
+    match_bits: dict[str, int] = {}
+    for position, char in enumerate(a):
+        match_bits[char] = match_bits.get(char, 0) | (1 << position)
+    plus, minus, score = mask, 0, len(a)
+    for char in b:
+        eq = match_bits.get(char, 0)
+        xv = eq | minus
+        xh = (((eq & plus) + plus) ^ plus) | eq
+        ph = minus | (~(xh | plus) & mask)
+        mh = plus & xh
+        if ph & high:
+            score += 1
+        elif mh & high:
+            score -= 1
+        ph = ((ph << 1) | 1) & mask
+        mh = (mh << 1) & mask
+        plus = mh | (~(xv | ph) & mask)
+        minus = ph & xv
+    return score
 
 
 def character_error_rate(expected: str, obtained: str) -> float:
@@ -82,16 +111,21 @@ def character_error_rate(expected: str, obtained: str) -> float:
     return levenshtein(reference, normalise(obtained)) / max(len(reference), 1)
 
 
+def word_f1(expected: str, obtained: str) -> float:
+    reference = Counter(WORD.findall(expected.lower()))
+    candidate = Counter(WORD.findall(obtained.lower()))
+    overlap = sum((reference & candidate).values())
+    if not overlap:
+        return 0.0
+    precision = overlap / sum(candidate.values())
+    recall = overlap / sum(reference.values())
+    return 2 * precision * recall / (precision + recall)
+
+
 def special_hits(expected: str, obtained: str) -> tuple[int, int]:
-    reference, candidate = normalise(expected), normalise(obtained)
-    matcher = difflib.SequenceMatcher(None, reference, candidate, autojunk=False)
-    hits = sum(
-        ch in SPECIAL_CHARS
-        for tag, i1, i2, _j1, _j2 in matcher.get_opcodes()
-        if tag == "equal"
-        for ch in reference[i1:i2]
-    )
-    return hits, sum(ch in SPECIAL_CHARS for ch in reference)
+    reference = Counter(ch for ch in expected if ch in SPECIAL_CHARS)
+    candidate = Counter(ch for ch in obtained if ch in SPECIAL_CHARS)
+    return sum((reference & candidate).values()), sum(reference.values())
 
 
 def timed(
@@ -106,15 +140,15 @@ def timed(
 
 
 def run_stages(
-    settings: PreprocessSettings | None, image: np.ndarray
+    settings: PreprocessSettings | None, case: Case
 ) -> tuple[np.ndarray, dict[str, float]]:
     """Same order as OCRPreprocessor.process, timing each stage separately."""
     stage_ms: dict[str, float] = {}
     if settings is None:
-        return image, stage_ms
+        return case.image, stage_ms
     pre = OCRPreprocessor
-    gray = timed(lambda: cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), stage_ms, "gray")
-    if settings.remove_shadows:
+    gray = timed(lambda: cv2.cvtColor(case.image, cv2.COLOR_RGB2GRAY), stage_ms, "gray")
+    if settings.remove_shadows and case.is_camera_photo:
         gray = timed(lambda: pre.remove_shadows(gray), stage_ms, "remove_shadows")
     if settings.denoise:
         gray = timed(lambda: pre.denoise(gray), stage_ms, "denoise")
@@ -128,12 +162,13 @@ def run_stages(
 def measure(
     engine: ClearReadOCR, case: Case, settings: PreprocessSettings | None
 ) -> tuple[Measurement, dict[str, float]]:
-    prepared, stage_ms = run_stages(settings, case.image)
+    prepared, stage_ms = run_stages(settings, case)
     result = engine.process_image(prepared)
     hits, total = special_hits(case.expected, result.raw_text)
     return (
         Measurement(
             cer=character_error_rate(case.expected, result.raw_text),
+            f1=word_f1(case.expected, result.raw_text),
             specials=hits,
             specials_total=total,
             pre_ms=sum(stage_ms.values()),
@@ -143,23 +178,64 @@ def measure(
     )
 
 
-def load_private_cases() -> list[Case]:
+def private_pdfs() -> list[Path]:
     if not PRIVATE_DIR.is_dir():
         return []
+    return sorted(PRIVATE_DIR.glob("*.pdf"))
+
+
+def pdf_page_cases(limit_pages: int | None) -> Iterator[Case]:
     ingestor = DocumentIngestor()
-    cases = []
+    for pdf in private_pdfs():
+        pages = ingestor.load(pdf)
+        for page in itertools.islice(pages, limit_pages):
+            if page.digital_text is None:
+                continue
+            yield Case(
+                f"{pdf.stem} p{page.page_number}", page.image, page.digital_text, False
+            )
+
+
+def find_pdf_for(ficha: str) -> Path | None:
+    wanted = ficha.replace("_", " ").lower()
+    return next((pdf for pdf in private_pdfs() if wanted in pdf.stem.lower()), None)
+
+
+def pdf_page(pdf: Path, number: int) -> str | None:
+    for page in DocumentIngestor().load(pdf):
+        if page.page_number == number:
+            return page.digital_text
+    return None
+
+
+def photo_cases() -> Iterator[Case]:
+    if not PRIVATE_DIR.is_dir():
+        return
+    ingestor = DocumentIngestor()
     for photo in sorted(PRIVATE_DIR.iterdir()):
-        expected_path = photo.with_suffix(".txt")
-        if photo.suffix.lower() not in IMAGE_SUFFIXES or not expected_path.is_file():
+        if photo.suffix.lower() not in IMAGE_SUFFIXES:
             continue
-        page = next(iter(ingestor.load(photo)))
-        cases.append(
-            Case(photo.name, page.image, expected_path.read_text(encoding="utf-8"))
-        )
-    return cases
+        expected = reference_for_photo(photo)
+        if expected is not None:
+            image = next(iter(ingestor.load(photo))).image
+            yield Case(photo.name, image, expected, True)
 
 
-def synthetic_cases() -> list[Case]:
+def reference_for_photo(photo: Path) -> str | None:
+    legacy = photo.with_suffix(".txt")
+    if legacy.is_file():
+        return legacy.read_text(encoding="utf-8")
+    named = PHOTO_NAME.match(photo.stem)
+    pdf = find_pdf_for(named["ficha"]) if named else None
+    return pdf_page(pdf, int(named["page"])) if named and pdf else None
+
+
+def load_private_cases() -> list[Case]:
+    """Photos with a known reference (used by tests/test_private_photos.py)."""
+    return list(photo_cases())
+
+
+def synthetic_cases() -> Iterator[Case]:
     """Degraded copies of the scanned sample page (not real photos)."""
     page = next(
         iter(DocumentIngestor().load(SAMPLES_DIR / "sample_page_scanned.pdf"))
@@ -168,144 +244,140 @@ def synthetic_cases() -> list[Case]:
     rng = np.random.default_rng(0)
     gradient = np.linspace(0.4, 1.0, width, dtype=np.float32)[None, :, None]
 
-    def rotated(degrees: float) -> np.ndarray:
+    def rotated(source: np.ndarray, degrees: float) -> np.ndarray:
         matrix = cv2.getRotationMatrix2D((width / 2, height / 2), -degrees, 1.0)
         return cv2.warpAffine(
-            page, matrix, (width, height), borderValue=(255, 255, 255)
+            source, matrix, (width, height), borderValue=(255, 255, 255)
         )
 
     shadowed = (page * gradient).astype(np.uint8)
     noisy = np.clip(page + rng.normal(0, 25, page.shape), 0, 255).astype(np.uint8)
-    combined_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), -4.0, 1.0)
-    combined = cv2.warpAffine(
-        shadowed, combined_matrix, (width, height), borderValue=(255,) * 3
-    )
+    combined = rotated(shadowed, 4.0)
     combined = np.clip(combined + rng.normal(0, 15, combined.shape), 0, 255).astype(
         np.uint8
     )
     variants = {
         "synthetic_clean": page,
-        "synthetic_rot3": rotated(3.0),
-        "synthetic_rot10": rotated(10.0),
+        "synthetic_rot3": rotated(page, 3.0),
+        "synthetic_rot10": rotated(page, 10.0),
         "synthetic_shadow": shadowed,
         "synthetic_noise": noisy,
         "synthetic_rot4_shadow_noise": combined,
     }
-    return [Case(name, image, EXPECTED_TEXT) for name, image in variants.items()]
+    for name, image in variants.items():
+        yield Case(name, image, EXPECTED_TEXT, True)
 
 
-def preprocess_configs(ablation: bool) -> dict[str, PreprocessSettings | None]:
+def preprocess_configs(
+    ablation: bool, shadows: bool
+) -> dict[str, PreprocessSettings | None]:
     configs: dict[str, PreprocessSettings | None] = {
         "original": None,
         "preprocessed": PreprocessSettings(),
     }
     if ablation:
-        for stage in STAGES:
+        stages = [s for s in STAGES if shadows or s != "remove_shadows"]
+        none = PreprocessSettings(False, False, False, False)
+        for stage in stages:
             configs[f"without_{stage}"] = replace(
                 PreprocessSettings(), **{stage: False}
             )
-        none = PreprocessSettings(False, False, False, False)
-        for stage in STAGES:
+        for stage in stages:
             configs[f"only_{stage}"] = replace(none, **{stage: True})
+        configs["all_stages"] = PreprocessSettings(shadows, True, True, True)
     return configs
 
 
-def print_row(case: str, config: str, m: Measurement) -> None:
-    print(
-        f"{case:34} {config:26} CER {m.cer:6.1%}  especiales {m.specials:3}/{m.specials_total:<3} "
-        f"pre {m.pre_ms:6.0f} ms  ocr {m.ocr_ms:6.0f} ms"
+def summarise(items: list[Measurement]) -> str:
+    specials = sum(m.specials for m in items)
+    total = sum(m.specials_total for m in items)
+    return (
+        f"CER {statistics.fmean(m.cer for m in items):6.1%}  "
+        f"F1 {statistics.fmean(m.f1 for m in items):6.1%}  "
+        f"especiales {specials:4}/{total:<4} "
+        f"pre {statistics.fmean(m.pre_ms for m in items):6.0f} ms  "
+        f"ocr {statistics.fmean(m.ocr_ms for m in items):6.0f} ms"
     )
 
 
-def print_means(rows: dict[str, list[Measurement]]) -> None:
-    print("\n== MEDIA por configuración ==")
-    for config, items in rows.items():
-        specials = sum(m.specials for m in items)
-        total = sum(m.specials_total for m in items)
-        print(
-            f"{'media':34} {config:26} CER {statistics.fmean(m.cer for m in items):6.1%}  "
-            f"especiales {specials:3}/{total:<3} pre {statistics.fmean(m.pre_ms for m in items):6.0f} ms  "
-            f"ocr {statistics.fmean(m.ocr_ms for m in items):6.0f} ms"
-        )
-
-
-def print_stage_times(stage_totals: dict[str, list[float]], count: int) -> None:
-    print(
-        f"\n== Tiempo medio por etapa (preprocesado por defecto, {count} imágenes) =="
-    )
-    for stage, values in stage_totals.items():
-        print(f"{stage:20} {statistics.fmean(values):7.0f} ms (máx {max(values):.0f})")
-
-
-def run_comparison(cases: list[Case], engine: ClearReadOCR, ablation: bool) -> None:
-    configs = preprocess_configs(ablation)
-    rows: dict[str, list[Measurement]] = {name: [] for name in configs}
+def run_comparison(source: CaseSource, engine: ClearReadOCR, ablation: bool) -> int:
+    rows: dict[str, list[Measurement]] = {}
     default_stages: dict[str, list[float]] = {}
-    for case in cases:
-        for name, settings in configs.items():
+    count = 0
+    for case in source():
+        count += 1
+        for name, settings in preprocess_configs(
+            ablation, case.is_camera_photo
+        ).items():
             measurement, stage_ms = measure(engine, case, settings)
-            rows[name].append(measurement)
-            print_row(case.name, name, measurement)
+            rows.setdefault(name, []).append(measurement)
+            print(f"{case.name:48} {name:26} {summarise([measurement])}", flush=True)
             if name == "preprocessed":
                 for stage, ms in stage_ms.items():
                     default_stages.setdefault(stage, []).append(ms)
-    print_means(rows)
-    print_stage_times(default_stages, len(cases))
+    print(f"\n== MEDIA sobre {count} imágenes ==")
+    for name, items in rows.items():
+        print(f"{'media':48} {name:26} {summarise(items)}")
+    print("\n== Tiempo medio por etapa (preprocesado por defecto) ==")
+    for stage, values in default_stages.items():
+        print(f"{stage:20} {statistics.fmean(values):7.0f} ms (máx {max(values):.0f})")
+    return count
 
 
-def run_sweep(cases: list[Case], settings: PreprocessSettings | None) -> None:
+def run_sweep(source: CaseSource, settings: PreprocessSettings | None) -> None:
     label = "preprocessed" if settings else "original"
     print(f"\n== Barrido de parámetros OCR sobre imagen '{label}' ==")
     for box_thresh, unclip, confidence in itertools.product(
         SWEEP_BOX_THRESH, SWEEP_UNCLIP, SWEEP_CONFIDENCE
     ):
         engine = ClearReadOCR(OCRSettings(confidence, box_thresh, unclip))
-        engine.process_image(cases[0].image)  # warm-up
-        items = [measure(engine, case, settings)[0] for case in cases]
-        specials = sum(m.specials for m in items)
-        total = sum(m.specials_total for m in items)
+        items = [measure(engine, case, settings)[0] for case in source()]
         print(
             f"box_thresh {box_thresh:.1f}  unclip {unclip:.1f}  confianza {confidence:.2f}  "
-            f"CER {statistics.fmean(m.cer for m in items):6.1%}  especiales {specials}/{total}  "
-            f"ocr {statistics.fmean(m.ocr_ms for m in items):6.0f} ms"
+            f"{summarise(items)}",
+            flush=True,
         )
+
+
+def build_source(args: argparse.Namespace) -> tuple[CaseSource, str]:
+    if args.synthetic:
+        return synthetic_cases, "sintéticas"
+    if args.pdf_render:
+        return lambda: pdf_page_cases(args.limit_pages), "páginas de PDF renderizadas"
+    return photo_cases, "fotos"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--pdf-render", action="store_true", help="render PDF pages")
+    modes.add_argument("--photos", action="store_true", help="phone photos (default)")
+    modes.add_argument("--synthetic", action="store_true", help="degraded sample pages")
     parser.add_argument(
-        "--ablation", action="store_true", help="try each stage alone / removed"
+        "--ablation", action="store_true", help="each stage alone / removed"
     )
     parser.add_argument("--sweep", action="store_true", help="grid over OCR parameters")
-    parser.add_argument(
-        "--synthetic", action="store_true", help="use degraded sample pages"
-    )
-    parser.add_argument(
-        "--sweep-preprocessed",
-        action="store_true",
-        help="sweep on the preprocessed image",
-    )
+    parser.add_argument("--sweep-preprocessed", action="store_true")
+    parser.add_argument("--limit-pages", type=int, default=None, help="pages per PDF")
     args = parser.parse_args()
 
-    cases = synthetic_cases() if args.synthetic else load_private_cases()
-    if not cases:
+    source, label = build_source(args)
+    first = next(source(), None)
+    if first is None:
         print(
-            f"Sin fotos que calibrar: {PRIVATE_DIR} no existe o no tiene pares "
-            "<foto>.jpg|png + <foto>.txt. Copia las fotos allí y vuelve a ejecutar "
-            "(o usa --synthetic para ver el script con páginas sintéticas)."
+            f"Sin {label} que calibrar en {PRIVATE_DIR}. Para fotos: <Ficha>_p<N>_<condición>.jpg "
+            "(junto al PDF de la ficha) o <foto>.jpg + <foto>.txt; para --pdf-render, los PDF."
         )
         return 0
 
     engine = ClearReadOCR()
     engine.process_image(
-        cases[0].image
+        first.image
     )  # warm-up: the first inference includes model setup
-    print(
-        f"{len(cases)} imágenes ({'sintéticas' if args.synthetic else 'privadas'}); 1 pasada tras calentar.\n"
-    )
-    run_comparison(cases, engine, args.ablation)
+    print(f"Modo: {label}. 1 pasada tras calentar.\n", flush=True)
+    run_comparison(source, engine, args.ablation)
     if args.sweep:
-        run_sweep(cases, PreprocessSettings() if args.sweep_preprocessed else None)
+        run_sweep(source, PreprocessSettings() if args.sweep_preprocessed else None)
     return 0
 
 
