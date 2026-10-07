@@ -38,7 +38,7 @@ class RecentDocument:
 class CachedDocument:
     raw_text: str
     formatted: FormattedDocument
-    theme: str  # theme the html colours were generated for
+    appearance: str  # theme, typography and syllable switch the html was generated for
 
 
 def compute_cache_key(path: Path) -> str:
@@ -72,7 +72,7 @@ class DocumentLibrary:
         formatted = cached.formatted
         payload = {
             "raw_text": cached.raw_text,
-            "theme": cached.theme,
+            "appearance": cached.appearance,
             "html_content": formatted.html_content,
             "tts_script": formatted.tts_script,
             "tokens": [asdict(token) for token in formatted.token_map],
@@ -107,7 +107,9 @@ class DocumentLibrary:
                 token_map=[WordToken(**token) for token in data["tokens"]],
                 tts_script=data["tts_script"],
             )
-            return CachedDocument(data["raw_text"], formatted, data["theme"])
+            return CachedDocument(
+                data["raw_text"], formatted, data.get("appearance", "")
+            )
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
@@ -122,6 +124,12 @@ class DocumentLibrary:
     def remove(self, key: str) -> None:
         self._save_index([r for r in self.recents() if r.key != key])
         self._cache_path(key).unlink(missing_ok=True)
+
+    def clear(self) -> None:
+        """Delete every cached document and the recent list."""
+        for path in self._root.iterdir():
+            if path.suffix in (".json", ".tmp"):
+                path.unlink(missing_ok=True)
 
     def _cache_path(self, key: str) -> Path:
         return self._root / f"{key}.json"
