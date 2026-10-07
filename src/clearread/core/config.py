@@ -7,11 +7,17 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
-from clearread.core.paths import get_user_data_dir
+from clearread.core.paths import get_resource_path, get_user_data_dir
 
 # The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
 # Placeholder until the real Render URL exists (Day 10, §6.5).
 DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
+
+# The client token filters casual traffic only: anyone with the .exe can extract it
+# (§4.11). It is never versioned: development reads the environment variable and the
+# build writes the git-ignored file below (matched by the ``*.local.json`` rule).
+CLIENT_TOKEN_ENV_VAR = "CLEARREAD_CLIENT_TOKEN"
+CLIENT_TOKEN_FILE = Path("resources") / "client_token.local.json"
 
 THEME_IDS = ("light", "dark", "high_contrast")
 UI_LANGUAGES = ("es", "en")
@@ -26,6 +32,23 @@ _URL_SCHEMES = ("https", "http")
 def is_backend_url(text: str) -> bool:
     scheme, separator, rest = text.strip().partition(":" + "//")
     return scheme in _URL_SCHEMES and bool(separator) and bool(rest)
+
+
+def load_client_token() -> str:
+    """Token for the backend: environment variable first, then the build's file.
+
+    Empty when neither exists; the backend then answers 401 and the AI stays off.
+    """
+    from_env = os.environ.get(CLIENT_TOKEN_ENV_VAR, "").strip()
+    if from_env:
+        return from_env
+    try:
+        with open(get_resource_path(CLIENT_TOKEN_FILE), encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, ValueError):
+        return ""
+    token = data.get("client_token") if isinstance(data, dict) else None
+    return token.strip() if isinstance(token, str) else ""
 
 
 def _is_number(value: object) -> bool:
