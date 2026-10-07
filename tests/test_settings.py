@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from fakes import EngineSource
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -29,6 +30,7 @@ from clearread.ui.main_window import MainWindow, Screen
 from clearread.ui.strings import CATALOG
 from clearread.ui.theme import THEMES, ThemeId
 from clearread.ui.views.reading_view import PlaybackState
+from clearread.ui.views.settings_view import PREVIEW_HEIGHT, PREVIEW_MAX_HEIGHT
 from clearread.workers.ocr_worker import ProcessingErrorKind
 
 DIGITAL = SAMPLES_DIR / "sample_page_digital.pdf"
@@ -315,6 +317,32 @@ def test_the_preview_follows_the_controls(
     assert preview.highlighted_range() is not None
     window.settings_view.theme_buttons["dark"].setChecked(True)
     assert THEMES[ThemeId.DARK].syllable_odd.lower() in preview.toHtml().lower()
+
+
+def test_the_preview_never_shows_a_scroll_bar_and_grows_or_crops_with_large_text(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, config_dir: Path
+) -> None:
+    window = make_window(qtbot, tts, library, config_dir)
+    window.open_settings()
+    view = window.settings_view
+    preview = view.preview
+    assert preview.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+
+    view.sliders["font_size_pt"].setValue(12)
+    view.sliders["line_spacing"].setValue(14)
+    assert preview.height() == PREVIEW_HEIGHT
+
+    view.sliders["font_size_pt"].setValue(22)
+    view.sliders["line_spacing"].setValue(20)
+    grown = preview.height()
+    assert PREVIEW_HEIGHT < grown <= PREVIEW_MAX_HEIGHT
+
+    view.sliders["font_size_pt"].setValue(28)
+    view.sliders["line_spacing"].setValue(26)
+    assert preview.height() == PREVIEW_MAX_HEIGHT
+    assert not preview.verticalScrollBar().isVisible()
+    caret = preview.cursorRect()  # the highlighted word stays inside the cropped view
+    assert preview.viewport().rect().contains(caret.center())
 
 
 # ---- voice and speed -----------------------------------------------------

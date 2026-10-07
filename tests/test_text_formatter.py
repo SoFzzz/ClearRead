@@ -8,6 +8,7 @@ from clearread.services.text_formatter import (
     SyllablePalette,
     TextFormatter,
     normalise_paragraphs,
+    token_index_at,
 )
 
 PALETTE = SyllablePalette(color_even="#111111", color_odd="#222222")
@@ -176,3 +177,21 @@ def test_without_syllables_each_word_has_a_single_colour(
 ) -> None:
     formatted = formatter.format_document("canción", enable_syllables=False)
     assert formatted.html_content.count("<span") == 1
+
+
+def test_token_index_at_picks_the_word_under_the_character_or_the_next_one(
+    formatter: TextFormatter,
+) -> None:
+    text = "Hola, niño.\n\nOtro párrafo"
+    formatted = formatter.format_document(text)
+    token_map = formatted.token_map
+    plain = plain_text_of(formatted)
+    assert [t.spoken_text for t in token_map] == ["Hola", "niño", "Otro", "párrafo"]
+    for index, token in enumerate(token_map):
+        for char in range(token.doc_start_pos, token.doc_end_pos):
+            assert token_index_at(token_map, char) == index
+    assert token_index_at(token_map, plain.index(",")) == 1
+    assert token_index_at(token_map, plain.index(" ")) == 1
+    assert token_index_at(token_map, plain.index(".")) == 2  # up to the next paragraph
+    assert token_index_at(token_map, len(plain) + 5) == len(token_map) - 1
+    assert token_index_at(token_map, 0) == 0

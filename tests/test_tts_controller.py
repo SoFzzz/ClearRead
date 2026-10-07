@@ -12,8 +12,10 @@ from pytestqt.qtbot import QtBot
 
 from clearread.services.tts_controller import (
     MAX_RATE_WPM,
+    MIN_RATE_WPM,
     TTSController,
     TTSErrorKind,
+    sapi_rate_for,
 )
 
 TIMEOUT_MS = 5000
@@ -78,7 +80,7 @@ def test_speed_is_clamped_and_applied_to_the_next_utterance(
     controller.set_speed(1000)
     with qtbot.waitSignal(controller.playback_ended, timeout=TIMEOUT_MS):
         controller.speak_text("hola")
-    assert engines.latest.properties["rate"] == MAX_RATE_WPM
+    assert engines.latest.properties["rate"] == sapi_rate_for(MAX_RATE_WPM)
 
 
 def test_stop_cancels_a_running_utterance_without_a_late_end_signal(
@@ -205,3 +207,27 @@ def test_engine_init_failure_is_reported_by_kind(qtbot: QtBot) -> None:
         assert blocker.args == [TTSErrorKind.INIT_FAILED.name]
     finally:
         tts.shutdown()
+
+
+# Heard pace measured on Microsoft Helena (tests/manual/measure_tts_rate.py, 12 s each).
+MEASURED_PACE_WPM = {
+    64: 68.6, 72: 76.5, 80: 77.5, 88: 86.8, 98: 104.7, 109: 107.9, 121: 122.0,
+    134: 127.3, 157: 142.1, 183: 164.4, 203: 179.3, 226: 205.3, 251: 227.9,
+    278: 258.6, 309: 288.3, 343: 306.5,
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("shown", [80, 120, 150, 200, 280])
+def test_the_converted_rate_speaks_within_ten_percent_of_the_shown_speed(
+    shown: int,
+) -> None:
+    heard = MEASURED_PACE_WPM[sapi_rate_for(shown)]
+    assert abs(heard - shown) / shown <= 0.10
+
+
+def test_every_shown_speed_maps_to_a_measured_rate_and_never_slows_down_when_raised() -> (
+    None
+):
+    rates = [sapi_rate_for(wpm) for wpm in range(MIN_RATE_WPM, MAX_RATE_WPM + 1)]
+    assert set(rates) <= set(MEASURED_PACE_WPM)
+    assert rates == sorted(rates)
