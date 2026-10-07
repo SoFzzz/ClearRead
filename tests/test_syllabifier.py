@@ -1,7 +1,9 @@
-"""Syllabification bank (NFR-FON01): 50 complex Spanish words, RAE orthography.
+"""Syllabification bank (NFR-FON01): 51 complex Spanish words (50 + the sub-r control).
 
-The bank only changes with the user's permission (CLAUDE.md §j). Threshold:
-at most 1 mistake out of 50 (>= 98 %).
+Criterion: PHONETIC division (how the word is pronounced), because that is what helps
+decoding. The bank only changes with the user's permission (CLAUDE.md §j); the four
+prefix answers were corrected to the phonetic criterion with her explicit approval
+(2026-10-07). Threshold: at most 1 mistake (>= 98 %).
 """
 
 import pytest
@@ -37,11 +39,12 @@ BANK: tuple[tuple[str, str], ...] = (
     ("es-tu-diáis", "triptongo"),
     ("u-ru-guay", "triptongo"),
     ("miau", "triptongo"),
-    ("des-a-hu-cio", "prefijo"),
+    ("de-sahu-cio", "prefijo"),
     ("sub-ra-yar", "prefijo"),
-    ("in-ac-ti-vo", "prefijo"),
-    ("des-es-ti-mar", "prefijo"),
-    ("sub-ur-ba-no", "prefijo"),
+    ("sub-ro-gar", "prefijo"),
+    ("i-nac-ti-vo", "prefijo"),
+    ("de-ses-ti-mar", "prefijo"),
+    ("su-bur-ba-no", "prefijo"),
     ("in-ha-bi-ta-ble", "prefijo"),
     ("pe-rro", "dígrafo"),
     ("ca-lle", "dígrafo"),
@@ -71,8 +74,8 @@ def divide(word: str) -> str:
     return "-".join(syllabifier.syllabify_word(word).syllables)
 
 
-def test_bank_has_50_words() -> None:
-    assert len(BANK) == 50
+def test_bank_has_51_words() -> None:
+    assert len(BANK) == 51
 
 
 def test_bank_reaches_98_percent() -> None:
@@ -82,7 +85,7 @@ def test_bank_reaches_98_percent() -> None:
         if divide(expected.replace("-", "")) != expected
     ]
     assert len(mistakes) <= MAX_MISTAKES, (
-        f"{len(mistakes)} fallos de 50:\n" + "\n".join(mistakes)
+        f"{len(mistakes)} fallos de 51:\n" + "\n".join(mistakes)
     )
 
 
@@ -121,3 +124,15 @@ def test_result_keeps_the_original_word() -> None:
 def test_latin_looking_endings_do_not_crash_the_library(word: str) -> None:
     syllables = syllabifier.syllabify_word(word).syllables
     assert "".join(syllables) == word
+
+
+@pytest.mark.parametrize(
+    ("word", "expected"),
+    [
+        ("Subrayado", "Sub-ra-ya-do"),
+        ("SUBRUTINA", "SUB-RU-TI-NA"),
+        ("submarino", "sub-ma-ri-no"),
+    ],
+)
+def test_sub_followed_by_r_keeps_the_prefix_coda(word: str, expected: str) -> None:
+    assert divide(word) == expected
