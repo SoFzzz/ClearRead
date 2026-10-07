@@ -16,7 +16,6 @@ REC_MODEL_RELATIVE = "resources/models/latin_PP-OCRv5_rec_mobile.onnx"
 _LINE_HEIGHT_MIN_PX = 10.0
 _LINE_MERGE_RATIO = 0.5
 _PARAGRAPH_GAP_RATIO = 1.0
-_LOWERCASE_START = re.compile(r"[a-záéíóúüñ]")
 _HAS_ALNUM = re.compile(r"\w")
 
 
@@ -58,8 +57,8 @@ class TextBox:
 def merge_lines(lines: list[str]) -> str:
     """Join consecutive lines, removing end-of-line hyphenation (OCR-F02).
 
-    Only a hyphen that ends a line is touched: "cons-" + "trucción" becomes
-    "construcción", while "hispano-americano" inside a line is left alone. When
+    Only a hyphen that ends a line is touched: "inter-" + "nacional" becomes
+    "internacional", while "hispano-americano" inside a line is left alone. When
     the next line starts in uppercase the hyphen is kept ("Madrid-" + "Barcelona").
     """
     merged = ""
@@ -70,7 +69,7 @@ def merge_lines(lines: list[str]) -> str:
         if not merged:
             merged = text
         elif merged[-1] == "-" and len(merged) > 1 and merged[-2].isalpha():
-            keeps_hyphen = not _LOWERCASE_START.match(text)
+            keeps_hyphen = not text[0].islower()
             merged = merged + text if keeps_hyphen else merged[:-1] + text
         else:
             merged = f"{merged} {text}"
@@ -117,7 +116,7 @@ class ClearReadOCR:
     """Offline OCR: ch_PP-OCRv4 detection, latin_PP-OCRv5 recognition, angle classifier.
 
     Detection and classifier models ship inside the ``rapidocr_onnxruntime``
-    package; the Latin recognizer (``ñ``, tildes, ``¿``, ``¡``) lives in
+    package; the Latin recognizer (accented vowels, the tilde-n and Spanish punctuation) lives in
     ``resources/models``. The engine is built once and reused for every page.
     """
 
