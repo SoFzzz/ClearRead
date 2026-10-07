@@ -2,9 +2,12 @@
 
 import re
 import statistics
+import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 import cv2
 import numpy as np
@@ -178,3 +181,25 @@ def _to_text_box(points: list[list[float]], text: str) -> TextBox:
     xs = [point[0] for point in points]
     ys = [point[1] for point in points]
     return TextBox(text.strip(), min(xs), min(ys), max(xs), max(ys))
+
+
+class OCREngine(Protocol):
+    def process_image(self, image: np.ndarray, page_number: int = 1) -> OCRResult: ...
+
+
+class LazyOCREngine:
+    """Builds the OCR engine on first use and shares it across documents.
+
+    Loading the ONNX models is slow, and digital PDFs never need it.
+    """
+
+    def __init__(self, factory: Callable[[], OCREngine] = ClearReadOCR) -> None:
+        self._factory = factory
+        self._engine: OCREngine | None = None
+        self._lock = threading.Lock()
+
+    def process_image(self, image: np.ndarray, page_number: int = 1) -> OCRResult:
+        with self._lock:
+            if self._engine is None:
+                self._engine = self._factory()
+            return self._engine.process_image(image, page_number)
