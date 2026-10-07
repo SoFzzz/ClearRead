@@ -232,7 +232,7 @@ Para repetir la medición: `py -3 .claude\skills\contrast-check\contrast.py "<te
 | **Lectura** (ReaderWidget, respuesta de IA, vista previa) | **OpenDyslexic** Regular y Bold, empaquetada en `resources/fonts` | Requisito de §1.2 y CLAUDE.md §o. Se carga con `QFontDatabase.addApplicationFont` al arrancar. |
 | **Interfaz** (botones, etiquetas, títulos, diálogos) | **Segoe UI** (fuente del sistema) | Es la fuente de Windows 10/11: ya está en todos los equipos objetivo, tiene *hinting* para pantalla (nítida a 13–16 px), letras diferenciadas (`I l 1`), soporte completo de español y **no añade bytes ni licencias al `.exe`**. Usar OpenDyslexic también en la interfaz restaría espacio (es muy ancha) y quitaría a la lectura su "voz" diferenciada. |
 
-> En los mockups, OpenDyslexic se sustituye por **Verdana** porque la fuente aún no está en `resources/fonts` y el lienzo no puede cargar fuentes locales. Los anchos reales serán algo mayores: se verifica en el Día 5.
+> En los mockups, OpenDyslexic se sustituye por **Verdana** porque la fuente aún no está en `resources/fonts` y el lienzo no puede cargar fuentes locales. Los anchos reales son algo mayores; se verificó en el Día 5 con la fuente real (ver [§11](#11-decisiones-abiertas-y-tareas-pendientes)).
 
 **Escala de la interfaz** (px a 100 % de escala de Windows; Qt escala solo con `Qt.HighDpiScaleFactorRoundingPolicy.PassThrough`):
 
@@ -787,7 +787,10 @@ Decisiones cerradas por la usuaria el 2026-10-01 y ya aplicadas en este document
 
 ### Tareas pendientes
 
-1. **Día 5 — validar la alternancia de sílabas del Claro.** Con OpenDyslexic real y una captura, comprobar que morado/marrón (`#392F5A`/`#703800`) se distingue. Si no se distingue, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). Registrado también en `document.md` §6.5, Día 5.
+1. ~~**Día 5 — validar la alternancia de sílabas del Claro.**~~ **HECHA (2026-10-07).** Con OpenDyslexic real (Regular y Bold) en `ReaderWidget`, las capturas de los tres temas están en [`mockups/real/`](mockups/real/) (`lectura_real_light.png`, `lectura_real_dark.png`, `lectura_real_high_contrast.png`). En el tema Claro el morado `#392F5A` y el marrón `#703800` **se distinguen**: a tamaño normal se lee la alternancia sílaba a sílaba (p. ej. `es-tu-dian-tes`) y ampliada al doble es inequívoca; no hace falta el plan B de espaciado. Es una valoración visual sobre las capturas, no una medición nueva (los ratios siguen siendo los de §1.3).
+   - **Hallazgo 1: fuente.** La última *release* de OpenDyslexic (v0.91.12) dibuja mal la tilde de la `ó` (aparece a la derecha, como un apóstrofo) y la v0.91.2 pone las tildes *debajo* de la vocal; se empaquetan los archivos de la rama `main` del repositorio oficial, que las dibujan bien (`resources/fonts/README.md`, comparación en [`mockups/real/fuente_comparacion_acentos.png`](mockups/real/fuente_comparacion_acentos.png)).
+   - **Hallazgo 2: interlineado.** Con `line-height: 1.8` en el HTML, Qt lo interpreta como 180 % del paso de línea *propio de la fuente*, y OpenDyslexic ya tiene un paso de 1,83 veces su tamaño (39 px a 16 pt): quedaba una separación de 3,3 veces el tamaño, y además Qt solo aplicaba la propiedad al primer párrafo. `ReaderWidget` ahora convierte el valor del diseño (1,8 veces el tamaño de la letra) a porcentaje del paso real y lo aplica a todos los párrafos; `TextFormatter` ya no escribe `line-height`.
+   - **Hallazgo 3: negrita.** La negrita de la palabra resaltada (`ExtraSelection`) no se nota con esta fuente; las señales visibles son el fondo amarillo, el color y el subrayado.
 
 ### Decisiones abiertas
 
