@@ -173,6 +173,65 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "The new language will show the next time you open ClearRead. "
         "Your documents stay the same.",
     },
+    "settings.speed": {"es": "Velocidad de lectura", "en": "Reading speed"},
+    "settings.value.points": {"es": "{value} puntos", "en": "{value} points"},
+    "settings.value.px": {"es": "{value} px", "en": "{value} px"},
+    "settings.on": {"es": "Sí", "en": "Yes"},
+    "settings.off": {"es": "No", "en": "No"},
+    "settings.no_voices": {
+        "es": "No hay voces instaladas",
+        "en": "No voices are installed",
+    },
+    "settings.preview_sample": {
+        "es": "La fotosíntesis es el proceso que usan las plantas para vivir.",
+        "en": "Photosynthesis is the way that plants make their food.",
+    },
+    "settings.preview_caption": {
+        "es": "Así se verá tu lectura: sílabas de dos colores, la palabra que suena "
+        "resaltada y la línea actual marcada.",
+        "en": "This is how your reading will look: syllables in two colors, "
+        "the word being read highlighted and the current line marked.",
+    },
+    "settings.save_failed": {
+        "es": "No se pudieron guardar los ajustes. Valen hasta que cierres ClearRead.",
+        "en": "Your settings could not be saved. They last until you close ClearRead.",
+    },
+    "settings.backend_url_invalid": {
+        "es": "La dirección debe empezar por https",
+        "en": "The address must start with https",
+    },
+    "settings.privacy.title": {"es": "Tu privacidad", "en": "Your privacy"},
+    "settings.privacy.assistant": {
+        "es": "El asistente solo recibe el texto que seleccionas. "
+        "El resto del documento no sale de tu equipo.",
+        "en": "The assistant only receives the text you select. "
+        "The rest of the document never leaves your computer.",
+    },
+    "settings.privacy.cache": {
+        "es": "Para abrir más rápido tus documentos recientes, ClearRead guarda su "
+        "texto en tu equipo, en {path}.",
+        "en": "To open your recent documents faster, ClearRead keeps their text on "
+        "your computer, in {path}.",
+    },
+    "settings.clear_recents": {
+        "es": "Borrar documentos recientes",
+        "en": "Delete recent documents",
+    },
+    "settings.clear_confirm.title": {
+        "es": "¿Borrar los documentos recientes?",
+        "en": "Delete your recent documents?",
+    },
+    "settings.clear_confirm.message": {
+        "es": "Se borrará el texto guardado de todos tus documentos recientes. "
+        "Tus archivos originales no cambian.",
+        "en": "The saved text of all your recent documents will be deleted. "
+        "Your original files stay the same.",
+    },
+    "settings.clear_confirm.yes": {"es": "Sí, borrar", "en": "Yes, delete"},
+    "settings.recents_cleared": {
+        "es": "Documentos recientes borrados.",
+        "en": "Recent documents deleted.",
+    },
     "settings.backend_url": {
         "es": "Dirección del asistente",
         "en": "Assistant address",
