@@ -39,6 +39,7 @@ _RATE_STEPS: tuple[tuple[float, int], ...] = (
     (306.5, 343),
 )
 _WORD = re.compile(r"\S+")
+WordSpans = list[tuple[int, int]]
 _SHUTDOWN_WAIT_MS = 2000
 
 
@@ -119,8 +120,9 @@ class SAPI5Worker(QObject):
         self._valid_generation = 0
         self._active_generation = 0
         self._base_word_index = 0
-        self._word_starts: list[int] = []  # char offset of each word in the sent text
-        self._pending: tuple[str, int, int] | None = None
+        self._word_spans: WordSpans = []  # char span of each word in the sent text
+        self._last_word = -1
+        self._pending: tuple[str, int, int, WordSpans | None] | None = None
 
     @Slot()
     def initialize(self) -> None:
@@ -175,20 +177,32 @@ class SAPI5Worker(QObject):
         """Remember the voice; it is applied when the next utterance starts."""
         self._voice_id = voice_id
 
-    @Slot(str, int, int)
-    def speak(self, text: str, start_offset: int, generation: int) -> None:
+    @Slot(str, int, int, object)
+    def speak(
+        self,
+        text: str,
+        start_offset: int,
+        generation: int,
+        word_spans: WordSpans | None,
+    ) -> None:
         if self._is_speaking:
             # pyttsx3's loop pumps Qt events of this thread, so a request made while
             # an utterance is being cancelled arrives nested inside its runAndWait()
             # (Day 8 real check): on the engine being stopped it would end in silence.
-            self._pending = (text, start_offset, generation)
+            self._pending = (text, start_offset, generation, word_spans)
             return
-        request: tuple[str, int, int] | None = (text, start_offset, generation)
+        request = (text, start_offset, generation, word_spans)
         while request is not None:
             self._speak_now(*request)
             request, self._pending = self._pending, None
 
-    def _speak_now(self, text: str, start_offset: int, generation: int) -> None:
+    def _speak_now(
+        self,
+        text: str,
+        start_offset: int,
+        generation: int,
+        word_spans: WordSpans | None,
+    ) -> None:
         if generation != self._valid_generation:
             return  # cancelled while still queued behind another utterance
         if self._engine is None:
@@ -197,7 +211,8 @@ class SAPI5Worker(QObject):
             return
         self._active_generation = generation
         self._base_word_index = start_offset
-        self._word_starts = [match.start() for match in _WORD.finditer(text)]
+        self._word_spans = word_spans or [m.span() for m in _WORD.finditer(text)]
+        self._last_word = -1
         self._is_speaking = True
         try:
             self._select_voice(self._engine)
@@ -236,8 +251,16 @@ class SAPI5Worker(QObject):
         # event would carry it instead of None.
         if name is None:
             return
-        local_index = bisect.bisect_right(self._word_starts, location) - 1
-        if local_index >= 0:
+        local_index = (
+            bisect.bisect_right(self._word_spans, location, key=lambda s: s[0]) - 1
+        )
+        # Events inside a word (a number SAPI splits) repeat its index; ones in a
+        # gap between words are punctuation and move nothing.
+        if (
+            local_index > self._last_word
+            and location < self._word_spans[local_index][1]
+        ):
+            self._last_word = local_index
             self.word_started.emit(
                 self._active_generation, self._base_word_index + local_index
             )
@@ -254,7 +277,7 @@ class SAPI5Worker(QObject):
 class TTSController(QObject):
     """Public interface for thread-safe speech: GUI thread only."""
 
-    sig_speak = Signal(str, int, int)
+    sig_speak = Signal(str, int, int, object)
     sig_set_rate = Signal(int)
     sig_set_voice = Signal(str)
 
@@ -283,10 +306,19 @@ class TTSController(QObject):
 
         self._thread.start()
 
-    def speak_text(self, text: str, start_offset: int = 0) -> None:
-        """Speak ``text``; its first word is word ``start_offset`` of the document."""
+    def speak_text(
+        self,
+        text: str,
+        start_offset: int = 0,
+        word_spans: WordSpans | None = None,
+    ) -> None:
+        """Speak ``text``; its first word is word ``start_offset`` of the document.
+
+        ``word_spans`` gives the character span of each word in ``text``; without it
+        the words are the whitespace-separated pieces.
+        """
         self.stop()
-        self.sig_speak.emit(text, start_offset, self._generation)
+        self.sig_speak.emit(text, start_offset, self._generation, word_spans)
 
     def stop(self) -> None:
         self._generation += 1

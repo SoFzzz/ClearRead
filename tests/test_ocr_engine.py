@@ -11,6 +11,7 @@ from clearread.services.ocr_engine import (
     OCRSettings,
     TextBox,
     build_paragraphs,
+    is_letter_noise,
     merge_lines,
 )
 
@@ -140,3 +141,24 @@ def test_result_reports_line_count_and_mean_confidence(engine: ClearReadOCR) -> 
 def test_blank_page_has_zero_confidence_and_no_lines(engine: ClearReadOCR) -> None:
     result = engine.process_image(np.full((200, 300, 3), 255, np.uint8))
     assert (result.line_count, result.mean_confidence) == (0, 0.0)
+
+
+@pytest.mark.parametrize(
+    ("text", "score", "noise"),
+    [
+        ("n n e e d", 0.6, True),
+        ("n", 0.55, True),
+        ("ee", 0.7, True),
+        ("n n e e d", 0.95, False),  # read with certainty: kept
+        ("y", 0.99, False),
+        ("de la", 0.6, True),
+        ("casa", 0.6, False),  # a real word is never noise
+        ("1 2 3", 0.6, False),  # digits are not letter noise
+        ("3", 0.6, False),
+        ("n n casa", 0.6, False),
+    ],
+)
+def test_letter_noise_needs_only_short_letter_fragments_and_low_confidence(
+    text: str, score: float, noise: bool
+) -> None:
+    assert is_letter_noise(text, score, OCRSettings().noise_confidence) is noise

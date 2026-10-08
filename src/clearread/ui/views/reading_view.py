@@ -36,6 +36,7 @@ from clearread.services.text_formatter import (
     FormattedDocument,
     ReadingStyle,
     WordToken,
+    speech_from,
     token_index_at,
 )
 from clearread.services.tts_controller import (
@@ -603,10 +604,12 @@ class ReadingView(QWidget):
         self.status_label.hide()
         self.current_word_idx = word_index
         self.resume_index = word_index
-        remaining = " ".join(token.spoken_text for token in self.token_map[word_index:])
+        speech = speech_from(self.tts_script, self.token_map, word_index)
         self._set_state(PlaybackState.PLAYING)
         self.editor.highlight_token(self.token_map[word_index])
-        self._tts.speak_text(remaining, start_offset=word_index)
+        self._tts.speak_text(
+            speech.text, start_offset=word_index, word_spans=speech.word_spans
+        )
 
     @Slot(int)
     def _on_char_clicked(self, char_index: int) -> None:

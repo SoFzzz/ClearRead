@@ -231,3 +231,25 @@ def test_every_shown_speed_maps_to_a_measured_rate_and_never_slows_down_when_rai
     rates = [sapi_rate_for(wpm) for wpm in range(MIN_RATE_WPM, MAX_RATE_WPM + 1)]
     assert set(rates) <= set(MEASURED_PACE_WPM)
     assert rates == sorted(rates)
+
+
+def test_events_are_mapped_through_the_word_spans_and_punctuation_is_ignored(
+    controller: TTSController, qtbot: QtBot
+) -> None:
+    words = collect_words(controller)
+    text = "uno, dos . tres"
+    spans = [(0, 3), (5, 8), (11, 15)]  # the fake also reports "," and "." as words
+    with qtbot.waitSignal(controller.playback_ended, timeout=TIMEOUT_MS):
+        controller.speak_text(text, start_offset=10, word_spans=spans)
+    assert words == [10, 11, 12]
+
+
+def test_an_event_inside_a_word_does_not_repeat_its_index(
+    controller: TTSController, qtbot: QtBot
+) -> None:
+    words = collect_words(controller)
+    with qtbot.waitSignal(controller.playback_ended, timeout=TIMEOUT_MS):
+        controller.speak_text(
+            "a 3 5 b", start_offset=0, word_spans=[(0, 1), (2, 5), (6, 7)]
+        )
+    assert words == [0, 1, 2]

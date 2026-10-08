@@ -27,6 +27,10 @@ class OCRSettings:
     """Detector and filter parameters. Defaults come from the Day 3 calibration (§4.3)."""
 
     min_confidence: float = 0.45
+    # Boxes made only of 1-2 letter fragments ("n n e e d") are kept only at or above
+    # this confidence: a lone "a" or "y" read with certainty is real, a doubtful one is
+    # texture, a stain or a shadow. Calibrated with calibrate_ocr.py --images-noref.
+    noise_confidence: float = 0.8
     box_thresh: float = 0.5
     unclip_ratio: float = 1.6
 
@@ -57,6 +61,14 @@ class TextBox:
     @property
     def center_y(self) -> float:
         return (self.top + self.bottom) / 2.0
+
+
+def is_letter_noise(text: str, score: float, minimum_confidence: float) -> bool:
+    """A doubtful box that holds only 1-2 letter fragments (OCR-F03 noise filter)."""
+    fragments = text.split()
+    only_letters = "".join(fragments).isalpha()
+    short = all(len(fragment) <= 2 for fragment in fragments)
+    return only_letters and short and score < minimum_confidence
 
 
 def merge_lines(lines: list[str]) -> str:
@@ -167,7 +179,9 @@ class ClearReadOCR:
         return [
             (box, score)
             for box, score in detections
-            if score >= minimum and _HAS_ALNUM.search(box.text)
+            if score >= minimum
+            and _HAS_ALNUM.search(box.text)
+            and not is_letter_noise(box.text, score, self._settings.noise_confidence)
         ]
 
 

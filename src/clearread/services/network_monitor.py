@@ -3,10 +3,9 @@
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtNetwork import QNetworkInformation
 
-_OFFLINE = (
-    QNetworkInformation.Reachability.Disconnected,
-    QNetworkInformation.Reachability.Local,
-)
+# Windows reports Local on machines that do have internet (WSL, VPN, routers, a
+# blocked NCSI probe), so only Disconnected is trusted as "no network".
+_OFFLINE = (QNetworkInformation.Reachability.Disconnected,)
 
 
 class NetworkMonitor(QObject):
@@ -34,7 +33,7 @@ class NetworkMonitor(QObject):
         return self._online
 
     def set_reachability(self, reachability: QNetworkInformation.Reachability) -> None:
-        # Unknown counts as online: the first failed call reports the problem instead.
+        # Anything but Disconnected is allowed to try: a failed call reports the problem instead.
         online = reachability not in _OFFLINE
         if online != self._online:
             self._online = online

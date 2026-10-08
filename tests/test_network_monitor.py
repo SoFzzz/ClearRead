@@ -19,7 +19,7 @@ def test_without_backend_it_stays_online() -> None:
         (Reachability.Online, True),
         (Reachability.Site, True),
         (Reachability.Unknown, True),
-        (Reachability.Local, False),
+        (Reachability.Local, True),
         (Reachability.Disconnected, False),
     ],
 )

@@ -8,6 +8,7 @@ from clearread.services.text_formatter import (
     SyllablePalette,
     TextFormatter,
     normalise_paragraphs,
+    speech_from,
     token_index_at,
 )
 
@@ -84,7 +85,7 @@ def test_numbers_are_single_tokens(formatter: TextFormatter) -> None:
 
 def test_whitespace_is_normalised_before_positions(formatter: TextFormatter) -> None:
     formatted = formatter.format_document("uno   dos\ntres\n\ncuatro")
-    assert formatted.tts_script == "uno dos tres cuatro"
+    assert formatted.tts_script == "uno dos tres\ncuatro"
     assert [t.doc_start_pos for t in formatted.token_map] == [0, 4, 8, 13]
 
 
@@ -213,3 +214,49 @@ def test_odd_syllables_get_a_soft_fill_only_when_the_palette_has_one() -> None:
     assert len(spans) == 2
     assert "background-color" not in spans[0]
     assert "background-color: #FBF0CC" in spans[1]
+
+
+def speech(
+    formatter: TextFormatter, text: str, first: int = 0
+) -> tuple[str, list[str]]:
+    formatted = formatter.format_document(text)
+    result = speech_from(formatted.tts_script, formatted.token_map, first)
+    return result.text, [result.text[a:b] for a, b in result.word_spans]
+
+
+def test_speech_keeps_commas_stops_and_question_marks(formatter: TextFormatter) -> None:
+    text, words = speech(formatter, "¿Qué tal, amigo? ¡Bien! Sí; claro: vale.")
+    assert text == "Qué tal, amigo? ¡Bien! Sí; claro: vale."
+    assert words == ["Qué", "tal", "amigo", "Bien", "Sí", "claro", "vale"]
+
+
+def test_speech_separates_paragraphs_with_a_stop_when_they_lack_one(
+    formatter: TextFormatter,
+) -> None:
+    text, words = speech(formatter, "Título\n\nPrimera frase.\n\n«Fin»")
+    assert text == "Título.\nPrimera frase.\n«Fin»"
+    assert words == ["Título", "Primera", "frase", "Fin"]
+
+
+def test_speech_does_not_double_an_existing_stop(formatter: TextFormatter) -> None:
+    text, _ = speech(formatter, 'Dijo "hola."\n\n¿Y tú?\n\nSí')
+    assert text == 'Dijo "hola."\n¿Y tú?\nSí'
+
+
+def test_speech_can_resume_in_the_middle_of_a_sentence(
+    formatter: TextFormatter,
+) -> None:
+    text, words = speech(formatter, "Uno dos, tres cuatro.\n\nCinco", first=2)
+    assert text == "tres cuatro.\nCinco"
+    assert words == ["tres", "cuatro", "Cinco"]
+
+
+def test_symbols_are_not_read_and_symbol_only_tokens_are_not_words(
+    formatter: TextFormatter,
+) -> None:
+    formatted = formatter.format_document("Uno _ dos * tres ___ #cuatro")
+    assert spoken(formatted) == ["Uno", "dos", "tres", "cuatro"]
+    assert_tokens_match_qt(formatted)
+    text, words = speech(formatter, "Uno _ dos * tres ___ #cuatro")
+    assert text == "Uno   dos   tres" + " " * 6 + "cuatro"
+    assert words == ["Uno", "dos", "tres", "cuatro"]

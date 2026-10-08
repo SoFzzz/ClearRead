@@ -14,6 +14,7 @@ from clearread.services.text_formatter import (
     FormattedDocument,
     ReadingStyle,
     TextFormatter,
+    speech_from,
 )
 from clearread.services.tts_controller import TTSController, sapi_rate_for
 from clearread.ui.fonts import READING_FONT_FAMILY, load_reading_font
@@ -80,7 +81,10 @@ def test_play_speaks_the_whole_script_and_highlights_along(
     view.toggle_play()
     assert view.state is PlaybackState.PLAYING
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    assert engines.created[0].said[0] == view.tts_script
+    assert (
+        engines.created[0].said[0]
+        == speech_from(view.tts_script, view.token_map, 0).text
+    )
     assert len(seen) == len(view.token_map)
     assert view.editor.highlighted_range() is None  # cleared at the end
 
@@ -103,7 +107,7 @@ def test_pause_then_resume_continues_from_the_word_that_was_playing(
     view._tts.word_spoken.connect(resumed.append)
     view.toggle_play()  # resume
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    expected_script = " ".join(t.spoken_text for t in view.token_map[paused_at:])
+    expected_script = speech_from(view.tts_script, view.token_map, paused_at).text
     assert engines.latest.said[-1] == expected_script
     assert resumed[0] == paused_at
     assert resumed[-1] == len(view.token_map) - 1
@@ -285,7 +289,7 @@ def test_click_on_a_word_reads_from_it_and_the_first_event_is_that_word(
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
     assert events[0] == target
     assert events == list(range(target, len(view.token_map)))
-    script = " ".join(token.spoken_text for token in view.token_map[target:])
+    script = speech_from(view.tts_script, view.token_map, target).text
     assert engines.latest.said[-1] == script
 
 
@@ -372,3 +376,23 @@ def test_click_without_a_document_does_nothing(
     qtbot.addWidget(empty)
     empty._on_char_clicked(3)
     assert empty.state is PlaybackState.IDLE
+
+
+def test_the_voice_receives_the_punctuation_and_the_paragraph_break(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    view.toggle_play()
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    assert engines.created[0].said[0] == (
+        "El niño leyó una canción.\nSegundo párrafo con cinco palabras."
+    )
+
+
+def test_resuming_in_the_middle_of_a_sentence_keeps_the_indices_of_the_document(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    events = record_words(view)
+    view._speak_from(3)  # "una canción." of the first paragraph
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    assert engines.latest.said[-1].startswith("una canción.\nSegundo")
+    assert events == list(range(3, len(view.token_map)))
