@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from clearread.services.document_library import (
-    MAX_RECENTS,
+    MAX_DOCUMENTS,
     CachedDocument,
     DocumentLibrary,
     compute_cache_key,
@@ -59,15 +59,16 @@ def test_load_of_unknown_or_corrupt_key_is_none(library: DocumentLibrary) -> Non
     assert library.load("bad") is None
 
 
-def test_recents_are_newest_first_and_capped(
+def test_the_library_is_newest_first_and_capped_at_the_safety_limit(
     library: DocumentLibrary, tmp_path: Path
 ) -> None:
-    for index in range(MAX_RECENTS + 3):
+    for index in range(MAX_DOCUMENTS + 3):
         library.store(f"k{index}", tmp_path / f"d{index}.pdf", cached(), 1, False)
     recents = library.recents()
-    assert len(recents) == MAX_RECENTS
-    assert recents[0].key == f"k{MAX_RECENTS + 2}"
+    assert len(recents) == MAX_DOCUMENTS
+    assert recents[0].key == f"k{MAX_DOCUMENTS + 2}"
     assert not library.has("k0")
+    assert library.has("k3")
 
 
 def test_storing_again_moves_the_entry_to_the_top_without_duplicates(

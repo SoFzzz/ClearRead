@@ -32,10 +32,6 @@ CATALOG: dict[str, dict[str, str]] = {
     "nav.assistant": {"es": "Asistente", "en": "Assistant"},
     "nav.my_words": {"es": "Mis palabras", "en": "My words"},
     # --- Home ---
-    "home.title": {
-        "es": "Abre un documento para empezar",
-        "en": "Open a document to start",
-    },
     "home.dashboard_title": {
         "es": "Tu espacio de lectura",
         "en": "Your reading space",
@@ -75,9 +71,12 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Drag your PDF or photo here",
     },
     "home.choose_file": {"es": "Elegir archivo", "en": "Choose file"},
-    "home.recent_title": {"es": "Documentos recientes", "en": "Recent documents"},
+    "home.library_title": {"es": "Mi biblioteca", "en": "My library"},
     "home.recent_open": {"es": "Abrir", "en": "Open"},
-    "home.recent_remove": {"es": "Quitar de recientes", "en": "Remove from recent"},
+    "home.recent_remove": {
+        "es": "Quitar de la biblioteca",
+        "en": "Remove from library",
+    },
     "home.formats_hint": {
         "es": "Sirven archivos PDF, JPG, PNG, BMP y TIFF",
         "en": "PDF, JPG, PNG, BMP and TIFF files work",
@@ -112,8 +111,8 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "home.recent_open_named": {"es": "Abrir {name}", "en": "Open {name}"},
     "home.recent_remove_named": {
-        "es": "Quitar {name} de recientes",
-        "en": "Remove {name} from recent",
+        "es": "Quitar {name} de la biblioteca",
+        "en": "Remove {name} from the library",
     },
     "month.1": {"es": "enero", "en": "January"},
     "month.2": {"es": "febrero", "en": "February"},
@@ -173,6 +172,21 @@ CATALOG: dict[str, dict[str, str]] = {
     },
     "reading.resume_continue": {"es": "Seguir", "en": "Continue"},
     "reading.resume_restart": {"es": "Empezar de nuevo", "en": "Start over"},
+    "reading.prev_short": {"es": "Anterior", "en": "Previous"},
+    "reading.next_short": {"es": "Siguiente", "en": "Next"},
+    "reading.page_label": {"es": "Página {number}", "en": "Page {number}"},
+    "reading.page_of": {"es": "de {total}", "en": "of {total}"},
+    "reading.page_field": {"es": "Número de página", "en": "Page number"},
+    "reading.page_prev": {"es": "Página anterior", "en": "Previous page"},
+    "reading.page_next": {"es": "Página siguiente", "en": "Next page"},
+    "reading.key_page_prev": {"es": "Ctrl+Izquierda", "en": "Ctrl+Left"},
+    "reading.key_page_next": {"es": "Ctrl+Derecha", "en": "Ctrl+Right"},
+    "reading.mode_continuous": {"es": "Continua", "en": "Continuous"},
+    "reading.mode_paged": {"es": "Por páginas", "en": "By page"},
+    "reading.mode_tooltip": {
+        "es": "Ver todo el documento seguido o una página a la vez",
+        "en": "See the whole document in a row or one page at a time",
+    },
     "reading.error.tts_init": {
         "es": "No pudimos iniciar la voz. Revisa que Windows tenga una voz en español instalada.",
         "en": "We could not start the voice. Check that Windows has a Spanish voice installed.",
@@ -224,15 +238,19 @@ CATALOG: dict[str, dict[str, str]] = {
     # Language names are shown in their own language in both catalogs.
     "settings.language.es": {"es": "Español", "en": "Español"},
     "settings.language.en": {"es": "English", "en": "English"},
-    "settings.language.restart_title": {
-        "es": "Reinicia ClearRead para cambiar el idioma",
-        "en": "Restart ClearRead to change the language",
+    "settings.language.confirm_title": {
+        "es": "¿Cambiar el idioma?",
+        "en": "Change the language?",
     },
-    "settings.language.restart_message": {
-        "es": "El nuevo idioma se verá la próxima vez que abras ClearRead. "
-        "Tus documentos no cambian.",
-        "en": "The new language will show the next time you open ClearRead. "
-        "Your documents stay the same.",
+    "settings.language.confirm_message": {
+        "es": "ClearRead se reiniciará para usar el nuevo idioma. "
+        "Tu lugar en la lectura se guarda y tus documentos no cambian.",
+        "en": "ClearRead will restart to use the new language. "
+        "Your place in the reading is saved and your documents stay the same.",
+    },
+    "settings.language.confirm_restart": {
+        "es": "Reiniciar ahora",
+        "en": "Restart now",
     },
     "settings.speed": {"es": "Velocidad de lectura", "en": "Reading speed"},
     "settings.value.points": {"es": "{value} puntos", "en": "{value} points"},
@@ -531,6 +549,136 @@ CATALOG: dict[str, dict[str, str]] = {
         "El resto del documento no sale de tu equipo.",
         "en": "We only send the word or paragraph you chose over the internet. "
         "The rest of the document never leaves your computer.",
+    },
+    # --- Library folders and glossary topics ---
+    "group.chip": {"es": "{name} ({count})", "en": "{name} ({count})"},
+    "group.name_hint": {
+        "es": "Escribe un nombre corto",
+        "en": "Type a short name",
+    },
+    "group.error.empty": {
+        "es": "Escribe un nombre.",
+        "en": "Please type a name.",
+    },
+    "group.error.duplicate": {
+        "es": "Ya existe uno con ese nombre. Prueba con otro.",
+        "en": "That name is already used. Try another one.",
+    },
+    "group.error.too_many": {
+        "es": "Ya tienes muchos. Borra alguno para crear uno nuevo.",
+        "en": "You already have a lot. Delete one to make a new one.",
+    },
+    "common.create": {"es": "Crear", "en": "Create"},
+    "common.save": {"es": "Guardar", "en": "Save"},
+    "folder.label": {"es": "Carpetas", "en": "Folders"},
+    "folder.all": {"es": "Todos", "en": "All"},
+    "folder.none": {"es": "Sin carpeta", "en": "No folder"},
+    "folder.add": {"es": "+ Nueva carpeta", "en": "+ New folder"},
+    "folder.rename": {"es": "Renombrar carpeta", "en": "Rename folder"},
+    "folder.delete": {"es": "Borrar carpeta", "en": "Delete folder"},
+    "folder.new_title": {"es": "Nueva carpeta", "en": "New folder"},
+    "folder.rename_title": {"es": "Renombrar carpeta", "en": "Rename folder"},
+    "folder.name_label": {"es": "Nombre de la carpeta", "en": "Folder name"},
+    "folder.delete_title": {
+        "es": "¿Borrar la carpeta «{name}»?",
+        "en": 'Delete the folder "{name}"?',
+    },
+    "folder.delete_message": {
+        "es": "Tus documentos no se borran: pasan a «Sin carpeta».",
+        "en": 'Your documents are not deleted: they move to "No folder".',
+    },
+    "topic.label": {"es": "Temas", "en": "Topics"},
+    "topic.all": {"es": "Todas", "en": "All"},
+    "topic.none": {"es": "Sin tema", "en": "No topic"},
+    "topic.add": {"es": "+ Nuevo tema", "en": "+ New topic"},
+    "topic.rename": {"es": "Renombrar tema", "en": "Rename topic"},
+    "topic.delete": {"es": "Borrar tema", "en": "Delete topic"},
+    "topic.new_title": {"es": "Nuevo tema", "en": "New topic"},
+    "topic.rename_title": {"es": "Renombrar tema", "en": "Rename topic"},
+    "topic.name_label": {"es": "Nombre del tema", "en": "Topic name"},
+    "topic.delete_title": {
+        "es": "¿Borrar el tema «{name}»?",
+        "en": 'Delete the topic "{name}"?',
+    },
+    "topic.delete_message": {
+        "es": "Tus palabras no se borran: pasan a «Sin tema».",
+        "en": 'Your words are not deleted: they move to "No topic".',
+    },
+    "home.search_placeholder": {
+        "es": "Buscar un documento",
+        "en": "Search for a document",
+    },
+    "home.search_no_results": {
+        "es": "No encontramos documentos con ese nombre.",
+        "en": "We couldn't find a document with that name.",
+    },
+    "home.folder_empty": {
+        "es": "Aquí no hay documentos todavía. Elige o arrastra uno y se guardará aquí.",
+        "en": "There are no documents here yet. Choose or drop one and it will be "
+        "saved here.",
+    },
+    "home.save_into": {
+        "es": "Los documentos nuevos se guardan en «{folder}».",
+        "en": 'New documents are saved in "{folder}".',
+    },
+    "home.meta_in_folder": {
+        "es": "{meta} · {folder}",
+        "en": "{meta} · {folder}",
+    },
+    "home.move_tooltip": {"es": "Mover a una carpeta", "en": "Move to a folder"},
+    "home.move_named": {
+        "es": "Mover {name} a una carpeta",
+        "en": "Move {name} to a folder",
+    },
+    "home.remove_title": {
+        "es": "¿Quitar «{name}» de la biblioteca?",
+        "en": 'Remove "{name}" from the library?',
+    },
+    "home.remove_message": {
+        "es": "Se borra la copia guardada en ClearRead. Tu archivo original no se toca.",
+        "en": "The copy saved in ClearRead is deleted. Your original file is not "
+        "touched.",
+    },
+    "home.remove_confirm": {"es": "Quitar", "en": "Remove"},
+    "dialog.remove_from_library": {
+        "es": "Quitar de la biblioteca",
+        "en": "Remove from library",
+    },
+    "error.library_file_missing.title": {
+        "es": "No encontramos el archivo",
+        "en": "We can't find the file",
+    },
+    "error.library_file_missing.message": {
+        "es": "El archivo original ya no está en su sitio y la copia guardada "
+        "es de una versión anterior.",
+        "en": "The original file is no longer where it was, and the saved copy "
+        "is from an older version.",
+    },
+    "error.library_file_missing.action": {
+        "es": "Si lo moviste, vuelve a abrirlo desde su nueva ubicación. "
+        "O quítalo de la biblioteca.",
+        "en": "If you moved it, open it again from its new place. "
+        "Or remove it from the library.",
+    },
+    "words.topic_button": {"es": "Tema: {topic}", "en": "Topic: {topic}"},
+    "words.topic_tooltip": {"es": "Cambiar el tema", "en": "Change the topic"},
+    "words.topic_named": {
+        "es": "Cambiar el tema de {word}",
+        "en": "Change the topic of {word}",
+    },
+    "words.topic_empty": {
+        "es": "No hay palabras en este tema.",
+        "en": "There are no words in this topic.",
+    },
+    "words.delete_title": {
+        "es": "¿Borrar la palabra «{word}»?",
+        "en": 'Delete the word "{word}"?',
+    },
+    "words.delete_message": {
+        "es": "Se quita de Mis palabras. Podrás guardarla otra vez pidiendo "
+        "otra explicación.",
+        "en": "It is removed from My words. You can save it again by asking for "
+        "another explanation.",
     },
 }
 

@@ -17,6 +17,7 @@ import os
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
@@ -90,7 +91,9 @@ def wait_terminal(app: QApplication, view: ReadingView) -> None:
     app.processEvents()
 
 
-def measure(app: QApplication, view: ReadingView, label: str, request) -> None:
+def measure(
+    app: QApplication, view: ReadingView, label: str, request: Callable[[], None]
+) -> None:
     panel = view.ai_panel
     started = time.perf_counter()
     request()

@@ -1,14 +1,15 @@
-r"""Real check of click-to-read (UI-F02) with the SAPI5 voice: it speaks aloud.
+r"""Real check of click-to-position (UI-F02) with the SAPI5 voice: it speaks aloud on Play.
 
     .\.venv\Scripts\python tests\manual\check_click_real.py
 
-Clicks (with a real mouse event) a word in the middle of the synthetic text while the
-voice is idle and again while it is playing, and prints the index of the clicked word
-against the first word event received. Only the synthetic sample text is used.
+Clicks (with a real mouse event) a word of the synthetic text: a click must stay silent,
+Play must start at the clicked word, a click while playing must stop the voice, and
+Pause must stop it at once. Only the synthetic sample text is used.
 """
 
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, Qt
@@ -30,7 +31,9 @@ from clearread.ui.views.reading_view import PlaybackState, ReadingView
 TIMEOUT_S = 30.0
 
 
-def pump(app: QApplication, condition, timeout_s: float = TIMEOUT_S) -> bool:
+def pump(
+    app: QApplication, condition: Callable[[], bool], timeout_s: float = TIMEOUT_S
+) -> bool:
     deadline = time.perf_counter() + timeout_s
     while not condition():
         app.processEvents()
@@ -68,31 +71,41 @@ def main() -> int:
     events: list[tuple[float, int]] = []
     tts.word_spoken.connect(lambda i: events.append((time.perf_counter(), i)))
 
-    def report(label: str, clicked: int) -> None:
-        pump(app, lambda: bool(events))
-        first = events[0][1]
-        word = view.token_map[first].spoken_text
-        print(
-            f"{label}: clicked word {clicked}, first event word {first} ('{word}') "
-            f"-> {'OK' if first == clicked else 'MISMATCH'}"
-        )
-
     target = total // 2
-    print(f"{total} words; clicking the one in the middle")
+    print(f"{total} words; clicking the one in the middle while idle")
     click_word(view, target)
-    report("A. idle", target)
+    pump(app, lambda: bool(events), timeout_s=2.0)
+    print(
+        f"A. click idle: state={view.state.name}, word events={len(events)} "
+        f"-> {'OK (silent)' if not events and view.state is PlaybackState.PAUSED else 'FAIL'}"
+    )
+
+    view.toggle_play()
+    pump(app, lambda: bool(events))
+    print(
+        f"B. Play: first event word {events[0][1]} -> {'OK' if events[0][1] == target else 'MISMATCH'}"
+    )
 
     pump(app, lambda: events[-1][1] >= target + 3)
-    events.clear()
-    target_2 = total // 4
-    click_word(view, target_2)
-    report("B. while playing (jump back)", target_2)
-    ordered = [i for _, i in events]
+    click_word(view, total // 4)
+    seen = len(events)
+    pump(app, lambda: False, timeout_s=1.5)
     print(
-        f"   events after the second click are consecutive: "
-        f"{ordered == list(range(ordered[0], ordered[0] + len(ordered)))}"
+        f"C. click while playing: state={view.state.name}, new events after click="
+        f"{len(events) - seen} (a few already in flight are dropped) "
+        f"-> {'OK' if view.state is PlaybackState.PAUSED and len(events) == seen else 'FAIL'}"
     )
-    pump(app, lambda: view.state is PlaybackState.IDLE)
+
+    view.toggle_play()
+    pump(app, lambda: events[-1][1] > total // 4)
+    view.toggle_play()
+    seen = len(events)
+    pump(app, lambda: False, timeout_s=1.5)
+    print(
+        f"D. pause: state={view.state.name}, events after pause={len(events) - seen} "
+        f"-> {'OK' if view.state is PlaybackState.PAUSED and len(events) == seen else 'FAIL'}"
+    )
+    view.stop_reading()
     tts.shutdown()
     return 0
 

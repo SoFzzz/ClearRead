@@ -57,7 +57,7 @@ def test_tr_unknown_key_fails_clearly() -> None:
 
 def test_tr_unknown_language_fails() -> None:
     with pytest.raises(ValueError):
-        tr("home.title", "fr")
+        tr("home.dashboard_title", "fr")
 
 
 def test_tr_missing_param_fails() -> None:

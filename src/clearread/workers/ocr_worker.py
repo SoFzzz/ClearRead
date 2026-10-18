@@ -16,7 +16,11 @@ from clearread.services.ingestor import (
 )
 from clearread.services.ocr_engine import OCREngine
 from clearread.services.preprocessor import OCRPreprocessor
-from clearread.services.text_formatter import FormattedDocument, TextFormatter
+from clearread.services.text_formatter import (
+    PAGE_BREAK,
+    FormattedDocument,
+    TextFormatter,
+)
 
 
 class NoTextRecognizedError(ValueError):
@@ -31,6 +35,7 @@ class ProcessingErrorKind(Enum):
     FILE_NOT_FOUND = "file_not_found"
     NO_TEXT = "no_text"
     UNREADABLE = "unreadable"
+    LIBRARY_FILE_MISSING = "library_file_missing"
 
 
 def classify_error(error: Exception) -> ProcessingErrorKind:
@@ -103,7 +108,7 @@ class DocumentProcessWorker(QThread):
                 is_photo = page.source_type is DocumentType.IMAGE
                 text = page.digital_text or self._recognise(page.image, is_photo)
                 if text.strip():
-                    texts.append(text.strip())
+                    texts.append(text.replace(PAGE_BREAK, "\n").strip())
         finally:
             if isinstance(pages, Generator):
                 pages.close()
@@ -112,7 +117,7 @@ class DocumentProcessWorker(QThread):
         if not texts:
             raise NoTextRecognizedError(self._file_path)
         self.formatting_started.emit()
-        raw_text = "\n\n".join(texts)
+        raw_text = PAGE_BREAK.join(texts)
         formatted = self._formatter.format_document(raw_text, self._enable_syllables)
         return ProcessedDocument(raw_text, formatted, total_pages, is_photo)
 

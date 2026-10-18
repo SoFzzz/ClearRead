@@ -36,11 +36,21 @@ Anota antes: marca/modelo del equipo, versión de Windows y fecha.
 - [ ] Un **PDF con contraseña** muestra un mensaje claro y la app sigue abierta.
 - [ ] Reproducir: se oye la voz y se resalta cada palabra.
 - [ ] Pausar y reanudar continúa desde la palabra donde se pausó.
-- [ ] Clic en una palabra: la lectura salta a esa palabra.
+- [ ] **Clic** en una palabra: no suena nada, la palabra queda marcada; **Reproducir** (o `Espacio`) empieza justo ahí. Con la voz sonando, un clic la detiene y mueve el punto de inicio.
+- [ ] **Doble clic** en una palabra: se selecciona y se abre el menú del asistente (sin red, el menú no lo ofrece) y no suena nada. Arrastrar el ratón selecciona texto sin cambiar el punto de inicio.
+- [ ] **Pausa** detiene la voz al instante y no se mueve el resaltado después.
 - [ ] Modo foco funciona.
-- [ ] Cambiar de tema (Claro/Oscuro), de fuente (Lexend, Atkinson, OpenDyslexic) y de idioma (se aplica al reiniciar).
+- [ ] Un PDF de varias páginas muestra la barra de páginas (Anterior / número / "de N" / Siguiente); `Re Pág`/`Av Pág`, `Ctrl`+`←`/`→` y `Ctrl`+`Inicio`/`Fin` funcionan; el indicador sigue al desplazamiento con la rueda.
+- [ ] "Continua" y "Por páginas" cambian la vista sin perder la palabra; con la voz sonando en "Por páginas", la página pasa sola; cerrar y abrir la app recuerda el modo.
+- [ ] `Ctrl`+`+`, `Ctrl`+`-` y `Ctrl`+`0` cambian el tamaño de la letra.
+- [ ] En Inicio: crear una carpeta (después del primer documento), moverle un documento desde el icono de la tarjeta, filtrar por la carpeta, buscar por nombre (con y sin tildes), renombrarla y borrarla (el documento sigue en "Sin carpeta").
+- [ ] Quitar un documento de la biblioteca pide confirmación; el archivo original sigue en su sitio. Mover o borrar el archivo original y reabrir la entrada muestra el aviso de archivo no encontrado.
+- [ ] Con un documento de una carpeta abierto, explicar una palabra (con red) y ver en "Mis palabras" el tema del mismo nombre que la carpeta (si existe); crear, renombrar y borrar un tema; cambiar el tema de una palabra; "Borrar" una palabra pide confirmación.
+- [ ] Cambiar de tema (Claro/Oscuro) y de fuente (Lexend, Atkinson, OpenDyslexic).
+- [ ] **Cambiar de idioma:** aparece el diálogo en el idioma nuevo; "Cancelar" deja el idioma anterior; "Reiniciar ahora" cierra la app y la **vuelve a abrir sola** en el idioma nuevo, sin dejar un proceso `ClearRead.exe` viejo en el Administrador de tareas. *(Este paso es obligatorio: el relanzamiento del `.exe` compilado nunca se ha probado.)*
 - [ ] El botón de IA aparece como "sin red" y no da errores; todo lo demás sigue funcionando.
-- [ ] En Inicio, el documento reciente muestra "Seguir desde donde lo dejaste" y vuelve a su posición.
+- [ ] En Inicio, el documento de la biblioteca muestra "Seguir desde donde lo dejaste" y vuelve a su posición.
+- [ ] Tras actualizar desde una versión anterior (si aplica), los documentos viejos siguen en la biblioteca y se vuelven a procesar desde su archivo original al abrirlos.
 
 **Con red**
 - [ ] Activa la red: el botón de IA se habilita.

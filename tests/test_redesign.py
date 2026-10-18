@@ -738,6 +738,10 @@ def test_my_words_empty_state_search_listen_and_delete(
         timeout=TIMEOUT_MS,
     )
     first.delete_button.click()
+    assert window.confirm_box is not None  # deleting now asks first
+    assert [c.entry.word for c in view.cards] == ["célula", "clorofila", "raíz"]
+    yes = tr("words.delete", Language.ES)
+    next(b for b in window.confirm_box.buttons() if b.text() == yes).click()
     assert [c.entry.word for c in view.cards] == ["clorofila", "raíz"]
     saved = GlossaryStore(tmp_path / "glossary.json").entries()
     assert [e.word for e in saved] == ["clorofila", "raíz"]

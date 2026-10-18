@@ -2,13 +2,16 @@
 
 import sys
 
+from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QApplication
 
 from clearread.core.config import AppConfig, load_client_token
 from clearread.core.paths import get_user_data_dir
+from clearread.core.restart import current_relaunch_command
 from clearread.services.ai_client import BackendAIClient, DiskResponseCache
 from clearread.services.document_library import DocumentLibrary
 from clearread.services.glossary import GlossaryStore
+from clearread.services.groups import GroupStore
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import LazyOCREngine
 from clearread.services.reading_stats import StatsStore
@@ -21,6 +24,13 @@ CACHE_DIR_NAME = "cache"
 AI_CACHE_FILE = "ai_cache.json"
 GLOSSARY_FILE = "glossary.json"
 STATS_FILE = "stats.json"
+FOLDERS_FILE = "folders.json"
+TOPICS_FILE = "topics.json"
+
+
+def relaunch() -> None:
+    command = current_relaunch_command()
+    QProcess.startDetached(command.program, command.arguments)
 
 
 def main() -> int:
@@ -46,10 +56,15 @@ def main() -> int:
         network=NetworkMonitor.from_system(),
         glossary=GlossaryStore(get_user_data_dir() / GLOSSARY_FILE),
         stats=StatsStore(get_user_data_dir() / STATS_FILE),
+        folders=GroupStore(get_user_data_dir() / FOLDERS_FILE),
+        topics=GroupStore(get_user_data_dir() / TOPICS_FILE),
     )
     window.resize(1280, 800)
     window.show()
-    return app.exec()
+    exit_code = app.exec()
+    if window.restart_requested:
+        relaunch()
+    return exit_code
 
 
 if __name__ == "__main__":

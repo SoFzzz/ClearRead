@@ -90,6 +90,12 @@ def open_sample(qtbot: QtBot, window: MainWindow) -> None:
     qtbot.waitUntil(lambda: window.screen_shown is Screen.READING, timeout=TIMEOUT_MS)
 
 
+def answer_language_dialog(window: MainWindow, label: str) -> None:
+    box = window.settings_view.dialog
+    assert isinstance(box, QMessageBox)
+    next(b for b in box.buttons() if b.text() == label).click()
+
+
 def wait_for_voices(qtbot: QtBot, window: MainWindow) -> None:
     qtbot.waitUntil(lambda: window.settings_view.voice_combo.count() > 1)
 
@@ -113,6 +119,7 @@ def test_every_setting_changed_in_the_view_is_saved_and_reloaded(
     view.syllables_check.setChecked(False)
     view.voice_combo.setCurrentIndex(view.voice_combo.findData("en-1"))
     view.language_combo.setCurrentIndex(view.language_combo.findData("en"))
+    answer_language_dialog(window, "Restart now")
 
     saved = AppConfig.load(config_dir)
     assert saved == AppConfig(
@@ -504,8 +511,9 @@ def test_in_english_no_screen_shows_spanish_catalog_text_after_a_restart(
     combo.setCurrentIndex(combo.findData("en"))
     notice = first.settings_view.dialog
     assert isinstance(notice, QMessageBox)
-    assert notice.windowTitle() == "Restart ClearRead to change the language"
-    first.close()
+    assert notice.windowTitle() == "Change the language?"
+    answer_language_dialog(first, "Restart now")
+    assert first.restart_requested
 
     config = AppConfig.load(config_dir)
     assert config.ui_language == "en"
@@ -536,6 +544,38 @@ def test_in_english_no_screen_shows_spanish_catalog_text_after_a_restart(
     assert spanish_leaks(window.error_dialog) == []
     assert window.settings_button.text() == "Settings"
     assert window.home_view.choose_button.text() == "Choose file"
+
+
+def test_language_change_asks_in_the_new_language_and_cancel_reverts_it(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, config_dir: Path
+) -> None:
+    window = make_window(qtbot, tts, library, config_dir)
+    window.open_settings()
+    view = window.settings_view
+    with qtbot.assertNotEmitted(view.restart_requested):
+        view.language_combo.setCurrentIndex(view.language_combo.findData("en"))
+        box = view.dialog
+        assert isinstance(box, QMessageBox)
+        assert box.windowTitle() == "Change the language?"
+        assert {b.text() for b in box.buttons()} == {"Restart now", "Cancel"}
+        answer_language_dialog(window, "Cancel")
+    assert view.language_combo.currentData() == "es"
+    assert view.config.ui_language == "es"
+    assert not window.restart_requested
+    assert AppConfig.load(config_dir).ui_language == "es"
+
+
+def test_accepting_the_language_change_saves_it_and_asks_to_restart(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, config_dir: Path
+) -> None:
+    window = make_window(qtbot, tts, library, config_dir)
+    window.open_settings()
+    view = window.settings_view
+    view.language_combo.setCurrentIndex(view.language_combo.findData("en"))
+    with qtbot.waitSignal(view.restart_requested, timeout=TIMEOUT_MS):
+        answer_language_dialog(window, "Restart now")
+    assert window.restart_requested
+    assert AppConfig.load(config_dir).ui_language == "en"
 
 
 def test_the_leak_check_catches_spanish_in_an_english_window(

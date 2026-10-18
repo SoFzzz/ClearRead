@@ -1,10 +1,10 @@
 """Reading statistics kept on this computer only (HOME-F02): words read and time spent."""
 
 import json
-import os
-import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from clearread.services.atomic_json import write_json_atomic
 
 
 @dataclass(frozen=True)
@@ -48,13 +48,7 @@ class StatsStore:
     def _save(self) -> None:
         if self._path is None:
             return  # no file: the numbers last until the app closes
-        temp: str | None = None
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            fd, temp = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")
-            with os.fdopen(fd, "w", encoding="utf-8") as file:
-                json.dump(asdict(self._stats), file)
-            os.replace(temp, self._path)
+            write_json_atomic(self._path, asdict(self._stats))
         except OSError:
-            if temp is not None:
-                Path(temp).unlink(missing_ok=True)
+            pass  # the numbers still last until the app closes

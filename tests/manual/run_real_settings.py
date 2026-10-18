@@ -15,6 +15,7 @@ sample is used and only voice names are printed.
 
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import ClassVar
 
@@ -48,7 +49,7 @@ def pump(app: QApplication, seconds: float) -> None:
         time.sleep(0.01)
 
 
-def wait_until(app: QApplication, condition, what: str) -> None:  # type: ignore[no-untyped-def]
+def wait_until(app: QApplication, condition: Callable[[], bool], what: str) -> None:
     end = time.perf_counter() + TIMEOUT_S
     while not condition():
         if time.perf_counter() > end:

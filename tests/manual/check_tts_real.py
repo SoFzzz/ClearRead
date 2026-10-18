@@ -14,6 +14,7 @@ Only the synthetic sample text is spoken and printed.
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from itertools import pairwise
 from pathlib import Path
 
@@ -49,7 +50,9 @@ class Probe(QObject):
     sig_stop = Signal()
 
 
-def pump_until(app: QCoreApplication, condition, timeout_s: float = TIMEOUT_S) -> bool:
+def pump_until(
+    app: QCoreApplication, condition: Callable[[], bool], timeout_s: float = TIMEOUT_S
+) -> bool:
     deadline = time.perf_counter() + timeout_s
     while not condition():
         app.processEvents()

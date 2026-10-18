@@ -2,12 +2,12 @@
 
 import json
 import os
-import tempfile
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
 from clearread.core.paths import get_resource_path, get_user_data_dir
+from clearread.services.atomic_json import write_json_atomic
 
 # The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
 DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
@@ -21,6 +21,7 @@ CLIENT_TOKEN_FILE = Path("resources") / "client_token.local.json"
 THEME_IDS = ("light", "dark")
 READING_FONTS = ("Lexend", "Atkinson Hyperlegible", "OpenDyslexic")
 UI_LANGUAGES = ("es", "en")
+VIEW_MODES = ("continuous", "paged")
 FONT_SIZE_RANGE_PT = (12, 28)
 LINE_SPACING_RANGE = (1.4, 2.6)
 LETTER_SPACING_RANGE_EM = (0.0, 0.4)
@@ -100,6 +101,7 @@ class AppConfig:
     ai_privacy_accepted: bool = False  # privacy notice before the first AI call
     backend_url: str = DEFAULT_BACKEND_URL  # editable in advanced settings (CFG-F02)
     ui_language: str = "es"  # "es" | "en": interface language only (I18N-F01)
+    reading_view_mode: str = "continuous"  # one of VIEW_MODES
 
     @classmethod
     def load(cls, config_dir: Path | None = None) -> "AppConfig":
@@ -159,21 +161,11 @@ class AppConfig:
             ai_privacy_accepted=_boolean(self.ai_privacy_accepted, False),
             backend_url=_backend_url(self.backend_url),
             ui_language=_choice(self.ui_language, UI_LANGUAGES, base.ui_language),
+            reading_view_mode=_choice(
+                self.reading_view_mode, VIEW_MODES, base.reading_view_mode
+            ),
         )
 
     def save(self, config_dir: Path | None = None) -> None:
         target_path = (config_dir or get_user_data_dir()) / "config.json"
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        # Write to a temporary file and rename: a crash never leaves a half-written config.
-        temp_fd, temp_file = tempfile.mkstemp(
-            dir=str(target_path.parent), prefix="cfg_", suffix=".tmp"
-        )
-        try:
-            with os.fdopen(temp_fd, "w", encoding="utf-8") as file:
-                json.dump(asdict(self), file, indent=2, ensure_ascii=False)
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(temp_file, str(target_path))
-        except BaseException:
-            Path(temp_file).unlink(missing_ok=True)
-            raise
+        write_json_atomic(target_path, asdict(self), indent=2, durable=True)

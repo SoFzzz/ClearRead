@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from clearread.services.syllabifier import SpanishSyllabifier
 
 # Bump when the html or the token map change shape: cached documents key on it.
-FORMATTER_VERSION = "3"
+FORMATTER_VERSION = "4"
 
 CSS_PX_PER_PT = 96 / 72
+# Separates the pages inside a document's raw text; the ingestion removes it from page text.
+PAGE_BREAK = "\f"
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 # A number such as 3,5 or 12.345,67 is one token; otherwise a word with optional
 # inner apostrophes/hyphens. Matches without a letter or digit (a lone "_") are skipped.
@@ -73,6 +75,8 @@ class FormattedDocument:
     html_content: str
     token_map: list[WordToken]
     tts_script: str  # the document's plain text: token positions index into it
+    # First character of every page; a document always has at least one page.
+    page_starts: tuple[int, ...] = (0,)
 
 
 @dataclass(frozen=True)
@@ -108,6 +112,11 @@ def token_index_at(token_map: list[WordToken], char_index: int) -> int:
     if candidate > 0 and char_index < token_map[candidate - 1].doc_end_pos:
         return candidate - 1
     return min(candidate, len(token_map) - 1)
+
+
+def page_index_at(page_starts: tuple[int, ...] | list[int], char_index: int) -> int:
+    """Index of the page that holds ``char_index``."""
+    return max(bisect.bisect_right(page_starts, char_index) - 1, 0)
 
 
 def _speakable(gap: str) -> str:
@@ -172,20 +181,27 @@ class TextFormatter:
     ) -> FormattedDocument:
         token_map: list[WordToken] = []
         html_paragraphs: list[str] = []
+        page_starts: list[int] = []
+        paragraphs: list[str] = []
         paragraph_start = 0
-        paragraphs = normalise_paragraphs(raw_text)
-        for paragraph in paragraphs:
-            html_paragraphs.append(
-                self._format_paragraph(
-                    paragraph, paragraph_start, enable_syllables, token_map
+        for page_text in raw_text.split(PAGE_BREAK):
+            page_paragraphs = normalise_paragraphs(page_text)
+            if page_paragraphs:
+                page_starts.append(paragraph_start)
+            for paragraph in page_paragraphs:
+                html_paragraphs.append(
+                    self._format_paragraph(
+                        paragraph, paragraph_start, enable_syllables, token_map
+                    )
                 )
-            )
-            paragraph_start += len(paragraph) + 1  # block separator
+                paragraph_start += len(paragraph) + 1  # block separator
+            paragraphs += page_paragraphs
         body = "".join(html_paragraphs)
         return FormattedDocument(
             html_content=f'<div style="{self._style.css()}">{body}</div>',
             token_map=token_map,
             tts_script="\n".join(paragraphs),
+            page_starts=tuple(page_starts) or (0,),
         )
 
     def _format_paragraph(

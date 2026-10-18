@@ -37,9 +37,10 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import VoiceInfo
+from clearread.ui.dialogs import make_clear_recents_box, make_restart_box
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, syllable_palette
-from clearread.ui.views.reading_view import ReaderWidget
+from clearread.ui.views.reader_widget import ReaderWidget
 
 CACHE_FOLDER_LABEL = "%APPDATA%\\ClearRead\\cache"
 CONTENT_WIDTH = 1120
@@ -133,6 +134,7 @@ class SettingsView(QWidget):
     config_changed = Signal(object)  # AppConfig
     clear_recents_requested = Signal()
     back_requested = Signal()
+    restart_requested = Signal()  # the user accepted restarting to change the language
 
     def __init__(
         self,
@@ -523,21 +525,22 @@ class SettingsView(QWidget):
         code = self.language_combo.itemData(index)
         if code == self._config.ui_language:
             return
-        self._config.ui_language = code
-        self._commit()
-        self._notify_restart(Language(code))
+        self._confirm_restart(code)
 
-    def _notify_restart(self, new_language: Language) -> None:
-        box = QMessageBox(
-            QMessageBox.Icon.Information,
-            tr("settings.language.restart_title", new_language),
-            tr("settings.language.restart_message", new_language),
-            parent=self,
-        )
-        box.addButton(
-            tr("common.understood", new_language), QMessageBox.ButtonRole.AcceptRole
+    def _confirm_restart(self, code: str) -> None:
+        box, restart = make_restart_box(self, Language(code))
+        box.finished.connect(
+            lambda: self._on_restart_answered(box.clickedButton() is restart, code)
         )
         self._show_dialog(box)
+
+    def _on_restart_answered(self, confirmed: bool, code: str) -> None:
+        if not confirmed:
+            self._sync_controls()  # puts the combo back on the language in use
+            return
+        self._config.ui_language = code
+        self._commit()
+        self.restart_requested.emit()
 
     def reset_to_defaults(self) -> None:
         """Back to the default look and speed; voice and language stay."""
@@ -556,19 +559,7 @@ class SettingsView(QWidget):
         self._commit()
 
     def _confirm_clear_recents(self) -> None:
-        box = QMessageBox(
-            QMessageBox.Icon.Question,
-            self._t("settings.clear_confirm.title"),
-            self._t("settings.clear_confirm.message"),
-            parent=self,
-        )
-        yes = box.addButton(
-            self._t("settings.clear_confirm.yes"), QMessageBox.ButtonRole.AcceptRole
-        )
-        cancel = box.addButton(
-            self._t("common.cancel"), QMessageBox.ButtonRole.RejectRole
-        )
-        box.setDefaultButton(cancel)
+        box, yes = make_clear_recents_box(self, self._language)
         box.buttonClicked.connect(
             lambda clicked: self._on_clear_answered(clicked is yes)
         )

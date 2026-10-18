@@ -1,5 +1,6 @@
 """Endpoints, input guards, daily cap, cache and error translation (BE-F01, BE-F02)."""
 
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import httpx
@@ -20,7 +21,9 @@ EXPLAIN = {
 SIMPLIFY = {"text": "El mecanismo es complejo y requiere atención.", "lang": "es"}
 
 
-def post(client: TestClient, path: str, body: object, headers: dict | None = None):
+def post(
+    client: TestClient, path: str, body: object, headers: dict | None = None
+) -> httpx.Response:
     return client.post(path, json=body, headers=HEADERS if headers is None else headers)
 
 
@@ -206,7 +209,7 @@ def test_a_repeated_request_is_served_from_the_cache_without_using_the_cap(
 
 
 def test_the_cache_distinguishes_language_and_endpoint(
-    client: TestClient, deepseek
+    client: TestClient, deepseek: FakeDeepSeek
 ) -> None:
     post(client, "/v1/explain", EXPLAIN)
     post(client, "/v1/explain", EXPLAIN | {"lang": "en"})
@@ -275,7 +278,10 @@ def raise_connect_error(request: httpx.Request) -> httpx.Response:
     ],
 )
 def test_deepseek_failures_become_stable_codes_without_upstream_text(
-    deepseek: FakeDeepSeek, handler, status: int, code: str
+    deepseek: FakeDeepSeek,
+    handler: Callable[[httpx.Request], httpx.Response],
+    status: int,
+    code: str,
 ) -> None:
     deepseek.handler = handler
     client = make_client(deepseek)

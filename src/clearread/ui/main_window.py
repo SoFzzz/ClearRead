@@ -12,21 +12,27 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from clearread.core.config import AppConfig
+from clearread.core.config import FONT_SIZE_RANGE_PT, AppConfig
 from clearread.core.paths import get_resource_path
 from clearread.services.ai_client import AIClient
 from clearread.services.document_library import (
     CachedDocument,
     DocumentLibrary,
+    RecentDocument,
     compute_cache_key,
 )
 from clearread.services.glossary import GlossaryEntry, GlossaryStore
+from clearread.services.groups import (
+    NO_GROUP,
+    GroupStore,
+)
 from clearread.services.ingestor import DocumentIngestor
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import OCREngine
@@ -40,9 +46,14 @@ from clearread.services.text_formatter import (
 )
 from clearread.services.tts_controller import TTSController
 from clearread.ui.ai_assistant import AIAssistant
-from clearread.ui.dialogs import AccessibleErrorDialog
+from clearread.ui.dialogs import (
+    AccessibleErrorDialog,
+    NamePromptDialog,
+)
 from clearread.ui.focus_ring import KeyboardFocusRing
 from clearread.ui.icons import load_icon
+from clearread.ui.library_controller import LibraryController
+from clearread.ui.processing_runner import PendingDocument, ProcessingRunner
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import (
     THEMES,
@@ -52,7 +63,11 @@ from clearread.ui.theme import (
     syllable_palette,
 )
 from clearread.ui.views.home_view import HomeView, ProcessingView, local_today
-from clearread.ui.views.reading_view import ReadingView
+from clearread.ui.views.reading_view import (
+    ZOOM_RESET,
+    ReadingView,
+    ViewMode,
+)
 from clearread.ui.views.settings_view import SettingsView
 from clearread.ui.views.words_view import WordsView
 from clearread.workers.ocr_worker import (
@@ -87,6 +102,8 @@ class MainWindow(QMainWindow):
         network: NetworkMonitor | None = None,
         glossary: GlossaryStore | None = None,
         stats: StatsStore | None = None,
+        folders: GroupStore | None = None,
+        topics: GroupStore | None = None,
     ) -> None:
         super().__init__()
         self._config = config
@@ -98,12 +115,11 @@ class MainWindow(QMainWindow):
         self._library = library
         self._glossary = glossary or GlossaryStore()
         self._stats = stats or StatsStore()
+        self._folders = folders or GroupStore()
+        self._topics = topics or GroupStore()
         self._ingestor = DocumentIngestor()
         self._preprocessor = OCRPreprocessor()
         self._syllabifier = SpanishSyllabifier()
-        self._worker: DocumentProcessWorker | None = None
-        self._retired_workers: set[DocumentProcessWorker] = set()
-        self._pending: tuple[Path, str] | None = None
         self._raw_text: str | None = None  # text of the document in the reading view
         self._reading_title = ""
         self._reading_key: str | None = None
@@ -112,6 +128,7 @@ class MainWindow(QMainWindow):
         self._online = network.is_online if network else True
         self.assistant: AIAssistant | None = None
         self.error_dialog: AccessibleErrorDialog | None = None
+        self.restart_requested = False  # read by main() once the event loop ends
         self._focus_ring = KeyboardFocusRing(self)
         self._build_ui()
         self._build_assistant(ai_client, network)
@@ -127,7 +144,19 @@ class MainWindow(QMainWindow):
 
     @property
     def worker(self) -> DocumentProcessWorker | None:
-        return self._worker
+        return self._runner.worker
+
+    @property
+    def _retired_workers(self) -> set[DocumentProcessWorker]:
+        return self._runner.retired_workers
+
+    @property
+    def confirm_box(self) -> QMessageBox | None:
+        return self._library_controller.confirm_box
+
+    @property
+    def prompt_dialog(self) -> NamePromptDialog | None:
+        return self._library_controller.prompt_dialog
 
     @property
     def tokens(self) -> ThemeTokens:
@@ -146,12 +175,35 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ClearRead")
         self.home_view = HomeView(self.tokens, self._language)
         self.processing_view = ProcessingView(self._language)
-        self.reading_view = ReadingView(self._tts, self._theme, self._language)
+        self.reading_view = ReadingView(
+            self._tts,
+            self._theme,
+            self._language,
+            view_mode=ViewMode(self._config.reading_view_mode),
+        )
         self.settings_view = SettingsView(
             replace(self._config), self._language, self._syllabifier
         )
         self.words_view = WordsView(self.tokens, self._language)
-        self.words_view.set_entries(self._glossary.entries())
+        self._library_controller = LibraryController(
+            self,
+            self._language,
+            self._library,
+            self._folders,
+            self._topics,
+            self._glossary,
+            self.words_view,
+            self._refresh_home,
+        )
+        self._library_controller.refresh_words()
+        self._runner = ProcessingRunner(
+            self.processing_view,
+            self._ingestor,
+            self._preprocessor,
+            self._ocr_engine,
+            self._on_document_ready,
+            self._on_error,
+        )
         self._stack = QStackedWidget()
         for view in (
             self.home_view,
@@ -173,17 +225,32 @@ class MainWindow(QMainWindow):
         self.home_view.file_chosen.connect(self.open_document)
         self.home_view.sample_requested.connect(self.open_sample)
         self.home_view.recent_open_requested.connect(self.open_recent)
-        self.home_view.recent_remove_requested.connect(self.remove_recent)
+        self.home_view.recent_remove_requested.connect(self.ask_remove_document)
+        self.home_view.recent_move_requested.connect(self.move_document)
+        self.home_view.folder_add_requested.connect(self.create_folder)
+        self.home_view.folder_rename_requested.connect(self.rename_folder)
+        self.home_view.folder_delete_requested.connect(self.ask_delete_folder)
         self.processing_view.cancel_requested.connect(self.cancel_processing)
         self.reading_view.speed_changed.connect(self._on_reading_speed_changed)
         self.reading_view.reading_session.connect(self._on_reading_session)
+        self.reading_view.view_mode_changed.connect(self._on_view_mode_changed)
+        self.reading_view.zoom_requested.connect(self._on_zoom_requested)
         self.settings_view.config_changed.connect(self._on_settings_changed)
         self.settings_view.clear_recents_requested.connect(self.clear_recents)
         self.settings_view.back_requested.connect(self.go_back)
+        self.settings_view.restart_requested.connect(self._restart)
         self.settings_view.set_voices(self._tts.voices)
         self._tts.voices_listed.connect(self.settings_view.set_voices)
         self.words_view.listen_requested.connect(self.reading_view.speak_aside)
-        self.words_view.delete_requested.connect(self.delete_word)
+        self.words_view.delete_requested.connect(
+            self._library_controller.ask_delete_word
+        )
+        self.words_view.topic_changed.connect(self._library_controller.set_word_topic)
+        self.words_view.topic_add_requested.connect(
+            self._library_controller.create_topic
+        )
+        self.words_view.topic_rename_requested.connect(self.rename_topic)
+        self.words_view.topic_delete_requested.connect(self.ask_delete_topic)
         self.back_button.clicked.connect(self.go_back)
         self.settings_button.clicked.connect(self.open_settings)
         self.words_button.clicked.connect(self.open_words)
@@ -248,13 +315,20 @@ class MainWindow(QMainWindow):
                 explanation=explanation,
                 document=self._reading_title,
                 added_on=local_today().isoformat(),
+                topic=self._default_topic(),
             )
         )
-        self.words_view.set_entries(self._glossary.entries())
+        self._library_controller.refresh_words()
 
-    def delete_word(self, word: str) -> None:
-        self._glossary.remove(word)
-        self.words_view.set_entries(self._glossary.entries())
+    def _default_topic(self) -> str:
+        """The topic named like the folder of the open document, if there is one."""
+        entry = self._library.recent(self._reading_key) if self._reading_key else None
+        folder = self._folders.get(entry.folder_id) if entry else None
+        topic = self._topics.find_by_name(folder.name) if folder else None
+        return topic.id if topic else NO_GROUP
+
+    def _refresh_words(self) -> None:
+        self.words_view.set_entries(self._glossary.entries(), self._topics.groups())
 
     def _build_top_bar(self) -> QFrame:
         bar = QFrame()
@@ -310,7 +384,9 @@ class MainWindow(QMainWindow):
             self.reading_view.editor.setFocus()
 
     def _refresh_home(self) -> None:
-        self.home_view.set_recents(self._library.recents(), local_today())
+        self.home_view.set_recents(
+            self._library.recents(), local_today(), self._folders.groups()
+        )
         self.home_view.set_stats(self._stats.stats)
 
     def _show_title(self, screen: Screen) -> None:
@@ -332,11 +408,11 @@ class MainWindow(QMainWindow):
     def open_words(self) -> None:
         if self.screen_shown in (Screen.HOME, Screen.READING):
             self._words_origin = self.screen_shown
-            self.words_view.set_entries(self._glossary.entries())
+            self._library_controller.refresh_words()
             self.show_screen(Screen.WORDS)
 
     def open_document(self, path: str) -> None:
-        if self._worker is not None:
+        if self._runner.worker is not None:
             return
         source = Path(path)
         try:
@@ -347,12 +423,13 @@ class MainWindow(QMainWindow):
         if self._library.has(key) and self._show_cached(key, source.name):
             self._library.touch(key)
             return
-        self._pending = (source, key)
-        self._start_worker(source)
+        self._start_worker(
+            PendingDocument(source, key, self.home_view.current_folder_id)
+        )
 
     def open_sample(self) -> None:
         """Open the bundled Spanish example: its text needs no OCR."""
-        if self._worker is not None:
+        if self._runner.worker is not None:
             return
         source = get_resource_path(SAMPLE_RESOURCE)
         name = self._t("home.sample_title")
@@ -367,90 +444,74 @@ class MainWindow(QMainWindow):
             return
         formatted = self._format(raw_text)
         cached = CachedDocument(raw_text, formatted, self._appearance_key())
-        self._library.store(key, source, cached, 1, False, display_name=name)
+        self._library.store(
+            key,
+            source,
+            cached,
+            1,
+            False,
+            display_name=name,
+            folder_id=self.home_view.current_folder_id,
+        )
         self._show_reading(formatted, name, raw_text, key)
 
-    def _start_worker(self, source: Path) -> None:
-        formatter = self._make_formatter()
-        worker = DocumentProcessWorker(
-            str(source),
-            self._ingestor,
-            self._preprocessor,
-            self._ocr_engine,
-            formatter,
+    def _start_worker(self, pending: PendingDocument) -> None:
+        self._runner.start(
+            pending,
+            self._make_formatter(),
             self._config.syllables_enabled,
+            lambda: self.show_screen(Screen.PROCESSING),
         )
-        worker.progress_changed.connect(self.processing_view.set_progress)
-        worker.formatting_started.connect(self.processing_view.set_preparing)
-        worker.document_ready.connect(self._on_document_ready)
-        worker.error_occurred.connect(self._on_error)
-        worker.finished.connect(lambda: self._on_worker_finished(worker))
-        self._worker = worker
-        self.processing_view.start(source.name)
-        self.show_screen(Screen.PROCESSING)
-        worker.start()
-
-    def _on_worker_finished(self, worker: DocumentProcessWorker) -> None:
-        self._retired_workers.discard(worker)
-        if self._worker is worker:
-            self._worker = None
-        worker.deleteLater()
 
     def cancel_processing(self) -> None:
-        worker = self._worker
-        if worker is None:
-            return
-        worker.cancel()
-        self._detach(worker)
-        self.show_screen(Screen.HOME)
+        if self._runner.cancel():
+            self.show_screen(Screen.HOME)
 
-    def _detach(self, worker: DocumentProcessWorker) -> None:
-        for signal in (
-            worker.progress_changed,
-            worker.formatting_started,
-            worker.document_ready,
-            worker.error_occurred,
-        ):
-            signal.disconnect()
-        self._retired_workers.add(worker)
-        self._worker = None
-        self._pending = None
-
-    def _release_worker(self) -> tuple[Path, str] | None:
-        """Stop tracking the finished worker as current but keep it joinable on close."""
-        if self._worker is not None:
-            self._retired_workers.add(self._worker)
-            self._worker = None
-        pending, self._pending = self._pending, None
-        return pending
-
-    def _on_document_ready(self, processed: ProcessedDocument) -> None:
-        pending = self._release_worker()
-        if pending is None:
-            return
-        source, key = pending
+    def _on_document_ready(
+        self, processed: ProcessedDocument, pending: PendingDocument
+    ) -> None:
         cached = CachedDocument(
             processed.raw_text, processed.formatted, self._appearance_key()
         )
         self._library.store(
-            key, source, cached, processed.page_count, processed.is_photo
+            pending.key,
+            pending.source,
+            cached,
+            processed.page_count,
+            processed.is_photo,
+            folder_id=pending.folder_id,
         )
-        self._show_reading(processed.formatted, source.name, processed.raw_text, key)
+        self._show_reading(
+            processed.formatted, pending.source.name, processed.raw_text, pending.key
+        )
 
-    def _on_error(self, kind_value: str) -> None:
-        if self._release_worker() is None:
-            return
+    def _on_error(self, kind: ProcessingErrorKind) -> None:
         self.show_screen(Screen.HOME)
-        self._show_error(ProcessingErrorKind(kind_value))
+        self._show_error(kind)
 
     def open_recent(self, key: str) -> None:
         recent = self._library.recent(key)
-        if recent is None or not self._show_cached(key, recent.name):
-            self._library.remove(key)
-            self.show_screen(Screen.HOME)
+        if recent is None:
+            self._refresh_home()
             self._show_error(ProcessingErrorKind.UNREADABLE)
             return
+        if self._library.needs_processing(key) or not self._show_cached(
+            recent.key, recent.name
+        ):
+            self._reprocess(recent)
+            return
         self._library.touch(key)
+
+    def _reprocess(self, recent: RecentDocument) -> None:
+        """The cache is missing or outdated: build it again from the original file."""
+        if Path(recent.path).name == SAMPLE_RESOURCE.name:
+            self.open_sample()
+        elif Path(recent.path).is_file():
+            self.open_document(recent.path)
+        else:
+            self._show_error(
+                ProcessingErrorKind.LIBRARY_FILE_MISSING, remove_key=recent.key
+            )
 
     def _show_cached(self, key: str, name: str) -> bool:
         cached = self._library.load(key)
@@ -532,7 +593,11 @@ class MainWindow(QMainWindow):
     def _on_settings_changed(self, new: AppConfig) -> None:
         old = self._config
         # The settings screen keeps its own copy, which never learns about the notice.
-        new = replace(new, ai_privacy_accepted=old.ai_privacy_accepted)
+        new = replace(
+            new,
+            ai_privacy_accepted=old.ai_privacy_accepted,
+            reading_view_mode=old.reading_view_mode,
+        )
         self._config = new
         if new.theme != old.theme:
             self._theme = ThemeId(new.theme)
@@ -560,6 +625,28 @@ class MainWindow(QMainWindow):
         self.settings_view.set_speed(wpm)
         self._save_config()
 
+    def _on_view_mode_changed(self, mode_value: str) -> None:
+        self._config.reading_view_mode = mode_value
+        self._save_config()
+
+    def _on_zoom_requested(self, direction: int) -> None:
+        """Ctrl++ / Ctrl+- move the size one step; Ctrl+0 goes back to the default."""
+        size = (
+            AppConfig().font_size_pt
+            if direction == ZOOM_RESET
+            else self._config.font_size_pt + direction
+        )
+        size = max(FONT_SIZE_RANGE_PT[0], min(FONT_SIZE_RANGE_PT[1], size))
+        if size == self._config.font_size_pt:
+            return
+        resized = replace(self._config, font_size_pt=size)
+        self.settings_view.set_config(replace(resized))
+        self._on_settings_changed(resized)
+
+    def _restart(self) -> None:
+        self.restart_requested = True
+        self.close()
+
     def _save_config(self) -> None:
         try:
             self._config.save(self._config_dir)
@@ -573,9 +660,29 @@ class MainWindow(QMainWindow):
         self.home_view.set_recents([], local_today())
         self.settings_view.show_recents_cleared()
 
+    def ask_remove_document(self, key: str) -> None:
+        self._library_controller.ask_remove_document(key)
+
     def remove_recent(self, key: str) -> None:
-        self._library.remove(key)
-        self._refresh_home()
+        self._library_controller.remove_recent(key)
+
+    def move_document(self, key: str, folder_id: str) -> None:
+        self._library_controller.move_document(key, folder_id)
+
+    def create_folder(self) -> None:
+        self._library_controller.create_folder()
+
+    def rename_folder(self, folder_id: str) -> None:
+        self._library_controller.rename_folder(folder_id)
+
+    def ask_delete_folder(self, folder_id: str) -> None:
+        self._library_controller.ask_delete_folder(folder_id)
+
+    def rename_topic(self, topic_id: str) -> None:
+        self._library_controller.rename_topic(topic_id)
+
+    def ask_delete_topic(self, topic_id: str) -> None:
+        self._library_controller.ask_delete_topic(topic_id)
 
     def go_back(self) -> None:
         if self.screen_shown is Screen.PROCESSING:
@@ -591,19 +698,34 @@ class MainWindow(QMainWindow):
             self._save_position()
             self.show_screen(Screen.HOME)
 
-    def _show_error(self, kind: ProcessingErrorKind) -> None:
-        dialog = AccessibleErrorDialog(self, kind, self.tokens, self._language)
-        dialog.finished.connect(lambda: self._on_error_closed(dialog))
+    def _show_error(
+        self, kind: ProcessingErrorKind, remove_key: str | None = None
+    ) -> None:
+        """With ``remove_key`` the dialog offers to take that document out of the library."""
+        dialog = AccessibleErrorDialog(
+            self,
+            kind,
+            self.tokens,
+            self._language,
+            offer_choose_other=remove_key is None,
+            offer_remove=remove_key is not None,
+        )
+        dialog.finished.connect(lambda: self._on_error_closed(dialog, remove_key))
         self.error_dialog = dialog
         dialog.open()
 
-    def _on_error_closed(self, dialog: AccessibleErrorDialog) -> None:
+    def _on_error_closed(
+        self, dialog: AccessibleErrorDialog, remove_key: str | None = None
+    ) -> None:
         wants_other = dialog.choose_other_requested
+        wants_remove = dialog.remove_requested
         dialog.deleteLater()
         if self.error_dialog is dialog:
             self.error_dialog = None
         if wants_other:
             self.home_view.choose_file()
+        if wants_remove and remove_key is not None:
+            self.remove_recent(remove_key)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.reading_view.stop_reading()
@@ -611,10 +733,6 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app is not None:
             app.removeEventFilter(self._focus_ring)
-        if self._worker is not None:
-            self._worker.cancel()
-            self._detach(self._worker)
-        for worker in list(self._retired_workers):
-            worker.wait()
+        self._runner.shutdown()
         self._tts.shutdown()
         event.accept()

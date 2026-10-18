@@ -127,6 +127,26 @@ QPushButton[variant="primary"][keyFocus="true"] { border: 3px solid $focus_ring_
 QPushButton[variant="ghost"] { border-color: transparent; }
 QPushButton[variant="ghost"][keyFocus="true"] { border: 3px solid $focus_ring; }
 QPushButton:checked { background: $secondary_bg_hover; }
+QPushButton::menu-indicator { image: none; width: 0; }
+QPushButton[variant="chip"] { min-height: 32px; padding: 0 14px; border-radius: 16px;
+                              border-color: $border; }
+QPushButton[variant="chip"]:checked { background: $primary_bg; color: $primary_fg;
+                                      border-color: $primary_border; }
+QPushButton[variant="chip"][keyFocus="true"] { border: 3px solid $focus_ring;
+                                               padding: 0 13px; }
+QPushButton[variant="chip"]:checked[keyFocus="true"] { border: 3px solid
+                                                       $focus_ring_primary; }
+
+QSpinBox { min-height: 40px; min-width: 64px; padding: 0 8px; border-radius: 8px;
+           border: 2px solid $secondary; background: $bg; color: $text;
+           font-weight: 600; }
+QSpinBox[keyFocus="true"] { border: 3px solid $focus_ring; }
+
+QScrollBar:vertical { width: 14px; margin: 0; background: transparent; border: none; }
+QScrollBar::handle:vertical { min-height: 48px; border-radius: 6px; margin: 2px;
+                              background: $border; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
 
 QSlider::groove:horizontal { height: 8px; border-radius: 4px; background: $track;
                              border: 1px solid $track_border; }

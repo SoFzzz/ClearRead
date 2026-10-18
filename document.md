@@ -1,11 +1,12 @@
 # ClearRead Desktop — Documentación Técnica de Arquitectura, Requisitos y Diseño
 
 > **Versión:** 1.5.0 (Núcleo Offline + Asistente IA vía Backend Propio Desplegado — Entrega Académica / Portafolio)  
-> **Fecha de Actualización:** 2026-10-01  
+> **Fecha de Actualización:** 2026-10-18 (la versión sigue siendo 1.5.0; los cambios de esa fecha están en §4.13)  
 > **Estado:** Aprobado para Implementación con Spikes Técnicos  
 > **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~14 días calendario (2026-10-02 → 2026-10-15) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
 > **Cambios v1.5.0:** la materia exige el proyecto **desplegado**, por lo que el asistente de IA pasa a llamar a un backend propio (§4.11) en lugar de a DeepSeek directamente; la API key sale de la app.  
-> **Rediseño del Día 12 (2026-10-07), pedido por la usuaria:** solo dos colores de marca (morado `#392F5A` y amarillo `#F4D06F`) y sus tonos; solo temas Claro y Oscuro (se elimina Alto Contraste); tipografía Lexend por defecto con espaciado moderado; Inicio como panel; ejemplo incluido; posición de lectura, modo foco y "Mis palabras". Requisitos nuevos: HOME-F02, HOME-F03, READ-F01, READ-F02, AI-F05, UI-F04 y UI-F05 (§5.1, §4.12). Detalle visual en `docs/design-system/README.md` v2.0.  
+> **Rediseño del Día 12 (2026-10-07), pedido por la usuaria:** solo dos colores de marca (morado `#392F5A` y amarillo `#F4D06F`) y sus tonos; solo temas Claro y Oscuro (se elimina Alto Contraste); tipografía Lexend por defecto con espaciado moderado; Inicio como panel; ejemplo incluido; posición de lectura, modo foco y "Mis palabras". Requisitos nuevos: HOME-F02, HOME-F03, READ-F01, READ-F02, AI-F05, UI-F04 y UI-F05 (§5.1, §4.12). Detalle visual en el Anexo A (v2.0).  
+> **Cambios del 2026-10-18, pedidos por la usuaria (§4.13):** (1) **voz con control estricto**: un clic en una palabra solo mueve el punto de inicio y la voz suena únicamente con Reproducir o `Espacio` (**sustituye UI-F02**); (2) cambiar el idioma pide confirmación y la app **se reinicia sola** (cambia I18N-F01); (3) **páginas** del documento, barra de páginas y modos de vista "Continua" / "Por páginas", con atajos de página y zoom (UI-F06, UI-F07; amplía UI-F03); (4) **biblioteca** con carpetas, búsqueda y hasta 200 documentos (HOME-F04, cambia HOME-F01 y HOME-F02) y **temas** en "Mis palabras" (AI-F06, cambia AI-F05); (5) revisión y refactor del código. Requisitos nuevos: UI-F06, UI-F07, HOME-F04, AI-F06. **Comprobado:** suite de tests y capturas con la app real en pantalla virtual (`offscreen`) en `docs/design-system/mockups/real/v3/`. **No comprobado:** pruebas físicas con ratón y arrastre, escucha de la voz, el reinicio en el `.exe` compilado y la recompilación del `.exe` con los módulos nuevos (§8).  
 > **Idioma UI:** Español | **Idioma de Código y Nombres Técnicos:** Inglés  
 
 ---
@@ -56,7 +57,7 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Visión Artificial** | opencv-python + Pillow | (versión que exige rapidocr-onnxruntime) / ≥ 10.0 | Apache 2.0 / HPND | Se usa `opencv-python`, **no** `-headless`: `rapidocr-onnxruntime` exige `opencv-python` y, si se instalan los dos, ambos escriben en la misma carpeta `cv2` y se pisan (comprobado en el Día 1). `opencv-python` no se declara aparte: llega como dependencia de RapidOCR. En el `.exe` se excluye `opencv_videoio_ffmpeg` (~30 MB, sin uso). Calibración empírica con set curado de 10 imágenes reales de smartphones/fotocopias. |
 | **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | **== 2.98** | MPL 2.0 / PSF | **Versión fijada:** en el spike del Día 1, pyttsx3 2.99 solo habla en el primer `runAndWait()` de cada motor (la 2.ª frase vuelve en 0.10 s con 1 evento); con 2.98 la 2.ª frase habla completa (9.05 s, 38 eventos). **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
 | **Segmentación Fonética** | silabeador | ≥ 1.1.0 | MIT | Algoritmo determinista RAE. Plan B: módulo interno de reglas regex fonológicas. |
-| **Tipografía Accesible** | Lexend (por defecto), Atkinson Hyperlegible y OpenDyslexic | Regular (las tres; OpenDyslexic `compiled/opendyslexic.otf`) | SIL OFL 1.1 | Empaquetadas localmente en `resources/fonts` con su licencia y origen (`resources/fonts/README.md`); se elige una en Ajustes. Lexend y Atkinson se descargaron el 2026-10-07 de sus repositorios oficiales (tarea de desarrollo, nunca en tiempo de ejecución). La elección y su evidencia (y lo que **no** está demostrado) están en `docs/design-system/README.md` §1.4. |
+| **Tipografía Accesible** | Lexend (por defecto), Atkinson Hyperlegible y OpenDyslexic | Regular (las tres; OpenDyslexic `compiled/opendyslexic.otf`) | SIL OFL 1.1 | Empaquetadas localmente en `resources/fonts` con su licencia y origen (`resources/fonts/README.md`); se elige una en Ajustes. Lexend y Atkinson se descargaron el 2026-10-07 de sus repositorios oficiales (tarea de desarrollo, nunca en tiempo de ejecución). La elección y su evidencia (y lo que **no** está demostrado) están en el Anexo A, A.1.4. |
 | **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
 | **Backend API** *(solo `backend/`)* | FastAPI (incluye pydantic, MIT) | ≥ 0.115.0 | MIT | Proyecto aparte con su propio `pyproject.toml`; nunca entra en el `.exe`. Genera `/docs` (OpenAPI) automáticamente. |
 | **Servidor ASGI** *(solo `backend/`)* | uvicorn | ≥ 0.30.0 | BSD-3 | Arranque en Render con `uvicorn ... --host 0.0.0.0 --port $PORT`. |
@@ -564,7 +565,7 @@ class ClearReadOCR:
 **Solución al Problema Crítico #1:** Se erradica la dependencia de índices de caracteres brutos entre SAPI5 y `QTextEdit`. Se establece una **tabla de correspondencia de tokens (*Token Map*)** generada durante el formateo. Cada token sabe exactamente cuál es su orden ordinal, su forma fonética normalizada para el motor TTS y sus coordenadas exactas de cursor `(start_char, end_char)` dentro del documento de Qt.
 
 > [!NOTE]
-> **Colores de sílabas (NFR-A11Y01):** la paleta de cada tema (Claro y Oscuro; el Alto Contraste se eliminó el 2026-10-07), con sus ratios medidos, está definida en el design system: [`docs/design-system/README.md`](docs/design-system/README.md) (§1.2 tokens, §10.1 `syllable_palette`). Desde el Día 12, `SyllablePalette` lleva además `background_odd`: en el Claro las sílabas impares tienen fondo amarillo muy suave (`#FBF0CC`) y todas el mismo morado; en el Oscuro alternan amarillo y lavanda sin fondo. Los colores `#1565C0` y `#D84315` del código de referencia no cumplían 7.0:1 y quedan sustituidos por esos tokens.
+> **Colores de sílabas (NFR-A11Y01):** la paleta de cada tema (Claro y Oscuro; el Alto Contraste se eliminó el 2026-10-07), con sus ratios medidos, está definida en el design system: el Anexo A ([A.1.2](#a12-tokens-semánticos-por-tema) tokens, A.10.1 `syllable_palette`). Desde el Día 12, `SyllablePalette` lleva además `background_odd`: en el Claro las sílabas impares tienen fondo amarillo muy suave (`#FBF0CC`) y todas el mismo morado; en el Oscuro alternan amarillo y lavanda sin fondo. Los colores `#1565C0` y `#D84315` del código de referencia no cumplían 7.0:1 y quedan sustituidos por esos tokens.
 
 `TextFormatter` **no fija colores propios**: recibe la paleta de sílabas del tema activo por inyección de dependencia (ver `SyllablePalette` abajo), definida y validada en el design system. Al cambiar de tema, la app regenera el `html_content` con la nueva paleta; el `TokenPositionMap` **no se recalcula**, porque el color no altera las posiciones `(doc_start_pos, doc_end_pos)` de cada `WordToken`.
 
@@ -605,6 +606,8 @@ class FormattedDocument:
         self.html_content = html_content
         self.token_map = token_map
         self.tts_script = tts_script
+        # 2026-10-18: primer carácter de cada página (ver la nota bajo el código)
+        self.page_starts: tuple[int, ...] = (0,)
 
 
 class TextFormatter:
@@ -699,6 +702,9 @@ class TextFormatter:
         return FormattedDocument(full_html, token_map, tts_script)
 ```
 
+> [!NOTE]
+> **Páginas y `FORMATTER_VERSION = "4"` (2026-10-18, UI-F06).** El texto crudo que recibe `format_document` separa las páginas con `PAGE_BREAK` (`"\f"`, definido en `services/text_formatter.py`); el worker de procesado (`workers/ocr_worker.py`) une las páginas con él y quita cualquier `\f` del texto de cada página. El formateador procesa cada página por separado y guarda en `FormattedDocument.page_starts` el carácter del documento Qt donde empieza el primer párrafo de cada una (las páginas vacías se omiten; un documento siempre tiene al menos la página `(0,)`). `page_index_at(page_starts, char_index)` devuelve la página de un carácter. Las posiciones del `TokenPositionMap` **no cambian** (el separador de página no añade caracteres), por lo que el criterio `toPlainText()[start:end] == spoken_text` sigue valiendo. La versión del formateador subió de `"3"` a `"4"` porque la caché ahora guarda `page_starts`: las cachés `-f3` se reconocen como obsoletas y el documento se reprocesa desde el original (HOME-F01). El código de arriba es el de referencia de la v1; el real vive en `src/clearread/services/text_formatter.py`.
+
 ---
 
 ### 4.5 Módulo de Síntesis de Voz Robusto (`services/tts_controller.py`)
@@ -708,6 +714,9 @@ class TextFormatter:
 - **(a) pyttsx3 fijado a `==2.98`** (§2.2): con 2.99 solo habla el primer `runAndWait()` de cada motor; la 2.ª frase vuelve en 0.10 s con 1 evento. Con 2.98, la 2.ª frase habla completa (9.05 s, 38 eventos), y este diseño reutiliza el mismo motor en cada lectura.
 - **(b) Evento de palabra extra al iniciar cada frase:** pyttsx3 emite un `started-word` adicional al empezar el *stream*, con `name=None`, `location` = número de *stream* y `length` = posición del *stream*. Los eventos reales traen la palabra y su **offset de carácter** en el texto enviado (p. ej. "Prueba de integración exitosa" → `location` 0, 7, 10, 22). Por eso el resaltado **se alinea por el offset de carácter (`location`) del evento contra el texto enviado, no contando eventos** (contar daría un desfase de una palabra).
 - **Pausa:** `engine.stop()` llamado desde **otro hilo** mientras `runAndWait()` habla detiene la voz: `runAndWait()` vuelve a 1.60–1.61 s con la parada pedida a 1.5 s, SAPI queda en estado *done*, con y sin `CoInitialize` en el hilo que para. **Resultado del Día 5 (prueba real con la voz SAPI5, `tests/manual/check_tts_real.py`, i5-8300H, cada escenario en un proceso nuevo):** la hipótesis **no se confirmó**. Una señal `sig_stop` en cola **sí** se procesa durante `runAndWait()` (el bucle de pyttsx3 bombea mensajes de Windows y con ellos los eventos de Qt de ese hilo): la voz terminó 0.76 s después de pedir la parada con la señal en cola y 0.78 s con `engine.stop()` directo. `TTSController.stop()` conserva la llamada directa, pero por otra razón: invalida en el acto la *generación* del enunciado (los eventos tardíos y los `speak` aún en cola se descartan) sin depender del orden de la cola. **Hallazgos nuevos del Día 5:** (1) pyttsx3 llama al callback de `started-word` con argumentos con nombre (`name=`, `location=`, `length=`): un parámetro llamado `_length`, como en el código de referencia, hace que pyttsx3 descarte todos los eventos en silencio. (2) `say()` debe llamarse **sin** `name`: con él, el evento de inicio de flujo trae ese nombre en vez de `None` y el filtro `name is None` deja de valer. (3) Tras `engine.stop()` a mitad de frase, pyttsx3 2.98 **no vuelve a hablar** con el mismo motor (el siguiente `runAndWait()` vuelve en ~0.1 s sin palabras; SAPI entrega el fin de flujo de la purga durante el nuevo enunciado), así que reanudar fallaba sin ruido. Se resuelve creando un motor nuevo (~0.1 s medidos) tras cada enunciado interrumpido. **Pausa y reanudación reales** (36 palabras de la muestra sintética): pausó tras el evento de la palabra 9 (`estudiará`) a los 4.17 s; 0 eventos durante 1.2 s de pausa; reanudó desde la palabra 9 (`estudiará`) y los eventos fueron consecutivos hasta la 35 (36 palabras), con una sola señal de fin. El código de arriba es la versión inicial; el implementado en `services/tts_controller.py` añade el contador de generación, el motor inyectable (`engine_factory`) y la reconstrucción del motor.
+
+> [!NOTE]
+> **Superado el 2026-10-18 (UI-F02):** desde ese día un clic en una palabra **ya no inicia la lectura**: solo mueve el punto de inicio en silencio y la voz arranca únicamente con Reproducir o `Espacio`. Lo medido abajo sobre el `speak` anidado sigue siendo cierto para el clic **con la lectura en marcha** (ahora detiene la voz en vez de reiniciarla en la palabra pulsada) y se conserva como historial. Los eventos de palabra tardíos se ignoran mientras la lectura está en pausa. Esto se comprobó con tests y un motor de voz simulado; **no se ha escuchado la voz real** con el comportamiento nuevo (§8).
 
 **Calibración de la velocidad y clic en palabra (Día 8, medido con la voz real).**
 - **Un `speak` anidado terminaba en silencio.** El bucle de `runAndWait()` bombea los eventos de Qt del hilo del worker: si el `speak` del enunciado nuevo llega mientras se cancela el viejo (clic en una palabra durante la reproducción), el slot se ejecuta *dentro* del `runAndWait()` del motor que se está parando y vuelve sin hablar ni emitir palabras (la prueba real devolvió solo `playback_ended`). `SAPI5Worker.speak` detecta que ya habla, guarda la petición como pendiente y la ejecuta cuando el enunciado viejo termina y el motor se ha reconstruido. Tras el arreglo, el clic con la lectura en curso empezó en la palabra pulsada y los eventos fueron consecutivos.
@@ -915,7 +924,8 @@ class AppConfig:
     voice_volume: float = 1.0  # fixed: no UI control, the Windows volume applies
     ai_privacy_accepted: bool = False  # privacy notice before the first AI call (NFR-SEC01)
     backend_url: str = DEFAULT_BACKEND_URL  # oculto en la interfaz desde el Día 12; solo en config.json
-    ui_language: str = "es"  # "es" | "en": interface language only, applied on restart (I18N-F01)
+    ui_language: str = "es"  # "es" | "en": interface language only; changing it restarts the app (I18N-F01)
+    reading_view_mode: str = "continuous"  # "continuous" | "paged" (VIEW_MODES, UI-F07)
 
     @classmethod
     def load(cls) -> "AppConfig":
@@ -948,6 +958,9 @@ class AppConfig:
                 os.remove(temp_file)
             raise
 ```
+
+> [!NOTE]
+> **Cambios del 2026-10-18.** (1) `AppConfig.reading_view_mode` (`VIEW_MODES = ("continuous", "paged")`, por defecto `"continuous"`): un valor desconocido o un `config.json` antiguo sin el campo cargan como `continuous` (UI-F07). (2) La escritura atómica salió a `services/atomic_json.py` (`write_json_atomic(target, payload, indent, durable)`), compartida por `config.json` (con `durable=True`: `flush` + `fsync` antes del `os.replace`), el índice y la caché de la biblioteca, `glossary.json`, `stats.json`, `folders.json`, `topics.json` y la caché de respuestas de la IA. El fragmento de arriba es el de referencia; el real usa esa función. (3) `ui_language` ahora pide confirmación y **reinicia la app sola** (I18N-F01, §4.13).
 
 ---
 
@@ -1196,11 +1209,16 @@ class ReadingView(QWidget):
 
 ---
 
+> [!NOTE]
+> **Cambios del 2026-10-18 en la vista de lectura (§4.13, UI-F02, UI-F06, UI-F07).** El código de arriba es el de referencia de la v1. `ReaderWidget` vive ahora en `ui/views/reader_widget.py` (antes dentro de `reading_view.py`) y la barra de reproducción y la barra de páginas son componentes propios (`PlayBar`, `PageBar`). Comportamiento: clic = mover el punto de inicio en silencio; doble clic = seleccionar la palabra y abrir el menú del asistente; la voz solo arranca con Reproducir o `Espacio`; barra de páginas (Anterior / número / "de N" / Siguiente) y modos "Continua" y "Por páginas" (`ViewMode`); en la vista Continua el lector pinta separadores "Página N" y en "Por páginas" oculta los bloques de las demás páginas sin cambiar ninguna posición de carácter, así que el `TokenPositionMap` sigue siendo válido; con la voz en marcha la página cambia sola; atajos `PageUp`/`PageDown`, `Ctrl+←`/`Ctrl+→`, `Ctrl+Inicio`/`Ctrl+Fin` y zoom `Ctrl++`/`Ctrl+−`/`Ctrl+0` (la señal `zoom_requested` la atiende `MainWindow`, que cambia `font_size_pt` dentro de los límites de Ajustes).
+
+---
+
 ### 4.9 Módulo de Vista Principal y Manejo de Errores Accesibles (`ui/views/home_view.py` y `ui/dialogs.py`)
 **Propósito:** Ingestión intuitiva mediante *drag-and-drop* y diálogo de archivos, barra de progreso con etapas comprensibles y diálogos de error de **baja carga cognitiva**: sin cuadros de diálogo estándar de Windows con texto técnico incomprensible ni stack traces, sino mensajes en español con tipografía clara y recomendaciones de acción inmediata.
 
 > [!NOTE]
-> **Rediseño del Día 12:** el código de referencia de abajo es el de la v1. La pantalla de Inicio es ahora un **panel** (tarjeta "Continuar leyendo", zona de arrastre compacta, "Probar con un ejemplo", tarjetas de estadísticas y recientes como tarjetas; HOME-F02, HOME-F03). Los nombres largos se recortan con "…" (*tooltip* con el nombre completo), no hay barra horizontal y el diseño es responsive desde 1024 px. Los colores y bordes de los fragmentos de abajo quedan sustituidos por los tokens de `docs/design-system/README.md` (§1.2 y §3.1).
+> **Rediseño del Día 12:** el código de referencia de abajo es el de la v1. La pantalla de Inicio es ahora un **panel** (tarjeta "Continuar leyendo", zona de arrastre compacta, "Probar con un ejemplo", tarjetas de estadísticas y recientes como tarjetas; HOME-F02, HOME-F03). Los nombres largos se recortan con "…" (*tooltip* con el nombre completo), no hay barra horizontal y el diseño es responsive desde 1024 px. Los colores y bordes de los fragmentos de abajo quedan sustituidos por los tokens del Anexo A (A.1.2 y A.3.1).
 
 ```python
 """Home view with drag-and-drop ingestion, progress feedback, and accessible dialogs."""
@@ -1409,7 +1427,7 @@ class HomeView(QWidget):
 | `504 upstream_timeout` | `TIMEOUT` | (mismo mensaje que `TIMEOUT`) |
 | Cualquier otra respuesta o JSON inesperado | `BAD_RESPONSE` | "No pudimos entender la respuesta del asistente." |
 
-El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings.py` (junto con el resto de textos de la UI). Los errores del asistente se muestran **dentro del panel de IA** (estado de error del panel, `docs/design-system/README.md` §4.4), **no** con `AccessibleErrorDialog`, para no cortar la lectura con una ventana modal; `AccessibleErrorDialog` queda para los errores de ingesta y procesamiento (§4.9). `INVALID_KEY` y `NO_BALANCE` de v1.4.0 desaparecen de la app: esos fallos ocurren entre el backend y DeepSeek y llegan como `502 upstream_*`.
+El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings.py` (junto con el resto de textos de la UI). Los errores del asistente se muestran **dentro del panel de IA** (estado de error del panel, Anexo A, A.4.4), **no** con `AccessibleErrorDialog`, para no cortar la lectura con una ventana modal; `AccessibleErrorDialog` queda para los errores de ingesta y procesamiento (§4.9). `INVALID_KEY` y `NO_BALANCE` de v1.4.0 desaparecen de la app: esos fallos ocurren entre el backend y DeepSeek y llegan como `502 upstream_*`.
 
 #### Contrato de Interfaz y Código
 ```python
@@ -1818,7 +1836,9 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 - **Manual real** contra el despliegue (skill `deploy-backend`): `/health`, `/docs`, una petición real a `/v1/explain` que responde en español, 429 con un tope temporal de 1, y medición del arranque en frío (BE-NF01).
 
 ### 4.12 Rediseño del Día 12: servicios y vistas nuevas
-**Propósito:** recoger en un solo sitio lo que el rediseño añadió al código (la parte visual está en `docs/design-system/README.md` v2.0). Todo es **local y offline**: ningún módulo nuevo toca la red.
+**Propósito:** recoger en un solo sitio lo que el rediseño añadió al código (la parte visual está en el Anexo A, v2.0). Todo es **local y offline**: ningún módulo nuevo toca la red.
+
+> **Actualizado el 2026-10-18 (§4.13):** `FORMATTER_VERSION` pasó de `"2"` a `"3"` y luego a `"4"` (páginas); `ReaderWidget` ya no está en `reading_view.py`; la fila "Inicio como panel" muestra ahora "Mi biblioteca" en lugar de "Recientes"; "Mis palabras" gana temas y confirmación al borrar. Las filas de abajo describen el Día 12 y se conservan como historial.
 
 | Pieza | Módulo | Qué hace |
 |:---|:---|:---|
@@ -1833,6 +1853,46 @@ async def _complete(system_prompt: str, user_prompt: str, max_tokens: int) -> st
 | Ejemplo | `resources/samples/ejemplo_es.txt`, `MainWindow.open_sample` | Texto propio sobre la fotosíntesis; no pasa por el OCR; entra en recientes como "Ejemplo: la fotosíntesis" (HOME-F03). |
 
 Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contraste, "Ajustes avanzados" y la línea de atajos de la barra de lectura se eliminaron. Los tests nuevos están en `tests/test_redesign.py` (HOME-F02/F03, READ-F01/F02, AI-F05, UI-F04/F05) y `tests/test_theme.py` (contraste y paleta).
+
+### 4.13 Cambios del 2026-10-18: voz estricta, reinicio de idioma, páginas, biblioteca y temas
+**Propósito:** recoger en un solo sitio el conjunto de cambios pedidos por la usuaria el 2026-10-18, **posterior al cronograma de §6.5** (entrada P1). Es **local y offline**: ningún módulo nuevo toca la red y `ai_client.py` sigue siendo el único que importa `httpx` (NFR-OFF01). Los textos visibles nuevos están en `ui/strings.py` con `es` y `en`; no se añadió ningún color: se reutilizan los tokens de `ui/theme.py` (NFR-A11Y01).
+
+**Qué cambia, en resumen**
+
+| # | Cambio | Requisito | Qué sustituye |
+|:---:|:---|:---|:---|
+| 1 | Control estricto de la voz: clic = mover el punto de inicio en silencio; doble clic = seleccionar y abrir el menú de IA; la voz solo con Reproducir o `Espacio`; Pausa detiene la voz y se ignoran los eventos tardíos | UI-F02 | «Clic en una palabra inicia la lectura» (Día 8) |
+| 2 | Cambio de idioma con diálogo («Reiniciar ahora» / «Cancelar») y reinicio automático de la app | I18N-F01, CFG-F02 | «Se aplica al reiniciar, con aviso» (Día 7) |
+| 3 | Páginas del documento, barra de páginas, modos "Continua" y "Por páginas", páginas automáticas con la voz, atajos de página y zoom | UI-F06, UI-F07, UI-F03 | Documento como un solo bloque de texto |
+| 4 | Biblioteca con carpetas, búsqueda, hasta 200 documentos, reproceso desde el original | HOME-F04, HOME-F01, HOME-F02 | Lista de 10 recientes |
+| 5 | Temas en "Mis palabras" y confirmación al borrar | AI-F06, AI-F05 | Glosario plano |
+| 6 | Revisión y refactor: controladores y componentes propios, escritura atómica compartida | (sin requisito nuevo) | Código duplicado en `main_window.py`, `reading_view.py` y los almacenes JSON |
+
+**Módulos nuevos o cambiados**
+
+| Pieza | Módulo | Qué hace |
+|:---|:---|:---|
+| Relanzamiento | `core/restart.py`, `__main__.py` | `build_relaunch_command(frozen, executable, argv)` da el programa y los argumentos: el `.exe` compilado se lanza a sí mismo con los mismos argumentos; desde el código, `python -m clearread`. `main()` llama a `QProcess.startDetached` solo si `MainWindow.restart_requested` es verdadero al terminar el bucle de eventos. |
+| Escritura atómica | `services/atomic_json.py` | `write_json_atomic(target, payload, indent=None, durable=False)`: archivo temporal junto al destino + `os.replace`; con `durable=True` hace `fsync` antes (solo `config.json`). Sustituye las copias del mismo patrón que había en cada almacén. |
+| Búsqueda | `services/text_search.py` | `search_key(text)`: minúsculas, sin tildes y con espacios simples; lo comparten la biblioteca, las carpetas, los temas y el glosario. |
+| Grupos | `services/groups.py` | `GroupStore` + `Group(id, name)`: carpetas de la biblioteca (`folders.json`) y temas del glosario (`topics.json`). Id estable (`uuid4`), `MAX_GROUPS = 50`, nombres ≤ 40 caracteres, errores como `GroupNameError(GroupNameProblem.EMPTY/DUPLICATE/TOO_MANY)` que la interfaz traduce (§b de `CLAUDE.md`). Sin ruta, vive en memoria. |
+| Biblioteca | `services/document_library.py` | `MAX_DOCUMENTS = 200`; `RecentDocument.folder_id`; `doc_id` (clave sin sufijo `-f<versión>`); `needs_processing`, `set_folder`, `clear_folder`, `remove` (borra la caché, nunca el original). La caché guarda `page_starts`; los índices antiguos sin `folder_id` cargan. |
+| Glosario | `services/glossary.py` | `GlossaryEntry.topic`; `filter_entries(entries, topic, query)`, `count_by_topic`, `GlossaryStore.set_topic` y `clear_topic`. Una palabra repetida conserva su tema. |
+| Formateador | `services/text_formatter.py` | `PAGE_BREAK`, `FormattedDocument.page_starts`, `page_index_at`; `FORMATTER_VERSION = "4"` (§4.4). |
+| Procesado | `workers/ocr_worker.py`, `ui/processing_runner.py` | El worker une las páginas con `PAGE_BREAK` y añade el tipo de error `LIBRARY_FILE_MISSING`; `ProcessingRunner` (nuevo) es dueño del worker de segundo plano y de los workers retirados, y recibe por constructor el ingestor, el preprocesador y el OCR. |
+| Biblioteca (UI) | `ui/library_controller.py` | `LibraryController`: manejadores de carpetas, temas, mover/quitar documentos y borrar palabras, con sus diálogos de confirmación. Recibe por constructor las bibliotecas y las vistas. |
+| Lector | `ui/views/reader_widget.py` | `ReaderWidget` en su propio módulo: clic/doble clic, resaltado, modo foco, separadores "Página N" pintados, `show_page`/`set_paged`, `scroll_to_position`. |
+| Barras | `ui/views/page_bar.py`, `ui/views/play_bar.py` | `PageBar` (Anterior, número, "de N", Siguiente, Continua/Por páginas) y `PlayBar` (reproducir, detener, modo foco, velocidad y contador de palabras). |
+| Fichas | `ui/views/group_filter.py`, `ui/views/flow_layout.py` | `GroupFilter(prefix)` reutiliza el mismo componente para carpetas (`folder.*`) y temas (`topic.*`); `FlowLayout` pasa los *chips* a otra fila en vez de crear barra horizontal. |
+| Diálogos | `ui/dialogs.py` | `NamePromptDialog` (nombre de carpeta/tema, mantiene el diálogo abierto con el mensaje de error), `make_confirm_box`, `make_restart_box`. |
+| Tema | `ui/theme.py` | QSS para `QPushButton[variant="chip"]` (marcado = fondo primario, foco de teclado), `QSpinBox` y `QScrollBar`; solo tokens existentes. |
+| Vistas | `ui/views/home_view.py`, `words_view.py`, `settings_view.py`, `reading_view.py` | "Mi biblioteca" (cabecera, búsqueda, *chips*, menú de mover), "Mis palabras" con temas, diálogo de reinicio en Ajustes, `ReadingView` más corta. `home.title` se eliminó del catálogo. |
+
+**Archivos de datos nuevos** (en `%APPDATA%\ClearRead`, junto a `config.json`, `recents.json`, `glossary.json` y `stats.json`): `folders.json` y `topics.json` (lista de `{id, name}`). Los campos nuevos (`folder_id`, `topic`, `page_starts`, `reading_view_mode`) son opcionales al leer: los archivos de versiones anteriores siguen abriendo.
+
+**Pruebas.** Nuevos: `tests/test_pages.py`, `tests/test_groups.py`, `tests/test_library_folders.py`, `tests/test_glossary_topics.py`, `tests/test_restart.py`; modificados: `test_reading_view.py` (voz estricta), `test_settings.py` (reinicio), `test_document_library.py`, `test_redesign.py`, `test_strings.py`. **Resultado ejecutado el 2026-10-18 en este equipo (pytest, ruta de CLAUDE.md §i): app 1338 passed, 1 skipped; backend 52 passed.** Capturas reales de la app en pantalla virtual (`QT_QPA_PLATFORM=offscreen`, `tests/manual/run_real_v3.py` y `run_real_v4.py`, tema Claro y Oscuro): `docs/design-system/mockups/real/v3/`.
+
+**Lo que NO se comprobó** (§8): ratón físico y arrastre (los tests y las capturas usan eventos sintéticos de Qt), escucha de la voz real con el comportamiento nuevo (`tests/manual/check_click_real.py` existe y habla en voz alta, pero no se ejecutó con estos cambios), relanzamiento del `.exe` compilado y recompilación del `.exe` con los módulos nuevos.
 
 ---
 
@@ -1855,23 +1915,27 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 | **FMT-F01** | Formatter | Generación de tabla de correspondencia `TokenPositionMap` y escape HTML riguroso. | Cero inyecciones o etiquetas rotas; cada palabra tiene coordenadas `(start, end)` exactas en Qt. |
 | **TTS-F01** | TTS | Aislamiento de SAPI5 en hilo permanente STA con soporte de reanudación por `start_offset`. | Pausa y reanudación sin reiniciar desde el inicio ni lanzar excepciones COM. |
 | **UI-F01** | ReaderWidget | Resaltado superpuesto mediante `QTextEdit.ExtraSelection` a 60 FPS. | Ausencia total de parpadeos (*flicker*) durante la lectura a 200 WPM. *(Meta de FPS fuera de alcance de medición en esta entrega, ver §6.5.)* |
-| **UI-F02** | ReaderWidget | Clic en una palabra del `ReaderWidget` inicia la lectura desde el `WordToken` correspondiente (`start_offset`). | Al hacer clic en la palabra N, la síntesis de voz y el resaltado arrancan exactamente en N, no desde el inicio del documento. |
-| **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente, `F6` mueve el foco entre el lector y el panel de IA y `Ctrl++`/`Ctrl+−` agranda/achica la letra un paso, y `F` activa/desactiva el modo foco (READ-F02) (`docs/design-system/README.md` §7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. |
-| **UI-F04** | Tipografía y espaciado | Fuente de lectura por defecto **Lexend** (SIL OFL, empaquetada en `resources/fonts`), con Atkinson Hyperlegible y OpenDyslexic como opciones. Por defecto: 18 pt, interlineado 1,5, letra +0,12 em y palabra +0,16 em; el espaciado se guarda en em y se convierte a píxeles según el tamaño. Interfaz en Segoe UI. | `AppConfig()` da esos valores; las tres fuentes cargan y cubren `ñ á é í ó ú ü ¿ ¡`; cambiar la fuente o el espaciado actualiza el documento abierto sin perder la palabra. La evidencia que respalda cada valor, y lo que no está demostrado, está en `docs/design-system/README.md` §1.4. |
+| **UI-F02** | ReaderWidget / ReadingView | **Control estricto de la voz (2026-10-18; sustituye a la versión del Día 8, «clic en una palabra inicia la lectura»).** Un **clic** en una palabra solo mueve el punto de inicio: detiene la voz si sonaba, resalta y centra la palabra y deja la lectura en pausa y en silencio. Un **doble clic** selecciona la palabra y abre el menú del asistente (*Explicar* / *Simplificar*) sin hablar; el clic derecho conserva el menú. Arrastrar el ratón selecciona texto y no cambia el punto de inicio. La voz **solo** arranca con el botón Reproducir o `Espacio`; Pausa la detiene en el acto y los eventos de palabra que lleguen tarde se ignoran mientras está en pausa. Si el asistente no está disponible, el doble clic solo selecciona. | Tras un clic en la palabra N no se emite ninguna palabra hablada y el estado queda en pausa en N; al pulsar Reproducir, el resaltado y la voz arrancan exactamente en N. Un doble clic abre el menú y no habla. Con la lectura en marcha, un clic la detiene y la mueve a N sin dos voces. Tras Pausa, un evento de palabra tardío no mueve el resaltado. `tests/test_reading_view.py` (con motor de voz simulado). *(Ratón físico y escucha real de la voz: sin probar, §8.)* |
+| **UI-F03** | ReadingView y vistas | Atajos de teclado: `Espacio` alterna reproducir/pausar y `Esc` detiene la lectura. `Esc` además cierra, por prioridad, el diálogo abierto, el panel de IA, el procesado en curso (lo cancela) o Ajustes. `Ctrl+O` elige archivo (Inicio), `Ctrl+,` abre Ajustes, `Alt+←` vuelve atrás, `Ctrl+I` abre/cierra el asistente y `F` activa/desactiva el modo foco (READ-F02). **Añadidos el 2026-10-18:** `PageUp`/`PageDown` desplazan una pantalla (en "Por páginas", al llegar al borde pasan de página), `Ctrl+←`/`Ctrl+→` página anterior/siguiente, `Ctrl+Inicio`/`Ctrl+Fin` primera/última página (UI-F06) y el zoom `Ctrl++` (o `Ctrl+=`), `Ctrl+−` y `Ctrl+0` (tamaño de letra: un paso más, un paso menos, valor por defecto). **Siguen pendientes:** `F6` (mover el foco entre el lector y el panel de IA) y fijar el orden de Tab con `setTabOrder`; `grep` en `src/` no encuentra ninguno de los dos (Anexo A, A.7.3). | `Espacio` y `Esc` funcionan con el foco en la vista de lectura, sin requerir clic previo en los botones; cada atajo hace lo indicado en su pantalla y aparece en el *tooltip* de su botón. El zoom cambia 1 pt por pulsación, se detiene en los límites de Ajustes (12–28 pt), se guarda en `config.json` y conserva las páginas. `tests/test_pages.py` (páginas y zoom) y `tests/test_reading_view.py`. |
+| **UI-F04** | Tipografía y espaciado | Fuente de lectura por defecto **Lexend** (SIL OFL, empaquetada en `resources/fonts`), con Atkinson Hyperlegible y OpenDyslexic como opciones. Por defecto: 18 pt, interlineado 1,5, letra +0,12 em y palabra +0,16 em; el espaciado se guarda en em y se convierte a píxeles según el tamaño. Interfaz en Segoe UI. | `AppConfig()` da esos valores; las tres fuentes cargan y cubren `ñ á é í ó ú ü ¿ ¡`; cambiar la fuente o el espaciado actualiza el documento abierto sin perder la palabra. La evidencia que respalda cada valor, y lo que no está demostrado, está en el Anexo A, A.1.4. |
 | **UI-F05** | Tema y foco | Solo **dos colores de marca**: morado `#392F5A` y amarillo `#F4D06F`, más tonos más claros u oscuros derivados. Botones primarios, barras de progreso y deslizadores **amarillos en ambos temas** (texto morado, 8,16:1). Sin bordes de otro color. Anillo de foco **solo con foco de teclado** (Tab/Mayús+Tab), amarillo o morado. Palabra que suena: Claro = fondo morado y letra amarilla, Oscuro = fondo amarillo y letra morada. Error y éxito se distinguen con icono + texto. | `tests/test_theme.py` recalcula todos los ratios (texto ≥ 7:1, componentes ≥ 3:1) y falla ante cualquier hex fuera de la paleta; `tests/test_redesign.py` comprueba que el anillo aparece con `Tab`/`Backtab` y no con el ratón. |
+| **UI-F06** | ReadingView / Formatter | **Páginas del documento (2026-10-18).** El texto crudo separa las páginas con `PAGE_BREAK` (`\f`); `FormattedDocument.page_starts` guarda el primer carácter de cada página (`FORMATTER_VERSION = "4"` invalida las cachés anteriores). Barra de páginas (**Anterior** / número editable / **"de N"** / **Siguiente**), visible solo si hay más de una página; en la vista Continua se pintan separadores "Página N"; con la voz en marcha la página **pasa sola** cuando la lectura llega a la siguiente. Ir a otra página o desplazarse con la rueda nunca inicia ni detiene la voz. Un texto sin saltos es una sola página y la vista queda como antes. | `page_starts[i]` es el primer carácter del primer párrafo de la página `i`; las páginas vacías se omiten; `toPlainText()[start:end] == spoken_text` sigue valiendo en todas las palabras de todas las páginas; un PDF escaneado de varias páginas conserva una por hoja; el indicador sigue al desplazamiento; la caché guarda `page_starts` y lee las antiguas. `tests/test_pages.py`; capturas `real/v3/paginas_*`. |
+| **UI-F07** | ReadingView / Config | **Modos de vista (2026-10-18).** "Continua" (todo el documento con scroll y separadores "Página N") y "Por páginas" (se ve solo la página actual). La elección se guarda en `AppConfig.reading_view_mode` (`"continuous"` por defecto; un valor desconocido vuelve a `continuous`) y se aplica al abrir. Cambiar de modo conserva la palabra actual a la vista. | Por defecto `continuous`; el modo elegido en la barra se guarda y se usa al iniciar; un `config.json` antiguo sin el campo carga; al cambiar de modo la palabra en curso (o la primera visible) sigue en pantalla; en "Por páginas", `PageDown` al final de una página pasa a la siguiente y un clic mueve el punto de inicio. `tests/test_pages.py`. |
 | **READ-F01** | ReadingView / DocumentLibrary | Recordar la posición de lectura por documento (índice de la última palabra leída, guardado junto a la caché de recientes). Al reabrir un documento dejado a medias se ofrece **"Seguir desde donde lo dejaste"** (o "Empezar de nuevo"). | Tras leer hasta la palabra N y volver a Inicio (o cerrar la app), `recents.json` guarda N; al reabrir aparece el aviso, "Seguir" deja el resaltado en N en pausa y "Empezar de nuevo" lo olvida. Un documento terminado no vuelve a ofrecerse. |
 | **READ-F02** | ReaderWidget | **Modo foco**: atenúa todas las líneas salvo la activa (botón alternable en la barra de lectura y atajo `F`), sin animaciones. Las líneas atenuadas conservan ≥ 7:1 de contraste. | Con el modo activo y una palabra en curso, dos `ExtraSelection` atenúan lo anterior y lo posterior a la línea visual activa y la palabra resaltada sigue siendo la última selección; sin palabra activa no se atenúa nada. |
 | **CFG-F01** | Config | Escritura atómica a disco para persistencia de configuraciones de usuario. | El archivo `config.json` no se corrompe ante terminaciones forzadas del proceso. |
-| **CFG-F02** | Settings View | Pantalla de Ajustes: **2 temas (Claro y Oscuro; Alto Contraste eliminado)**, **fuente de lectura (Lexend, Atkinson Hyperlegible u OpenDyslexic)**, tamaño de fuente, interlineado, espaciado entre letras y entre palabras (en em), sílabas de colores, velocidad de lectura y voz TTS, más el selector "Idioma de la interfaz" / "Interface language" (`es` o `en`, valor en `AppConfig.ui_language`). **Sin campo de API key** (la key vive solo en el backend). La URL del backend (`DEFAULT_BACKEND_URL`) sigue en `AppConfig.backend_url` pero **no se muestra en la interfaz** (decisión de la usuaria, 2026-10-07). | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app, **salvo el idioma, que se aplica al reiniciar** y muestra un aviso en el idioma nuevo que lo explica; no existe ningún campo para introducir una API key ni una URL. Un `config.json` antiguo con `"high_contrast"` abre en Claro. |
-| **I18N-F01** | Interfaz (`ui/strings.py`) | Soporte de idioma de interfaz español (`es`, por defecto) e inglés (`en`). Solo cambia la interfaz (botones, etiquetas, diálogos, progreso, errores, aviso de privacidad); el contenido de los documentos se sigue tratando como español (OCR latino, silabeo RAE, voz española). Todos los textos visibles viven en un catálogo con claves en inglés y traducciones `es`/`en`; las respuestas del asistente de IA salen en el idioma de la interfaz (`lang`, §4.10). | Todos los textos visibles salen del catálogo; con `en`, ninguna pantalla muestra texto en español salvo el contenido del documento. `tests/test_strings.py` lo verifica: toda clave tiene `es` y `en` no vacíos con los mismos `{parámetros}`, y no hay caracteres `áéíóúñ¿¡` en `src/` fuera de `strings.py`. |
-| **HOME-F01** | HomeView | Lista de documentos recientes con caché local del `FormattedDocument` ya procesado. | Reabrir un documento reciente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. |
-| **HOME-F02** | HomeView | Inicio tipo **panel**: tarjeta "Continuar leyendo" (último documento, barra de progreso y botón), zona de arrastre compacta, tarjetas de estadísticas (palabras leídas, tiempo de lectura y documentos, **calculadas y guardadas solo en el equipo**), documentos recientes como tarjetas con su progreso, y un estado vacío amable la primera vez. Nombres largos recortados con "…" y *tooltip*; botones "Abrir" que nunca se cortan; sin barra horizontal. | A 1024, 1100 y 1400 px no hay barra horizontal ni elementos fuera de vista; un nombre largo termina en "…" y conserva el nombre completo en el *tooltip*. Con cero documentos se ve la bienvenida; con documentos, el panel. `tests/test_redesign.py`; capturas en `docs/design-system/mockups/real/v2/`. |
+| **CFG-F02** | Settings View | Pantalla de Ajustes: **2 temas (Claro y Oscuro; Alto Contraste eliminado)**, **fuente de lectura (Lexend, Atkinson Hyperlegible u OpenDyslexic)**, tamaño de fuente, interlineado, espaciado entre letras y entre palabras (en em), sílabas de colores, velocidad de lectura y voz TTS, más el selector "Idioma de la interfaz" / "Interface language" (`es` o `en`, valor en `AppConfig.ui_language`). **Sin campo de API key** (la key vive solo en el backend). La URL del backend (`DEFAULT_BACKEND_URL`) sigue en `AppConfig.backend_url` pero **no se muestra en la interfaz** (decisión de la usuaria, 2026-10-07). | Cada control persiste en `AppConfig` y se refleja de inmediato en `ReadingView` sin reiniciar la app, **salvo el idioma, que pide reiniciar** (ver I18N-F01: diálogo de confirmación en el idioma nuevo y reinicio automático; **sustituye** al antiguo aviso «se aplica al reiniciar»); no existe ningún campo para introducir una API key ni una URL. Un `config.json` antiguo con `"high_contrast"` abre en Claro. |
+| **I18N-F01** | Interfaz (`ui/strings.py`) | Soporte de idioma de interfaz español (`es`, por defecto) e inglés (`en`). Solo cambia la interfaz (botones, etiquetas, diálogos, progreso, errores, aviso de privacidad); el contenido de los documentos se sigue tratando como español (OCR latino, silabeo RAE, voz española). Todos los textos visibles viven en un catálogo con claves en inglés y traducciones `es`/`en`; las respuestas del asistente de IA salen en el idioma de la interfaz (`lang`, §4.10). **Cambio de idioma (2026-10-18; sustituye a «se aplica al reiniciar, con aviso»):** al elegir otro idioma en Ajustes sale un diálogo en el idioma nuevo con los botones «Reiniciar ahora» / «Cancelar»; «Cancelar» devuelve el selector al idioma anterior sin guardar y «Reiniciar ahora» guarda el idioma, cierra la ventana y la app **se vuelve a lanzar sola** (`core/restart.py`, `QProcess.startDetached`; el `.exe` se relanza a sí mismo y desde el código se relanza `python -m clearread`). | Todos los textos visibles salen del catálogo; con `en`, ninguna pantalla muestra texto en español salvo el contenido del documento. `tests/test_strings.py` lo verifica: toda clave tiene `es` y `en` no vacíos con los mismos `{parámetros}`, y no hay caracteres `áéíóúñ¿¡` en `src/` fuera de `strings.py`. `tests/test_settings.py` comprueba el diálogo, la cancelación y el guardado; `tests/test_restart.py` comprueba el comando de relanzamiento (compilado y desde el código). **El relanzamiento real del `.exe` compilado no se ha probado** (§8). |
+| **HOME-F01** | HomeView / DocumentLibrary | Biblioteca de documentos con caché local del `FormattedDocument` ya procesado. **Cambios del 2026-10-18:** el tope pasa de 10 a **200 documentos** (`MAX_DOCUMENTS`; al superarlo se descarta el abierto hace más tiempo); una entrada **sobrevive** a una caché ausente o hecha por otra versión del formateador y se **reprocesa desde el archivo original**; las entradas se identifican por `doc_id` (clave de contenido sin la versión del formateador), de modo que carpeta y posición se conservan al reprocesar; si el original ya no existe, un diálogo ofrece quitar la entrada. | Reabrir un documento de la biblioteca con caché vigente evita reprocesar OCR/formateo; carga desde caché en $< 500\text{ ms}$ *(estimación a medir)*. Con la caché ausente u obsoleta la entrada sigue listada y se reprocesa; con el original ausente aparece el aviso y la entrada solo se quita si la usuaria acepta. Quitar un documento borra su caché y **nunca** el original. `tests/test_document_library.py`, `tests/test_library_folders.py`. |
+| **HOME-F02** | HomeView | Inicio tipo **panel**: tarjeta "Continuar leyendo" (último documento, barra de progreso y botón), zona de arrastre compacta, tarjetas de estadísticas (palabras leídas, tiempo de lectura y documentos, **calculadas y guardadas solo en el equipo**), la sección **"Mi biblioteca"** (documentos como tarjetas con su progreso; reemplaza a «Recientes», ver HOME-F04), y un estado vacío amable la primera vez. Nombres largos recortados con "…" y *tooltip*; botones "Abrir" que nunca se cortan; sin barra horizontal. | A 1024, 1100 y 1400 px no hay barra horizontal ni elementos fuera de vista; un nombre largo termina en "…" y conserva el nombre completo en el *tooltip*. Con cero documentos se ve la bienvenida; con documentos, el panel. `tests/test_redesign.py`; capturas en `docs/design-system/mockups/real/v2/` (v2) y `real/v3/` (con la biblioteca). La clave `home.title` se eliminó de `strings.py` el 2026-10-18. |
 | **HOME-F03** | HomeView / MainWindow | "Probar con un ejemplo": abre `resources/samples/ejemplo_es.txt`, un texto propio en español (≈ 165 palabras, sin datos personales ni copyright), sin pasar por el OCR; queda en recientes como "Ejemplo: la fotosíntesis". | Un clic abre la lectura con el texto del ejemplo y lo añade a recientes; el archivo no contiene correos ni direcciones. `tests/test_redesign.py`. |
+| **HOME-F04** | HomeView / MainWindow / DocumentLibrary | **Biblioteca con carpetas (2026-10-18).** "Mi biblioteca" en Inicio: fichas de carpeta (*chips*) con contador, "Todos" y "Sin carpeta"; crear, renombrar y borrar carpetas (nombre sin espacios sobrantes, ≤ 40 caracteres, sin vacíos ni duplicados ignorando mayúsculas y tildes, hasta 50; guardadas en `folders.json` con id estable por carpeta); mover un documento a otra carpeta desde el menú de su tarjeta; quitar un documento con confirmación; búsqueda por nombre sin distinguir mayúsculas ni tildes que se combina con la carpeta elegida; un documento nuevo entra en la carpeta seleccionada y uno ya existente conserva la suya; al borrar una carpeta sus documentos pasan a "Sin carpeta" (no se borra ninguno). | Con carpetas y documentos, los *chips* cuentan y filtran las tarjetas; buscar sin tildes encuentra el nombre con tildes; una carpeta vacía lo dice; un nombre vacío o repetido mantiene el diálogo abierto con un mensaje; cancelar el borrado no cambia nada; no hay barra horizontal con muchas carpetas de nombre largo. `tests/test_groups.py`, `tests/test_library_folders.py`, `tests/test_document_library.py`; capturas `docs/design-system/mockups/real/v3/biblioteca_*`. *(Límite conocido: la primera carpeta solo puede crearse después del primer documento, §8.)* |
 | **AI-F01** | AI Assistant | `explain_word(word, context_sentence)` explica el significado de una palabra vía `POST /v1/explain` de nuestro backend (§4.11). | Respuesta en el idioma de la interfaz, ≤ 80 tokens (máx. 2 frases); solo disponible con conexión; la app no contiene API key. |
 | **AI-F02** | AI Assistant | `simplify_paragraph(text)` reescribe un párrafo en lenguaje más simple vía `POST /v1/simplify` de nuestro backend. | Respuesta en el idioma de la interfaz, ≤ 250 tokens (máx. 4 frases); opera solo sobre el texto seleccionado por el usuario (≤ 1500 caracteres). |
 | **AI-F03** | AI Assistant | Degradación sin red (detectada sin tráfico mediante `QNetworkInformation`, Qt ≥ 6.1) y con el backend dormido (`GET /health` + espera de hasta 60 s). | Sin red, el botón de IA aparece deshabilitado (o, si `QNetworkInformation` no está disponible, el primer fallo real se informa con un mensaje amable). Con el backend dormido, la UI muestra "Despertando el asistente…" y, si no despierta en 60 s, un mensaje amable (`SERVER_WAKING`). |
 | **AI-F04** | AI Assistant | Las llamadas a `BackendAIClient` corren en un `QRunnable` del `QThreadPool` dedicado (`maxThreadCount=1`); la UI solo recibe resultados por señales Qt. | Inspección de código (skill `offline-audit`): ningún módulo de `ui/` importa `httpx` ni llama directamente a `explain_word`/`simplify_paragraph`. |
-| **AI-F05** | Mis palabras | Glosario **local** con las palabras que el asistente explicó (palabra, explicación, documento y fecha), accesible desde Inicio y desde Lectura: búsqueda simple (sin distinguir mayúsculas ni tildes), botón "Escuchar" (voz SAPI5, sin mover la lectura) y "Borrar". **No hace llamadas nuevas a la IA**: guarda la explicación ya mostrada. | Explicar una palabra la añade a `glossary.json` (una palabra repetida conserva solo su última explicación; máximo 500); simplificar un párrafo no guarda nada; la búsqueda "celula" encuentra "célula". `tests/test_redesign.py`. |
+| **AI-F05** | Mis palabras | Glosario **local** con las palabras que el asistente explicó (palabra, explicación, documento y fecha), accesible desde Inicio y desde Lectura: búsqueda simple (sin distinguir mayúsculas ni tildes), botón "Escuchar" (voz SAPI5, sin mover la lectura) y "Borrar", **que desde el 2026-10-18 pide confirmación**. Los **temas** del glosario son AI-F06. **No hace llamadas nuevas a la IA**: guarda la explicación ya mostrada. | Explicar una palabra la añade a `glossary.json` (una palabra repetida conserva solo su última explicación; máximo 500); simplificar un párrafo no guarda nada; la búsqueda "celula" encuentra "célula". `tests/test_redesign.py`. |
+| **AI-F06** | Mis palabras | **Temas del glosario (2026-10-18).** Cada palabra guardada tiene un `topic` (id de tema o vacío). Fichas de tema con contador ("Todas", "Sin tema" y los creados); crear/renombrar/borrar temas (mismas reglas de nombre que las carpetas; guardados en `topics.json`); cambiar el tema de una palabra desde el menú de su tarjeta; filtro por tema combinado con la búsqueda sin tildes. Al explicar una palabra, su tema por defecto es el del mismo nombre que la **carpeta del documento abierto**, si existe; si no, "Sin tema". Una palabra repetida conserva el tema que ya tenía. Borrar un tema devuelve sus palabras a "Sin tema". **No añade llamadas a la IA.** | Un `glossary.json` antiguo sin `topic` sigue cargando; el filtro por tema más la búsqueda "celula" encuentra "célula"; una palabra de un tema borrado se muestra como "Sin tema"; explicar una palabra en un documento de la carpeta "Biología" le asigna el tema "Biología" si existe. `tests/test_glossary_topics.py`, `tests/test_groups.py`; capturas `real/v3/mis_palabras_*`. |
 | **BE-F01** | Backend | Endpoints `POST /v1/explain`, `POST /v1/simplify`, `GET /health` y `/docs` automático (§4.11). | Tests con `TestClient` (DeepSeek simulado) en verde; en el despliegue, `/health` → 200, `/docs` accesible y una petición real a `/v1/explain` responde en español. |
 | **BE-F02** | Backend | Token de cliente, límites de tamaño y tope global diario de llamadas a DeepSeek. | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres → 413; superar `DAILY_CALL_LIMIT` → 429; sin `X-Client-Token` válido → 401. Verificado por tests y por la checklist de `deploy-backend`. |
 | **BE-F03** | Backend | Sin logs de textos: el backend nunca registra los textos recibidos ni las respuestas de DeepSeek. | Test con `caplog` sin el texto de entrada en los logs; revisión de los logs de Render tras una petición real. |
@@ -1882,7 +1946,7 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 |:---|:---|:---|:---|
 | **NFR-MEM01** | Consumo RAM | Meta de diseño estimada: Residencia $\le 450\text{ MB}$ procesando un PDF estándar de 100 páginas a 300 DPI. | Medición de `WorkingSet` en Windows Resource Monitor durante el procesamiento en streaming. |
 | **NFR-LAT01** | Latencia Ingesta | Meta estimada: Renderizado de página $\le 1.2\text{ s}$ en Intel Core i5-8250U / 8GB RAM (o equivalente). | Benchmark interno mediante `time.perf_counter()` en pruebas de carga controlada. |
-| **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en texto, y $\ge 3.0:1$ en componentes, en los **dos temas visuales (Claro y Oscuro)**; todo color es el morado `#392F5A`, el amarillo `#F4D06F` o un tono derivado de ellos. | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa (`tests/test_theme.py`, que también recorre `theme.py` y falla ante un hex fuera de la paleta). *(Tokens y ratios medidos en `docs/design-system/README.md` §1.1–§1.3.)* |
+| **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en texto, y $\ge 3.0:1$ en componentes, en los **dos temas visuales (Claro y Oscuro)**; todo color es el morado `#392F5A`, el amarillo `#F4D06F` o un tono derivado de ellos. | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa (`tests/test_theme.py`, que también recorre `theme.py` y falla ante un hex fuera de la paleta). *(Tokens y ratios medidos en el Anexo A, A.1.1–A.1.3.)* |
 | **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
 | **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. **Día 3, fichas reales densas (A4, 300 DPI, 15 páginas):** media ~7 s por página (4.3–12.8 s); la meta de 2.5 s solo vale para páginas con poco texto. |
@@ -2144,6 +2208,8 @@ gantt
     D12 Rediseño (2 colores, Lexend, Inicio panel, foco)  :d12, after d11, 1d
     D13 .exe final con clearread.spec                     :d13, after d12, 1d
     D14 Máquina limpia (sin red y con red) + Video        :crit, d14, after d13, 1d
+    section Posterior a la entrega
+    P1 Voz estricta, idioma, páginas, biblioteca, temas   :p1, 2026-10-18, 1d
 ```
 
 | Día | Fecha | Entregables Principales |
@@ -2155,13 +2221,14 @@ gantt
 | **D5** | 2026-10-06 | Catálogo de textos `ui/strings.py` (es/en, I18N-F01) **antes de la primera pantalla**; `TTSController` (SAPI5/QThread STA) y `ReadingView` con resaltado bimodal. Validar con OpenDyslexic real y una captura que la alternancia de sílabas morado/marrón (`#392F5A`/`#703800`, tema Claro) se distingue; si no, plan B: separación visual entre sílabas mediante espaciado (sin insertar caracteres, para no alterar el `TokenPositionMap`). |
 | **D6** | 2026-10-07 | `HomeView`: drag-and-drop, cancelar procesamiento, documentos recientes con caché local del `FormattedDocument` (HOME-F01). |
 | **D7** | 2026-10-08 | Pantalla de Ajustes: 3 temas, tamaño de fuente, interlineado, espaciado, velocidad de lectura, voz, **selector de idioma de la interfaz (se aplica al reiniciar, con aviso)**; "Ajustes avanzados" con la URL del backend (CFG-F02; **retirados de la interfaz en el Día 12**, el valor sigue en `AppConfig`); `AppConfig` atómico. |
-| **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02); atajos de teclado (UI-F03). |
+| **D8** | 2026-10-09 | Interacción de lectura: clic en palabra inicia lectura desde ese token (UI-F02; **sustituido el 2026-10-18**, ver P1); atajos de teclado (UI-F03). |
 | **D9** | 2026-10-10 | Backend en local (`backend/`, §4.11): endpoints, límites, tope diario, caché, sin logs de textos; tests con `TestClient` y DeepSeek simulado (BE-F01–BE-F03). |
 | **D10** | 2026-10-11 | Despliegue en Render (§6.6, lo ejecuta o autoriza la usuaria) con la checklist de `deploy-backend`; medición del arranque en frío (BE-NF01); `BackendAIClient` en la app con la URL real en `core/config.py`. |
 | **D11** | 2026-10-12 | Panel de IA: clic derecho sobre una palabra o párrafo → explicar / simplificar, aviso "Despertando el asistente…" y aviso de privacidad (AI-F01–AI-F04). |
 | **D12** | 2026-10-13 | **Rediseño** (pedido por la usuaria): design system v2 (dos colores de marca, solo Claro y Oscuro, Lexend por defecto, espaciado moderado), Inicio tipo panel (HOME-F02), ejemplo incluido (HOME-F03), posición de lectura (READ-F01), modo foco (READ-F02), "Mis palabras" (AI-F05), tipografía (UI-F04), tema y foco de teclado (UI-F05); sin Alto Contraste ni "Ajustes avanzados" en la interfaz. Capturas reales en `docs/design-system/mockups/real/v2/`. |
 | **D13** | 2026-10-14 | Compilación `.exe` con `clearread.spec` (con `resources/samples/`, las fuentes nuevas y los iconos); verificación de `dist/` (skill `package-exe`); `.zip` en GitHub Releases (§6.6). |
 | **D14** | 2026-10-15 | Prueba en máquina limpia sin Python **sin red** (NFR-OFF01) y **con red contra el backend desplegado**; video de entrega; buffer de contingencia. |
+| **P1** | 2026-10-18 | **Cambio posterior al cronograma, pedido por la usuaria** (no reescribe los días anteriores): control estricto de la voz (UI-F02, sustituye al Día 8), reinicio automático al cambiar de idioma (I18N-F01), páginas y modos de vista (UI-F06, UI-F07, amplía UI-F03), biblioteca con carpetas (HOME-F04) y temas del glosario (AI-F06); revisión de código y refactor (§4.13). Resultado: tests en verde y capturas reales en `docs/design-system/mockups/real/v3/`. **Queda por rehacer** la compilación del `.exe` (D13) y la prueba en máquina limpia (D14), porque lo hecho en ellas no incluye estos módulos (§8). |
 
 > [!NOTE]
 > **Si da tiempo (stretch, fuera del compromiso base):** exportar el documento procesado a TXT/PDF, modo foco (oscurece todas las líneas excepto la activa, sin ocultar los controles), recordar la posición de lectura entre sesiones.
@@ -2197,9 +2264,56 @@ Pasos tomados de la documentación oficial de Render, **consultada el 2026-10-01
 | Variables de entorno | `PYTHON_VERSION=3.11.9` (versión completa, igual a la local; Render la exige completa con esta variable), `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_BASE_URL`, `CLIENT_TOKEN`, `DAILY_CALL_LIMIT` |
 | Health Check Path | `/health` |
 
-Estos ajustes están también en el *Blueprint* `render.yaml` de la raíz del repositorio (variables secretas con `sync: false`, sin valores), verificado contra https://render.com/docs/blueprint-spec el 2026-10-07. La guía paso a paso para la usuaria es `docs/deploy.md`.
+Estos ajustes están también en el *Blueprint* `render.yaml` de la raíz del repositorio (variables secretas con `sync: false`, sin valores), verificado contra https://render.com/docs/blueprint-spec el 2026-10-07. La guía paso a paso para la usuaria está más abajo.
 
 La URL resultante (`https://<servicio>.onrender.com`) reemplaza el *placeholder* `DEFAULT_BACKEND_URL` de `core/config.py` (§4.6). El despliegue y la introducción de la API key los ejecuta o autoriza la usuaria.
+
+#### Guía paso a paso para la usuaria (primera vez en Render)
+Fuentes oficiales de Render consultadas el **2026-10-07**: https://render.com/docs/blueprint-spec, https://render.com/docs/python-version, https://render.com/docs/free, https://render.com/docs/health-checks. Hace falta una cuenta en https://render.com (sirve la de GitHub) y el archivo `backend/.env` con `DEEPSEEK_API_KEY` y `CLIENT_TOKEN` ya escritos.
+
+> **Importante:** nunca subas `backend/.env` a GitHub ni pegues la clave de DeepSeek en un chat o en un archivo del repositorio.
+
+1. **Subir el repositorio a GitHub.** El remoto `origin` ya existe (`SoFzzz/ClearRead`). En PowerShell, dentro de la carpeta del proyecto:
+
+   ```powershell
+   git check-ignore backend/.env
+   git status --short
+   git add render.yaml backend src tests document.md
+   git commit -m "chore: deploy files"
+   git push origin main
+   ```
+
+   La primera orden debe imprimir `backend/.env` (confirma que git lo ignora); si no imprime nada, **parar** y avisar. Ajusta la lista de `git add` a lo que quieras subir; lo importante es que `backend/.env` no aparezca en `git status`.
+2. **Crear el servicio.** Lo más fácil es el *Blueprint* `render.yaml` del repositorio: en https://dashboard.render.com pulsa **New +** → **Blueprint**; si lo pide, **Connect GitHub** y autoriza a Render a leer `ClearRead`; elige el repositorio y la rama `main` (Render muestra el servicio **clearread-api**, plan **Free**); completa las variables secretas del paso 3 y pulsa **Apply** o **Deploy Blueprint**. A mano: **New +** → **Web Service** → el repositorio, con los ajustes de la tabla de arriba (Language Python 3, Root Directory `backend`, Build Command `pip install .`, Start Command `uvicorn clearread_backend.main:app --host 0.0.0.0 --port $PORT`, Instance Type Free, Health Check Path `/health` en Settings).
+3. **Cargar las variables de entorno** en el panel de Render (con el Blueprint, en los campos que muestra al crearlo; a mano, servicio → **Environment** → **Add Environment Variable**). Nunca en el repositorio y sin espacios ni comillas alrededor de los valores:
+
+   | Variable | Qué poner |
+   |:---|:---|
+   | `DEEPSEEK_API_KEY` | Lo que va después del `=` en la línea `DEEPSEEK_API_KEY=` de `backend/.env` |
+   | `CLIENT_TOKEN` | Lo que va después del `=` en la línea `CLIENT_TOKEN=` de `backend/.env` |
+   | `DEEPSEEK_MODEL` | `deepseek-flash` |
+   | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` |
+   | `DAILY_CALL_LIMIT` | `45` |
+   | `PYTHON_VERSION` | `3.11.9` (el Blueprint ya la trae; si creas el servicio a mano, agrégala) |
+
+   Guarda también el `CLIENT_TOKEN` en tu computadora: la app lo lee de la variable de entorno `CLEARREAD_CLIENT_TOKEN` (desarrollo) o del archivo que genera el build del `.exe`.
+4. **Obtener la URL pública.** Espera a que el estado diga **Live** (la primera vez tarda unos minutos; el avance está en **Logs**). La dirección aparece bajo el nombre del servicio (`https://clearread-api-xxxx.onrender.com`). Comprueba `https://<tu-url>/health` en el navegador (debe mostrar `{"status":"ok"}`) y, si quieres, `https://<tu-url>/docs`. Pasa la URL a Claude para fijar `DEFAULT_BACKEND_URL` (`src/clearread/core/config.py`) y hacer la prueba real contra Render (Día 10).
+
+**Plan gratuito:** si nadie lo usa durante 15 minutos, Render *duerme* el servicio y tarda alrededor de 1 minuto en despertar con la siguiente petición; por eso la app muestra «Despertando el asistente…». El contador diario y la caché viven en memoria y se borran cuando el servicio duerme; el límite de gasto real es el saldo prepagado de DeepSeek.
+
+**Si el build falla.** Abre el servicio → **Events** (qué falló) y **Logs** (el texto del error):
+
+| Síntoma en los logs | Qué hacer |
+|:---|:---|
+| `No such file or directory: 'backend'` o no encuentra `pyproject.toml` | **Root Directory** debe ser exactamente `backend` (sin barra inicial). |
+| `Could not find a version that satisfies the requirement` o errores de compilación de paquetes | Comprueba que `PYTHON_VERSION` sea `3.11.9`. Con la versión por defecto de Render (más nueva) algunos paquetes no tienen instalador. |
+| `ModuleNotFoundError: clearread_backend` al arrancar | El *Build Command* debe ser `pip install .` y el *Start Command* debe empezar con `uvicorn clearread_backend.main:app`. |
+| `Port scan timeout` o el deploy no pasa a *Live* | El *Start Command* debe incluir `--host 0.0.0.0 --port $PORT`. |
+| El health check falla | **Health Check Path** debe ser `/health` y responder en menos de 5 s. |
+| Todas las peticiones de la app dan error 401 | `CLIENT_TOKEN` en Render no coincide con el de `backend/.env` (revisa espacios o comillas). |
+| Respuestas 502 `upstream_auth_failed` / `upstream_no_balance` | `DEEPSEEK_API_KEY` incorrecta (401) o saldo de DeepSeek agotado (402). |
+
+Después de corregir un ajuste o una variable, pulsa **Manual Deploy** → **Deploy latest commit** (cambiar una variable de entorno también redespliega por sí solo). Si sigue fallando, copia las últimas líneas de **Logs** (sin claves) y pásaselas a Claude.
 
 #### Token del cliente en el `.exe`
 El token **no se versiona**. `load_client_token()` (`core/config.py`) lo busca en este orden: variable de entorno `CLEARREAD_CLIENT_TOKEN` (desarrollo) y el archivo `resources/client_token.local.json` (`{"client_token": "..."}`), que el build genera con ese mismo valor y que `*.local.json` mantiene fuera de git. `clearread.spec` debe incluirlo como dato (lo define el *packager* en el Día 12). Quien tenga el `.exe` puede extraer el token (§4.11, límite honesto).
@@ -2209,6 +2323,87 @@ El token **no se versiona**. `load_client_token()` (`core/config.py`) lo busca e
 2. Comprimir la carpeta completa `dist\ClearRead\` en `ClearRead-v1.5.0-win64.zip` (no solo el `.exe`).
 3. Publicar el `.zip` como *asset* de una GitHub Release etiquetada `v1.5.0`, con notas que indiquen: requisitos (Windows 10/11 x64), que la IA necesita internet y que el primer uso puede tardar ~1 min por el arranque en frío del backend.
 4. La release la crea la usuaria (implica `git tag` y `push`).
+
+#### Publicación y prueba en máquina limpia
+El `.exe` se prueba primero en una **máquina limpia** (sin Python) y después se publica como *Release* en GitHub. La versión de la entrega prevista es `v1.5.0` (paso 2 de arriba); la guía original usaba `v1.0.0` y la versión definitiva la decide la usuaria, por eso los comandos usan `<versión>`.
+
+**0. Antes de compilar: el token del backend.** `clearread.spec` **se detiene con un mensaje claro** si no existe `resources/client_token.local.json`. Créalo (está ignorado por git) con el valor de `CLIENT_TOKEN` que pusiste en Render:
+
+```json
+{"client_token": "PEGA_AQUI_TU_CLIENT_TOKEN"}
+```
+
+Luego compila y empaqueta (PowerShell, en la carpeta del proyecto):
+
+```powershell
+.\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
+Compress-Archive -Path dist\ClearRead -DestinationPath dist\ClearRead-<versión>-win64.zip -Force
+(Get-FileHash dist\ClearRead-<versión>-win64.zip -Algorithm SHA256).Hash
+```
+
+Guarda el SHA256 que imprime: va en las notas del Release. Comprueba que el zip contiene la carpeta `ClearRead` completa, no solo el `.exe`.
+
+**1. Checklist en máquina limpia.** Anota antes: marca/modelo del equipo, versión de Windows y fecha.
+
+*Preparación*
+- [ ] `python --version` y `py --version` fallan (no hay Python).
+- [ ] Copia el `.zip` al equipo y extráelo entero.
+- [ ] WiFi y Ethernet desactivados (o modo avión).
+
+*Sin red*
+- [ ] Al abrir `ClearRead.exe` aparece la ventana, con el icono correcto en la barra de tareas. Anota el tiempo con cronómetro.
+- [ ] "Probar con un ejemplo" abre el texto de ejemplo.
+- [ ] Una ficha privada en PDF digital se abre al instante (sin OCR).
+- [ ] `sample_page_scanned.pdf` (escaneado) pasa por OCR y muestra texto.
+- [ ] Una **foto JPG girada** se muestra con el texto derecho.
+- [ ] Un **PDF con contraseña** muestra un mensaje claro y la app sigue abierta.
+- [ ] Reproducir: se oye la voz y se resalta cada palabra.
+- [ ] Pausar y reanudar continúa desde la palabra donde se pausó.
+- [ ] **Clic** en una palabra: no suena nada, la palabra queda marcada; **Reproducir** (o `Espacio`) empieza justo ahí. Con la voz sonando, un clic la detiene y mueve el punto de inicio.
+- [ ] **Doble clic** en una palabra: se selecciona y se abre el menú del asistente (sin red, el menú no lo ofrece) y no suena nada. Arrastrar el ratón selecciona texto sin cambiar el punto de inicio.
+- [ ] **Pausa** detiene la voz al instante y no se mueve el resaltado después.
+- [ ] Modo foco funciona.
+- [ ] Un PDF de varias páginas muestra la barra de páginas (Anterior / número / "de N" / Siguiente); `Re Pág`/`Av Pág`, `Ctrl`+`←`/`→` y `Ctrl`+`Inicio`/`Fin` funcionan; el indicador sigue al desplazamiento con la rueda.
+- [ ] "Continua" y "Por páginas" cambian la vista sin perder la palabra; con la voz sonando en "Por páginas", la página pasa sola; cerrar y abrir la app recuerda el modo.
+- [ ] `Ctrl`+`+`, `Ctrl`+`-` y `Ctrl`+`0` cambian el tamaño de la letra.
+- [ ] En Inicio: crear una carpeta (después del primer documento), moverle un documento desde el icono de la tarjeta, filtrar por la carpeta, buscar por nombre (con y sin tildes), renombrarla y borrarla (el documento sigue en "Sin carpeta").
+- [ ] Quitar un documento de la biblioteca pide confirmación; el archivo original sigue en su sitio. Mover o borrar el archivo original y reabrir la entrada muestra el aviso de archivo no encontrado.
+- [ ] Con un documento de una carpeta abierto, explicar una palabra (con red) y ver en "Mis palabras" el tema del mismo nombre que la carpeta (si existe); crear, renombrar y borrar un tema; cambiar el tema de una palabra; "Borrar" una palabra pide confirmación.
+- [ ] Cambiar de tema (Claro/Oscuro) y de fuente (Lexend, Atkinson, OpenDyslexic).
+- [ ] **Cambiar de idioma:** aparece el diálogo en el idioma nuevo; "Cancelar" deja el idioma anterior; "Reiniciar ahora" cierra la app y la **vuelve a abrir sola** en el idioma nuevo, sin dejar un proceso `ClearRead.exe` viejo en el Administrador de tareas. *(Este paso es obligatorio: el relanzamiento del `.exe` compilado nunca se ha probado.)*
+- [ ] El botón de IA aparece como "sin red" y no da errores; todo lo demás sigue funcionando.
+- [ ] En Inicio, el documento de la biblioteca muestra "Seguir desde donde lo dejaste" y vuelve a su posición.
+- [ ] Tras actualizar desde una versión anterior (si aplica), los documentos viejos siguen en la biblioteca y se vuelven a procesar desde su archivo original al abrirlos.
+
+*Con red*
+- [ ] Activa la red: el botón de IA se habilita.
+- [ ] Si el backend llevaba ≥ 15 min sin uso, aparece "Despertando el asistente…" y luego la respuesta. Anota el tiempo.
+- [ ] Explicar una palabra responde en español y la palabra aparece en "Mis palabras".
+- [ ] Repetir la misma palabra responde al instante (caché local).
+
+| Paso | OK / FALLO | Nota (qué pasó, tiempo medido) |
+|:---|:---:|:---|
+| | | |
+
+**2. Aviso de Windows SmartScreen.** Al abrir el `.exe` por primera vez Windows puede mostrar **"Windows protegió su PC"**. Pasa porque el `.exe` **no está firmado** con un certificado de pago; no significa que tenga un virus. Para abrirlo: pulsa **Más información** y luego **Ejecutar de todas formas**. Solo se pregunta la primera vez. Menciónalo en las notas del Release; cualquiera puede comprobar que el zip es el tuyo comparando el SHA256.
+
+**3. Crear el Release en GitHub.** Antes: haz tú el *commit* de los cambios y `git push origin main`.
+
+*Desde la web:*
+1. Abre https://github.com/SoFzzz/ClearRead/releases y pulsa **Draft a new release**.
+2. En **Choose a tag** escribe `<versión>` (p. ej. `v1.5.0`) y elige **Create new tag on publish**.
+3. Título: `ClearRead <versión>`. En la descripción pon qué hace la app, el aviso de SmartScreen y el SHA256.
+4. Arrastra `dist\ClearRead-<versión>-win64.zip` a la zona **Attach binaries**.
+5. Pulsa **Publish release**.
+
+*Con `gh`:*
+
+```powershell
+gh auth status
+gh release create <versión> dist\ClearRead-<versión>-win64.zip --title "ClearRead <versión>" --notes "Windows 10/11 x64. Descomprime y abre ClearRead.exe. Si SmartScreen avisa: Más información, Ejecutar de todas formas (el .exe no está firmado). SHA256: PEGA_AQUI_EL_HASH"
+```
+
+Si `gh auth status` falla, ejecuta `gh auth login` primero.
 
 ---
 
@@ -2234,12 +2429,18 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 
 > **Renumeración del 2026-10-07:** el cronograma (§6.5) ahora es D12 = rediseño, D13 = `.exe` final y D14 = prueba en máquina limpia y video. Donde los puntos de abajo dicen "Día 12" para compilar o probar el `.exe`, léase **Día 13** (compilar) o **Día 14** (máquina limpia).
 
-- **Día 13 — `.exe` final en este equipo (2026-10-07), resultado parcial.** `clearread.spec` creado y compilado con `--clean --noconfirm` (compilación ~2 min 20 s con `time` de Bash en este equipo): `dist/ClearRead` pesa **321 MB** (`du`), con PySide6 92 MB, `cv2` 83 MB, `onnxruntime` 36 MB, `numpy.libs` 21 MB y `rapidocr_onnxruntime` 16 MB. Verificado en `dist/`: fuentes con licencias, modelos ONNX, iconos (incluidos `app.ico`, `qico`, `qsvg`, `networkinformation`), ejemplo, `upx=False`, sin `fastapi`/`uvicorn`/`DEEPSEEK_API_KEY`/`sk-…`; `offline-audit` sin fallos. La primera compilación falló al arrancar por falta de `silabeador/exceptions.lst`; se añadió al spec. El `.exe` abre la ventana de Inicio con el icono en el título (~7 s hasta tener ventana, medido con `Stopwatch`; la meta de < 2 s de §6.3 **no** se cumple en este equipo). **Esta compilación usó un token de relleno** porque la creación de `resources/client_token.local.json` desde `backend/.env` no se autorizó; por eso **no hay `.zip` ni SHA256 todavía** y no se probó la IA contra Render. No se probaron a mano (no hay control de la interfaz en esta sesión): ejemplo, OCR, voz, pausa, clic en palabra, modo foco, temas, fuente, idioma, "Mis palabras" y recientes. **Máquina limpia: pendiente (la hace la usuaria, `docs/release.md`).**
+- **Día 13 — `.exe` final en este equipo (2026-10-07), resultado parcial.** `clearread.spec` creado y compilado con `--clean --noconfirm` (compilación ~2 min 20 s con `time` de Bash en este equipo): `dist/ClearRead` pesa **321 MB** (`du`), con PySide6 92 MB, `cv2` 83 MB, `onnxruntime` 36 MB, `numpy.libs` 21 MB y `rapidocr_onnxruntime` 16 MB. Verificado en `dist/`: fuentes con licencias, modelos ONNX, iconos (incluidos `app.ico`, `qico`, `qsvg`, `networkinformation`), ejemplo, `upx=False`, sin `fastapi`/`uvicorn`/`DEEPSEEK_API_KEY`/`sk-…`; `offline-audit` sin fallos. La primera compilación falló al arrancar por falta de `silabeador/exceptions.lst`; se añadió al spec. El `.exe` abre la ventana de Inicio con el icono en el título (~7 s hasta tener ventana, medido con `Stopwatch`; la meta de < 2 s de §6.3 **no** se cumple en este equipo). **Esta compilación usó un token de relleno** porque la creación de `resources/client_token.local.json` desde `backend/.env` no se autorizó; por eso **no hay `.zip` ni SHA256 todavía** y no se probó la IA contra Render. No se probaron a mano (no hay control de la interfaz en esta sesión): ejemplo, OCR, voz, pausa, clic en palabra, modo foco, temas, fuente, idioma, "Mis palabras" y recientes. **Máquina limpia: pendiente (la hace la usuaria, §6.6 «Publicación y prueba en máquina limpia»).**
+- **Cambios del 2026-10-18 (§4.13), pendientes y límites.** Lo ejecutado: suite de la app 1338 passed, 1 skipped; backend 52 passed; capturas con la app real en pantalla virtual. **Sin hacer:**
+  - **Recompilar el `.exe`** con `clearread.spec` (los módulos nuevos de §4.13 no están en la compilación del Día 13) y **repetir la prueba en máquina limpia** (§6.6 «Publicación y prueba en máquina limpia»), incluidos los pasos manuales nuevos (clic/doble clic, páginas, biblioteca, temas, reinicio de idioma).
+  - **Relanzamiento real del `.exe`** al cambiar de idioma: `tests/test_restart.py` solo prueba el comando (`frozen` / desde el código). Falta comprobar que el `.exe` compilado se reabre solo, en el idioma nuevo, y que no queda un proceso viejo.
+  - **Pruebas físicas:** ratón real (clic, doble clic y arrastre para seleccionar), rueda de desplazamiento y teclado real; **escucha de la voz** con el comportamiento nuevo (Pausa inmediata, sin palabras tardías). Los tests usan un motor de voz simulado y las capturas, eventos sintéticos de Qt. `tests/manual/check_click_real.py` está escrito para la parte de voz y no se ejecutó con estos cambios.
+  - **Problemas abiertos conocidos:** (a) la primera carpeta solo se puede crear después del primer documento (con la biblioteca vacía no se muestran las fichas); (b) si el archivo original se edita, su contenido cambia y se crea una **entrada nueva** en lugar de actualizar la existente (la identidad es el hash del contenido); (c) el botón de Ajustes **"Borrar documentos recientes"** ahora borra **toda la biblioteca** (hasta 200 documentos con sus carpetas asignadas), no solo «recientes»: el texto del botón, del diálogo y del aviso (`settings.clear_*`, `settings.recents_cleared`) no se actualizó; hace falta decidir el texto o limitar qué borra; (d) el diálogo de borrado de carpeta y de tema no se probó con lectores de pantalla.
+  - **Documentación:** la guía de publicación (§6.6) usa `<versión>` como marcador porque la guía original hablaba de `v1.0.0` y §6.6 de `v1.5.0`; la versión de la entrega es decisión de la usuaria.
 - **Rediseño del Día 12 (2026-10-07), pendientes y límites:**
-  - **Fuentes sin validar con personas.** Lexend y Atkinson Hyperlegible se eligieron por forma, licencia y cobertura del español; **no verificamos ningún estudio revisado por pares sobre ellas**. Los valores de espaciado (+0,12 em, +0,16 em) son una decisión de la usuaria y son **más moderados** que los del estudio de Zorzi et al. 2012 (≈ +0,18 em). Evidencia verificada y correcciones sobre las citas del encargo en `docs/design-system/README.md` §1.4: el estudio de Kuster et al. 2018 es sobre la fuente **Dyslexie**, no sobre OpenDyslexic; y el de tamaño de letra (18 pt) es de Rello, Pielot y Marcos (CHI 2016).
+  - **Fuentes sin validar con personas.** Lexend y Atkinson Hyperlegible se eligieron por forma, licencia y cobertura del español; **no verificamos ningún estudio revisado por pares sobre ellas**. Los valores de espaciado (+0,12 em, +0,16 em) son una decisión de la usuaria y son **más moderados** que los del estudio de Zorzi et al. 2012 (≈ +0,18 em). Evidencia verificada y correcciones sobre las citas del encargo en el Anexo A, A.1.4: el estudio de Kuster et al. 2018 es sobre la fuente **Dyslexie**, no sobre OpenDyslexic; y el de tamaño de letra (18 pt) es de Rello, Pielot y Marcos (CHI 2016).
   - **Modo foco discreto.** Las líneas atenuadas deben cumplir 7:1, así que el contraste solo baja de 10,12:1 a 7,35:1 (Claro) y de 9,16:1 a 7,36:1 (Oscuro). Si la usuaria quiere un atenuado más fuerte, hay que aceptar una excepción al 7:1 para esas líneas.
   - **Estadísticas.** "Palabras leídas" cuenta las palabras que dice la voz; leer sin voz no suma. Las cifras de las capturas del Inicio son valores ilustrativos.
-  - **UI-F03 incompleto:** `F6` (foco entre lector y panel de IA) y `Ctrl++`/`Ctrl+−` siguen sin implementar; el orden de Tab no se fijó con `setTabOrder`.
+  - **UI-F03 incompleto:** `F6` (foco entre lector y panel de IA) sigue sin implementar y el orden de Tab no se fijó con `setTabOrder` (`grep` en `src/`, 2026-10-18). ~~`Ctrl++`/`Ctrl+−`~~ **implementados el 2026-10-18** (más `Ctrl+0`, ver UI-F03).
   - **Sin probar:** escalado de Windows al 150 %, Narrador, "Mostrar animaciones en Windows" y lectores con dislexia.
   - **`clearread.spec` (Día 13)** debe incluir `resources/samples/`, las dos fuentes nuevas y los iconos nuevos (`focus.svg`, `words.svg`, etc.).
   - **Mockups v1** de `docs/design-system/mockups/` obsoletos (3 temas, turquesa y naranja); se conservan solo como historial.
@@ -2251,7 +2452,7 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
   - ~~Existencia real del atributo `pypdfium2.PdfPasswordError` en la versión de `pypdfium2` fijada en §2.2.~~ **RESUELTO (Día 1): no existe** en pypdfium2 5.13.0; se usa `PdfiumError` con `err_code == 4` (§4.1).
   - ~~Desfase del `TokenPositionMap` cuando el HTML colapsa espacios múltiples.~~ **RESUELTO (Día 4):** el texto se normaliza (espacios y saltos de línea colapsados) antes de calcular posiciones y un test con `QTextDocument` real verifica `toPlainText()[start:end] == spoken_text` en el 100 % de los tokens, incluidas las 5 fichas reales (§4.4).
   - ~~Validez del `.spec` de §6.3 con PyInstaller ≥ 6 y que se recoja la DLL de pdfium.~~ **RESUELTO (Día 1):** `.spec` validado con PyInstaller 6.22.3; cambios en la nota de §6.3 (incluido el reemplazo obligatorio del runtime de VC++). El hook de PyInstaller recoge `pdfium.dll`.
-  - Iconos SVG recoloreados por tema (`docs/design-system/README.md` §1.7): `clearread.spec` debe incluir el módulo `QtSvg` y el plugin `imageformats/qsvg` de Qt; verificarlo en `dist/` (skill `package-exe`, Día 12).
+  - Iconos SVG recoloreados por tema (Anexo A, A.1.7): `clearread.spec` debe incluir el módulo `QtSvg` y el plugin `imageformats/qsvg` de Qt; verificarlo en `dist/` (skill `package-exe`, Día 12).
   - `QNetworkInformation` (AI-F03) requiere el plugin de backend de *reachability* de Windows de Qt; verificar que `clearread.spec` y PyInstaller lo incluyen en el `.exe` (Día 12). Si falta o no se detecta en tiempo de ejecución, debe aplicarse el mismo comportamiento de *fallback* de AI-F03 (botón habilitado, error informado en el primer fallo real).
 - **Condiciones del hosting:** las de Render Free se consultaron el 2026-10-01 (§2.2) y pueden cambiar; revisarlas de nuevo antes del despliegue (Día 10) y de la entrega. **El Plan B (Hugging Face Spaces) no es gratuito** para un backend FastAPI a esa fecha (Docker/Gradio requieren plan de pago): falta decidir un Plan B gratuito o aceptar el costo.
 - ~~**Medir el arranque en frío (BE-NF01).**~~ **MEDIDO UNA VEZ (Día 11, 2026-10-07).** Con `tests/manual/run_real_ai_panel.py` (`time.perf_counter()`, equipo de desarrollo de la usuaria, Windows 10, red doméstica), la primera petición tras un periodo sin tráfico tardó **38,40 s** hasta la respuesta, y el aviso "Despertando el asistente…" apareció a los **7,07 s** (el sondeo de `/health` dura como máximo 5 s). Una segunda ejecución, con el servicio ya despierto, respondió en 3,50 s y no mostró el aviso. Es **una sola medición de arranque en frío**, no un promedio; la "hipótesis de §4.10" (el servicio dormido retiene la petición a `/health` y se manifiesta como *timeout*, no como error de conexión) **se confirma**: el cliente no devolvió `NO_NETWORK` y entró en la espera.
@@ -2262,3 +2463,697 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 - **Inyección del token en el build final:** `clearread.spec` debe incluir `resources/client_token.local.json`, generado en el build (§6.6); lo define el *packager* en el Día 12.
 - **Máquina limpia de prueba:** aún no se definió qué equipo (marca/modelo, versión de Windows) se usará para la prueba sin Python, sin red y con red del Día 12.
 - **Python 3.11 en el equipo de desarrollo:** a 2026-10-01 solo hay Python 3.13 instalado (`py -3.11` falla); hay que instalar Python 3.11 x64 antes del Día 1.
+
+
+---
+
+## Anexo A. Design system
+
+> **Versión:** 2.1 (v2.0 del rediseño del Día 12 de §6.5, más las adiciones del 2026-10-18 de §4.13) · **Fecha:** 2026-10-18. Este anexo reúne el antiguo documento de design system, que se fusionó aquí; las capturas siguen en [`docs/design-system/mockups/`](docs/design-system/mockups/).
+> **Estado:** decisiones de la usuaria (2026-10-07) ya aplicadas en el código. La versión 1.0 (Día 2) queda sustituida; sus mockups v1 (`docs/design-system/mockups/*.png`, 3 temas, turquesa y naranja) **no representan** la app actual.
+> **Adiciones del 2026-10-18 (§4.13):** chip de carpeta/tema ([A.2.10](#a210-chip-de-carpeta-o-tema)), cabecera de la biblioteca ([A.4.9](#a49-biblioteca-en-inicio-home-f04)), botones de las tarjetas de carpeta y tema ([A.3.4](#a34-tarjeta-de-documento-de-la-biblioteca) y [A.3.9](#a39-tarjeta-de-palabra-ai-f05)), barra de páginas y modos de vista ([A.4.10](#a410-barra-de-páginas-y-modos-de-vista-ui-f06-ui-f07)). **No se añadió ningún color ni token:** todo usa los tokens existentes de [A.1.2](#a12-tokens-semánticos-por-tema). Capturas reales: [`docs/design-system/mockups/real/v3/`](docs/design-system/mockups/real/v3/) (ver [A.6](#a6-páginas)); las de v2 en [`docs/design-system/mockups/real/v2/`](docs/design-system/mockups/real/v2/).
+
+Este anexo traduce los requisitos de este documento a un sistema visual implementable con widgets y QSS de PySide6. Sigue el **diseño atómico**: fundamentos (tokens) → átomos → moléculas → organismos → plantillas → páginas. Secciones: A.0 principios, A.1 fundamentos (paleta, tokens, contraste, tipografía, espaciado, radios, iconos, movimiento), A.2 átomos, A.3 moléculas, A.4 organismos, A.5 plantillas, A.6 páginas (capturas), A.7 navegación y atajos, A.8 accesibilidad, A.9 voz y tono, A.10 traspaso a Qt, A.11 decisiones y pendientes.
+
+### A.0 Principios para dislexia
+
+| # | Principio | Cómo se aplica en ClearRead |
+|:--|:--|:--|
+| P1 | **Sin cursivas** | Ningún estilo usa `font-style: italic`, ni en la interfaz ni en el lector. |
+| P2 | **Sin texto justificado** | Todo el texto se alinea a la izquierda. El justificado crea "ríos" de espacio que rompen el seguimiento de la línea. |
+| P3 | **Líneas de ≤ 70 caracteres** | La columna de lectura mide como máximo 820 px con 40 px de margen interior (740 px útiles). Con Lexend a 18 pt salen 40–45 caracteres por línea (ver [A.1.4](#a14-tipografía)). Los textos de la interfaz (diálogos, panel de IA) tienen ancho máximo de 520 px. |
+| P4 | **Espaciado moderado y ajustable** | Por defecto, letra +0,12 em, palabra +0,16 em, interlineado 1,5 y 18 pt (decisión de la usuaria, [A.1.4](#a14-tipografía)). Nada de espaciados extremos; los deslizadores de Ajustes permiten cambiarlo. 14 px entre párrafos. |
+| P5 | **Sin mayúsculas sostenidas** | Ningún botón, título ni etiqueta va en MAYÚSCULAS: "Elegir archivo", no "ELEGIR ARCHIVO". |
+| P6 | **Baja carga cognitiva** | Una acción principal por zona (un solo botón amarillo), pocas opciones, textos cortos, sin jerga y sin animaciones que distraigan. |
+| P7 | **Nunca solo color** | Todo estado tiene una segunda señal: forma, borde, icono, grosor o texto. Con solo dos colores de marca esto es obligatorio, no una mejora. |
+| P8 | **Fondos suaves** | Ningún tema usa blanco ni negro puros. El Claro es lavanda; el Oscuro es el morado de marca. |
+
+
+### A.1 Fundamentos (tokens)
+
+#### A.1.1 Paleta: dos colores de marca y sus tonos
+
+**Decisión de la usuaria (2026-10-07):** la app tiene **solo dos colores de marca**, el morado `#392F5A` (principal) y el amarillo `#F4D06F` (secundario). Se permiten únicamente **tonos más claros u oscuros derivados de ellos**: nada de turquesa, naranja, marrón, azul ni crema. El error y el éxito se distinguen con **icono + texto**, nunca con otro color.
+
+Todo tono derivado conserva el matiz de su color de origen (morado ≈ 254°, amarillo ≈ 44°); solo cambian la luminosidad y la saturación. Se eligieron a ojo y se comprobaron con `contrast.py` y con el test de matiz de `tests/test_theme.py`.
+
+| Hex | Origen | Matiz / Sat. / Luz. | Dónde se usa |
+|:--|:--|:--|:--|
+| `#392F5A` | **Morado (marca)** | 254° / 31 % / 27 % | Texto del Claro; fondo del Oscuro; fondo de la palabra que suena (Claro); texto sobre amarillo |
+| `#F4D06F` | **Amarillo (marca)** | 44° / 86 % / 70 % | Botones primarios, barras de progreso, deslizadores; palabra que suena (Oscuro); letra de la palabra que suena (Claro); sílaba par del Oscuro |
+| `#EDE8F7` | Morado, muy claro | 260° / 48 % / 94 % | Fondo del Claro |
+| `#DDD4EF` | Morado, claro | 260° / 46 % / 88 % | Superficies del Claro (barras, tarjetas, panel de IA) |
+| `#D2C7EA` | Morado, claro | 259° / 45 % / 85 % | Regleta y *hover* del Claro |
+| `#6B5C9E` | Morado, medio | 254° / 26 % / 49 % | Bordes del Claro |
+| `#43386B` | Morado, algo más claro | 253° / 31 % / 32 % | Texto secundario del Claro |
+| `#4F417C` | Morado, algo más claro | 254° / 31 % / 37 % | Líneas atenuadas del modo foco (Claro) |
+| `#FBF0CC` | Amarillo, muy claro | 46° / 85 % / 89 % | Fondo de las sílabas impares (Claro); botón primario presionado |
+| `#F8E3A9` | Amarillo, claro | 44° / 85 % / 82 % | Botón primario en *hover* |
+| `#E4DCF3` | Morado, muy claro | 261° / 49 % / 91 % | Texto del Oscuro; sílaba impar del Oscuro; botón secundario del Oscuro |
+| `#CFC4E8` | Morado, claro | 258° / 44 % / 84 % | Texto secundario y líneas atenuadas del Oscuro |
+| `#9B8DC7` | Morado, medio | 254° / 34 % / 67 % | Bordes del Oscuro |
+| `#2B2344` | Morado, oscuro | 255° / 32 % / 20 % | Superficies y regleta del Oscuro |
+| `#261F3C` | Morado, muy oscuro | 254° / 32 % / 18 % | Pista de sliders y progreso (Oscuro); anillo de foco sobre amarillo (Oscuro) |
+| `#4A3D75` | Morado, algo más claro | 254° / 31 % / 35 % | *Hover* del botón secundario (Oscuro) |
+
+
+#### A.1.2 Tokens semánticos por tema
+
+Los nombres de token están en inglés (van así en `theme.py`); los nombres de tema que ve el usuario están en español (`strings.py`). **Solo existen dos temas: Claro y Oscuro** (Alto Contraste se eliminó el 2026-10-07).
+
+| Token | Claro | Oscuro | Uso |
+|:--|:--|:--|:--|
+| `bg` | `#EDE8F7` | `#392F5A` | Fondo de ventana y del lector |
+| `surface` | `#DDD4EF` | `#2B2344` | Barra superior, barra de reproducción, panel de IA, tarjetas |
+| `text` | `#392F5A` | `#E4DCF3` | Texto principal |
+| `text-muted` | `#43386B` | `#CFC4E8` | Texto secundario (metadatos, ayudas) |
+| `syllable-even` | `#392F5A` | `#F4D06F` | Sílabas 1.ª, 3.ª, … |
+| `syllable-odd` | `#392F5A` | `#E4DCF3` | Sílabas 2.ª, 4.ª, … |
+| `syllable-odd-bg` | `#FBF0CC` | — (sin fondo) | Fondo suave de las sílabas impares (solo Claro) |
+| `word-highlight-bg` | `#392F5A` | `#F4D06F` | Fondo de la palabra que suena |
+| `word-highlight-fg` | `#F4D06F` | `#392F5A` | Letra de la palabra que suena (sustituye al color de sílaba) |
+| `ruler-bg` | `#D2C7EA` | `#2B2344` | Regleta de la línea activa (color opaco, sin alfa) |
+| `dim-text` | `#4F417C` | `#CFC4E8` | Líneas que no son la activa, en modo foco |
+| `focus-ring` | `#392F5A` | `#F4D06F` | Anillo de foco de teclado |
+| `focus-ring-primary` | `#392F5A` | `#261F3C` | Anillo de foco sobre un botón amarillo |
+| `primary-bg` | `#F4D06F` | `#F4D06F` | Botón primario, relleno de sliders y progreso. **No cambia entre temas** |
+| `primary-fg` | `#392F5A` | `#392F5A` | Texto/icono del botón primario. **No cambia entre temas** |
+| `primary-bg-hover` | `#F8E3A9` | `#F8E3A9` | Primario en *hover* |
+| `primary-bg-pressed` | `#FBF0CC` | `#FBF0CC` | Primario presionado |
+| `primary-border` | `#392F5A` | `#F4D06F` | Borde del botón primario: morado en Claro (el amarillo no se distingue del fondo), invisible en Oscuro |
+| `secondary` | `#392F5A` | `#E4DCF3` | Texto y borde del botón secundario |
+| `secondary-bg-hover` | `#D2C7EA` | `#4A3D75` | Fondo del secundario en *hover*; opción marcada |
+| `border` | `#6B5C9E` | `#9B8DC7` | Bordes de campos, tarjetas, zona de arrastre, separadores |
+| `track` | `#392F5A` | `#261F3C` | Ranura de sliders y pista de progreso |
+| `track-border` | `#392F5A` | `#9B8DC7` | Borde de la pista y del tirador |
+| `disabled-fg` | `#43386B` | `#CFC4E8` | Texto de control deshabilitado |
+| `disabled-bg` | `#DDD4EF` | `#2B2344` | Fondo de control deshabilitado (borde **discontinuo**) |
+
+Ya no hay tokens `error` ni `success`: el error se dibuja con el icono "!" en círculo y el texto en `text`; el éxito, con una marca ✓ y texto.
+
+Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contrast"` se abre en Claro.
+
+#### A.1.3 Contraste: salida de contrast.py
+
+**Método.** Todas las cifras salen de `.claude/skills/contrast-check/contrast.py` (fórmula W3C), ejecutado el 2026-10-07. Antes se validó con los tres pares de referencia de la skill (`21.00`, `5.75`, `4.44`): coincidieron. `tests/test_theme.py` recalcula cada par con la misma fórmula y falla si alguno baja del umbral.
+
+**Umbrales.** Texto ≥ **7,0:1** (AAA, NFR-A11Y01). Componentes, bordes y anillo de foco ≥ **3,0:1** (WCAG 1.4.11). El script solo conoce el umbral 7,0: en los bloques "no texto", su `FAIL` significa "< 7"; el veredicto contra 3,0 está en las tablas.
+
+##### Texto (umbral 7,0)
+
+| Tema | Par (texto / fondo) | Ratio | Veredicto |
+|:--|:--|--:|:--|
+| Claro | `text` / `bg` | **10,12** | PASS |
+| Claro | `text` / `surface` · `ruler-bg` | 8,53 · 7,58 | PASS |
+| Claro | `text-muted` / `bg` · `surface` | 8,67 · 7,31 | PASS |
+| Claro | `syllable-odd` / `syllable-odd-bg` | **10,67** | PASS |
+| Claro | `dim-text` / `bg` | 7,35 | PASS |
+| Claro | `word-highlight-fg` / `word-highlight-bg` | **8,16** | PASS |
+| Claro | `primary-fg` / `primary-bg` · `hover` · `pressed` | **8,16** · 9,58 · 10,67 | PASS |
+| Claro | `secondary` / `bg` · `surface` · `hover` | 10,12 · 8,53 · 7,58 | PASS |
+| Oscuro | `text` / `bg` · `surface` | **9,16** · 11,10 | PASS |
+| Oscuro | `text-muted` y `dim-text` / `bg` · `surface` | 7,36 · 8,91 | PASS |
+| Oscuro | `syllable-even` (amarillo) / `bg` · `ruler-bg` | 8,16 · 9,88 | PASS |
+| Oscuro | `syllable-odd` (lavanda) / `bg` · `ruler-bg` | 9,16 · 11,10 | PASS |
+| Oscuro | `word-highlight-fg` / `word-highlight-bg` | 8,16 | PASS |
+| Oscuro | `primary-fg` / `primary-bg` · `hover` · `pressed` | **8,16** · 9,58 · 10,67 | PASS |
+| Oscuro | `secondary` / `secondary-bg-hover` | 7,15 | PASS |
+
+##### No texto (umbral 3,0)
+
+| Tema | Par | Ratio | Veredicto |
+|:--|:--|--:|:--|
+| Claro | `border` / `bg` · `surface` | 4,79 · 4,04 | PASS |
+| Claro | `focus-ring` / `bg` · `surface` | 10,12 · 8,53 | PASS |
+| Claro | `focus-ring-primary` / `primary-bg` (anillo sobre amarillo) | 8,16 | PASS |
+| Claro | `primary-border` / `bg` (borde del botón amarillo) | 10,12 | PASS |
+| Claro | `primary-bg` (amarillo) / `track` (relleno de barra) | 8,16 | PASS |
+| Claro | `word-highlight-bg` / `bg` | 10,12 | PASS |
+| Claro | `primary-bg` / `bg` (sin borde) | 1,24 | **no cumple**: por eso el primario del Claro lleva borde morado |
+| Claro | `ruler-bg` / `bg` | 1,34 | apoyo visual (ver [A.4.2](#a42-lector-readerwidget)) |
+| Oscuro | `border` / `bg` · `surface` | 4,07 · 4,93 | PASS |
+| Oscuro | `focus-ring` / `bg` | 8,16 | PASS |
+| Oscuro | `focus-ring-primary` / `primary-bg` | 10,49 | PASS |
+| Oscuro | `primary-bg` / `bg` · `track` | 8,16 · 10,49 | PASS |
+| Oscuro | `track-border` / `bg` | 4,07 | PASS |
+| Oscuro | `word-highlight-bg` / `bg` | 8,16 | PASS |
+| Oscuro | `ruler-bg` / `bg` | 1,21 | apoyo visual (ver [A.4.2](#a42-lector-readerwidget)) |
+
+**Honestidad sobre dos límites.**
+1. **Modo foco.** Las líneas atenuadas también deben cumplir 7:1, así que solo pueden bajar del 10,12 al 7,35 (Claro) o del 9,16 al 7,36 (Oscuro). La diferencia es visible pero moderada; la línea activa se distingue además por la regleta y, en el Oscuro, por el amarillo.
+2. **Regleta.** Un fondo que contraste 3:1 con el de la ventana dejaría el texto por debajo de 7:1. La regleta es un **apoyo**; la señal principal de "dónde voy" es la palabra resaltada (≥ 8,16:1). Esta aceptación viene de la v1 (decidida el 2026-10-01).
+
+##### Salida literal
+
+```text
+### CLARO texto
+#392F5A / #EDE8F7  10.12  PASS
+#392F5A / #DDD4EF  8.53  PASS
+#392F5A / #D2C7EA  7.58  PASS
+#43386B / #EDE8F7  8.67  PASS
+#43386B / #DDD4EF  7.31  PASS
+#4F417C / #EDE8F7  7.35  PASS
+#392F5A / #FBF0CC  10.67  PASS
+#392F5A / #F4D06F  8.16  PASS
+#392F5A / #F8E3A9  9.58  PASS
+#392F5A / #FBF0CC  10.67  PASS
+#F4D06F / #392F5A  8.16  PASS
+### CLARO no texto
+#6B5C9E / #EDE8F7  4.79  FAIL
+#6B5C9E / #DDD4EF  4.04  FAIL
+#392F5A / #EDE8F7  10.12  PASS
+#392F5A / #DDD4EF  8.53  PASS
+#392F5A / #F4D06F  8.16  PASS
+#F4D06F / #392F5A  8.16  PASS
+#F4D06F / #EDE8F7  1.24  FAIL
+#D2C7EA / #EDE8F7  1.34  FAIL
+### OSCURO texto
+#E4DCF3 / #392F5A  9.16  PASS
+#E4DCF3 / #2B2344  11.10  PASS
+#CFC4E8 / #392F5A  7.36  PASS
+#CFC4E8 / #2B2344  8.91  PASS
+#F4D06F / #392F5A  8.16  PASS
+#F4D06F / #2B2344  9.88  PASS
+#E4DCF3 / #4A3D75  7.15  PASS
+#392F5A / #F4D06F  8.16  PASS
+#392F5A / #F8E3A9  9.58  PASS
+#392F5A / #FBF0CC  10.67  PASS
+### OSCURO no texto
+#9B8DC7 / #392F5A  4.07  FAIL
+#9B8DC7 / #2B2344  4.93  FAIL
+#F4D06F / #392F5A  8.16  PASS
+#F4D06F / #2B2344  9.88  PASS
+#261F3C / #F4D06F  10.49  PASS
+#F4D06F / #261F3C  10.49  PASS
+#2B2344 / #392F5A  1.21  FAIL
+```
+
+Para repetir la medición: `.\.venv\Scripts\python .claude\skills\contrast-check\contrast.py "<texto>/<fondo>" ...`. **Cualquier cambio de color obliga a volver a medir y a actualizar esta sección.**
+
+#### A.1.4 Tipografía
+
+##### Fuentes
+
+| Rol | Fuente | Licencia | Notas |
+|:--|:--|:--|:--|
+| **Lectura, por defecto** | **Lexend** Regular | SIL OFL 1.1 | `resources/fonts/Lexend-Regular.ttf`; origen y SHA256 en `resources/fonts/README.md` |
+| **Lectura, opción** | **Atkinson Hyperlegible** Regular | SIL OFL 1.1 (Braille Institute) | `resources/fonts/AtkinsonHyperlegible-Regular.ttf` |
+| **Lectura, opción** | **OpenDyslexic** (`compiled/opendyslexic.otf`, un solo peso) | SIL OFL 1.1 | La de siempre; se conserva porque algunas personas la prefieren |
+| **Interfaz** | **Segoe UI** (sistema) | — | Ya está en Windows 10/11, no añade bytes ni licencias al `.exe` |
+
+Las tres fuentes de lectura se eligen en **Ajustes → Texto → Fuente de lectura** (`AppConfig.reading_font`). Las tres cubren `ñ Ñ á é í ó ú ü ¿ ¡ « » — “ ”` (comprobado con `QFontMetricsF.inFontUcs4`; hay un test). Se empaquetan en `resources/fonts` y el código de la app nunca las descarga.
+
+**Capturas reales de la tipografía por defecto:** [`mockups/real/v2/lectura_light.png`](docs/design-system/mockups/real/v2/lectura_light.png) · [`lectura_dark.png`](docs/design-system/mockups/real/v2/lectura_dark.png).
+
+##### Valores por defecto (decisión de la usuaria, 2026-10-07)
+
+| Parámetro | Mínimo | Por defecto | Máximo | Paso | Campo de `AppConfig` |
+|:--|--:|--:|--:|--:|:--|
+| Tamaño de letra | 12 pt | **18 pt** | 28 pt | 1 pt | `font_size_pt` |
+| Espacio entre líneas | 1,4 | **1,5** | 2,6 | 0,1 | `line_spacing` |
+| Espacio entre letras | 0 em | **+0,12 em** | 0,4 em | 0,01 em | `letter_spacing_em` |
+| Espacio entre palabras | 0 em | **+0,16 em** | 0,6 em | 0,01 em | `word_spacing_em` |
+| Entre párrafos | — | 14 px | — | — | Fijo |
+| Fuente | — | **Lexend** | — | — | `reading_font` |
+
+El espaciado va en **em** (fracción del tamaño de letra) para que crezca con ella. Qt recibe píxeles: `TextFormatter` convierte con `px = em × (pt × 96/72)`; a 18 pt (24 px), +0,12 em son 2,88 px y +0,16 em son 3,84 px. Los valores antiguos en píxeles (`letter_spacing`, `word_spacing`) se ignoran al leer un `config.json` viejo.
+
+##### Referencias de la investigación (verificadas el 2026-10-07)
+
+Se comprobó cada una; lo que no se pudo confirmar se dice. Las cifras entre comillas de la tabla vienen de los resúmenes consultados, no de haber leído los artículos completos.
+
+| Referencia | Qué dice (verificado) | Cómo se usa aquí |
+|:--|:--|:--|
+| Zorzi, M. et al. (2012). *Extra-large letter spacing improves reading in dyslexia.* **PNAS 109(28), 11455–11459** (PMC3396504) | 74 niños con dislexia (8–14 años, francés e italiano). Texto en Times New Roman 14 pt con +2,5 pt entre letras (y más espacio entre palabras y líneas): según la cobertura de prensa del estudio, la precisión se duplicó y la velocidad subió más de un 20 %. | Respalda **dar más espacio entre letras que el normal**. Aquel +2,5 pt a 14 pt equivale a ≈ +0,18 em (cálculo propio); nuestro +0,12 em es **más moderado a propósito** (decisión de la usuaria), por lo que **no** podemos afirmar que logre el mismo efecto. Los deslizadores permiten llegar a +0,4 em. |
+| Rello, L. y Baeza-Yates, R. (2013). *Good fonts for dyslexia.* **ACM ASSETS '13** | Seguimiento ocular con 48 personas con dislexia y 12 fuentes. Las fuentes sans-serif, monoespaciadas y redondas (no cursivas) mejoran el rendimiento; las cursivas lo empeoran. Recomendadas por rendimiento y preferencia: Helvetica, Courier, Arial, Verdana y CMU. **OpenDyslexic no está entre las recomendadas.** | Respalda **sans-serif y sin cursivas** (P1). Es una razón para que OpenDyslexic ya no sea la fuente por defecto. |
+| Rello, L. y Baeza-Yates, R. (2016). *The effect of font type on screen readability by people with dyslexia.* **ACM TACCESS** | 97 hispanohablantes (48 con dislexia, 49 sin). Mejores fuentes: Helvetica, Courier, Arial y CMU; la peor, Arial Italic. | Confirma lo anterior **en español y en pantalla**. |
+| Rello, L., Pielot, M. y Marcos, M.-C. (2016). *Make it big! The effect of font size and line spacing on online readability.* **ACM CHI 2016** | 104 personas de 14 a 54 años, tamaños de 10 a 26 pt: hasta 18 pt mejoraron la legibilidad (medida objetiva y subjetiva) y la comprensión. El interlineado influyó menos. | Respalda **18 pt por defecto**. *Corrección al encargo:* el estudio del tamaño es de Rello, Pielot y Marcos, no de Rello y Baeza-Yates. **No verificamos si la muestra incluyó personas con dislexia.** |
+| Wery, J. J. y Diliberto, J. A. (2017). *The effect of a specialized dyslexia font, OpenDyslexic, on reading rate and accuracy.* **Annals of Dyslexia 67(2), 114–127** | Comparó OpenDyslexic con Arial y Times New Roman en estudiantes de primaria con dislexia: **sin mejora en velocidad ni precisión**; nadie declaró preferirla. | Es la razón de que OpenDyslexic sea **una opción y no la fuente por defecto**. Muestra pequeña (diseño de caso único). |
+| Kuster, S. M. et al. (2018). *Dyslexie font does not benefit reading in children with or without dyslexia.* **Annals of Dyslexia 68(1), 25–42** | Dos experimentos (170 niños con dislexia y 147 en total): la fuente **Dyslexie** no mejoró velocidad ni precisión frente a Arial y Times; se prefirieron estas. | *Corrección al encargo:* este estudio es sobre **Dyslexie**, una fuente comercial distinta, **no sobre OpenDyslexic**. Se cita solo como apoyo general (una fuente "para dislexia" no tiene ventaja medible), no como prueba sobre OpenDyslexic. |
+| Duranovic, M., Senka, S. y Babic-Gavric, B. (2018). *Influence of increased letter spacing and font type on the reading ability of dyslexic children.* **Annals of Dyslexia 68(3), 218–228** | (Encontrada durante la verificación.) El espaciado, más que el tipo de fuente, mejoró la lectura; Dyslexie no tuvo ventaja sobre Times con espaciado aumentado. | Refuerza que **el espaciado pesa más que la fuente**. |
+| British Dyslexia Association. *Dyslexia Style Guide* (2023) | Sans-serif (p. ej. Arial); 12–14 pt; mayor espacio entre letras, idealmente ~35 % del ancho medio de la letra; interlineado 1,5 (150 %). | Respalda **interlineado 1,5 y sans-serif**. Nuestros 18 pt superan sus 12–14 pt (por Rello 2016). El 35 % del ancho medio equivale a ≈ 0,17 em si el ancho medio es ~0,5 em (**estimación propia**); nuestro +0,12 em queda por debajo. *No se pudo abrir el PDF directamente (error 403): la cifra se verificó en un buscador.* |
+
+**Lo que no está respaldado.** No citamos ningún estudio revisado por pares sobre **Lexend** ni sobre **Atkinson Hyperlegible**: no verificamos ninguno. Se eligieron como sans-serif de formas abiertas, con licencia OFL, buena cobertura del español y letras diferenciadas; su ventaja para personas con dislexia **no está demostrada aquí**. Por eso Ajustes incluye una nota: "Ninguna fuente funciona igual para todas las personas". Tampoco hemos probado la app con lectores con dislexia.
+
+##### Escala de la interfaz
+
+(px a 100 % de escala de Windows.)
+
+| Token | Tamaño | Peso | Uso |
+|:--|--:|:--|:--|
+| `font-ui-stat` | 28 px | Bold | Cifras de las tarjetas de estadísticas |
+| `font-ui-title` | 24 px | Bold | Título de pantalla ("Tu espacio de lectura", "Ajustes") |
+| `font-ui-heading` | 20 px | Bold | Títulos de tarjeta, panel y diálogo |
+| `font-ui-subheading` | 15–16 px | Bold | Nombre de documento, título de respuesta |
+| `font-ui-body` | 15 px | Regular / Semibold en botones | Texto general y botones |
+| `font-ui-small` | 13 px | Regular / Semibold | *Tooltips*, *badges* |
+
+Nunca por debajo de 13 px. Sin cursivas ni mayúsculas sostenidas.
+
+**Anchura de línea.** Medida con `tests/manual/measure_line_width.py` (v1, con OpenDyslexic): 49 caracteres como máximo. Con Lexend 18 pt en la columna de 820 px, en las capturas salen 40–45 caracteres por línea (**conteo a ojo sobre [`lectura_light.png`](docs/design-system/mockups/real/v2/lectura_light.png), no una medición automática**); sigue por debajo de los 70 de P3.
+
+#### A.1.5 Espaciado
+
+Base de **4 px**; todos los márgenes y separaciones son múltiplos de 4 y casi siempre de 8.
+
+| Token | Valor | Uso típico |
+|:--|--:|:--|
+| `space-1` | 4 px | Icono ↔ texto pequeño |
+| `space-2` | 8 px | Icono ↔ texto en botón; botones contiguos |
+| `space-3` | 12 px | Ítems de lista; filas de ajuste |
+| `space-4` | 16 px | Relleno de tarjetas; separación de la cuadrícula del Inicio |
+| `space-5` | 20 px | Relleno del panel de IA y de las tarjetas grandes |
+| `space-6` | 24 px | Margen lateral de barras; relleno de diálogo |
+| `space-8` | 32 px | Margen de página del Inicio y de Mis palabras |
+| `space-10` | 40 px | Margen interior horizontal de la columna de lectura |
+
+#### A.1.6 Radios, bordes y elevación
+
+- **Sin sombras ni desenfoques.** La jerarquía se marca con **bordes** y con el cambio `bg` → `surface`.
+- **Sin bordes de otro color (decisión de la usuaria):** todo borde es morado o amarillo (o un tono suyo): `secondary` en botones, `border` en tarjetas, `primary-border` en el botón amarillo del Claro.
+- **Grosores:** 1 px para separadores y tarjetas; 2 px para campos, botones y zona de arrastre (discontinuo); **3 px solo para el foco** y la opción elegida.
+- **Radios:** `radius-sm` 4 px (teclas) · `radius-md` 8 px (botones, campos, *chip*) · `radius-lg` 12 px (tarjetas) · `radius-xl` 16 px (zona de arrastre) · `radius-pill` mitad de la altura (*badge*, sliders).
+
+#### A.1.7 Iconografía
+
+- Iconos de **línea**, rejilla de 24 px, trazo de 2 px, extremos redondeados; se muestran a **20 px**. SVG propios en `resources/icons/` (nada descargado en tiempo de ejecución), con `currentColor` sustituido por el hex del token al cargarlos.
+- **Siempre con texto al lado**, salvo el × de cerrar (con *tooltip* y `setAccessibleName`).
+- **Sin emojis.**
+- Juego actual: marca, flecha atrás, ajustes, subir archivo, carpeta, documento, foto, reproducir, pausa, detener, asistente (globo), cerrar, "!", bombilla, candado, reloj, recargar, sin internet, altavoz, **foco** (mira) y **mis palabras** (hoja con líneas).
+
+#### A.1.8 Movimiento
+
+- **Mínimo:** cambios de estado instantáneos. El resaltado de palabra salta sin fundidos. El modo foco cambia de línea sin animación.
+- Única animación: barra de progreso **indeterminada** del panel de IA mientras carga o despierta.
+
+
+### A.2 Átomos
+
+Solo propiedades soportadas por QSS y los pseudoestados `:hover`, `:pressed`, `:disabled`, `:checked`. **El foco no usa `:focus`** sino la propiedad dinámica `keyFocus` (ver [Foco de teclado](#foco-de-teclado)).
+
+#### A.2.1 Botón
+
+| Variante | Alto | Fondo / texto / borde |
+|:--|--:|:--|
+| **Primario** (amarillo en ambos temas) | 40 px (48 px en Reproducir) | `primary-bg` / `primary-fg` / borde 2 px `primary-border` |
+| **Secundario** | 40 px | transparente / `secondary` / borde 2 px `secondary` |
+| **Fantasma** (barra superior) | 40 px | transparente / `text` / borde 2 px transparente |
+| **Alternable** (Asistente, Modo foco) | 40 px | como secundario; marcado = fondo `secondary-bg-hover` |
+
+| Estado | Cambio | Señal no cromática |
+|:--|:--|:--|
+| *Hover* | Primario → `primary-bg-hover`; resto → fondo `secondary-bg-hover` | Cursor de mano |
+| **Foco de teclado** | Borde de **3 px** `focus-ring` (sobre amarillo, `focus-ring-primary`) | Cambia el grosor de 2 a 3 px |
+| Presionado | Primario → `primary-bg-pressed` | — |
+| Deshabilitado | Fondo `disabled-bg`, texto `disabled-fg`, **borde 2 px discontinuo** `border` | Borde discontinuo + *tooltip* que explica por qué |
+
+Un solo botón primario por zona. Área mínima de clic 32 × 32 px (todos miden ≥ 40 px). **Los botones no se cortan nunca:** conservan su tamaño natural (`QSizePolicy.Fixed`) y el texto largo se recorta en otra etiqueta, no en el botón.
+
+##### Foco de teclado
+
+**Decisión de la usuaria:** el indicador de foco es obligatorio, pero **solo con foco de teclado** (Tab / Mayús+Tab), nunca al hacer clic, y siempre en amarillo o morado. `ui/focus_ring.py` instala un filtro de eventos en la aplicación: al recibir foco con motivo `Tab` o `Backtab` marca `keyFocus = true`; con cualquier otro motivo (ratón, atajo, programa) lo deja en `false`. Captura: [`foco_teclado_light.png`](docs/design-system/mockups/real/v2/foco_teclado_light.png) · [`foco_teclado_dark.png`](docs/design-system/mockups/real/v2/foco_teclado_dark.png). Contraste del anillo: [A.1.3](#a13-contraste-salida-de-contrastpy).
+
+#### A.2.2 Slider
+
+- Ranura de 8 px: relleno `track` con borde `track-border` 1 px; parte recorrida `primary-bg` (**amarilla en ambos temas**).
+- Tirador de 20 × 20 px, círculo amarillo con aro de 2 px `track-border`; con foco de teclado el aro pasa a 3 px `focus-ring`.
+- **Siempre con su valor en texto** a la derecha ("18 puntos", "0,12 em", "150 palabras/min").
+
+#### A.2.3 Toggle (interruptor)
+
+`QCheckBox` con indicador cuadrado de 22 px (borde `secondary`; marcado = relleno amarillo) y **siempre con la palabra "Sí" / "No"** al lado.
+
+#### A.2.4 Etiqueta
+
+`QLabel` con `text`; `text-muted` solo para información secundaria. Nunca en cursiva ni en mayúsculas. Las etiquetas de nombre largo (documentos) usan `ElidedLabel`: terminan en "…", llevan el nombre completo en el *tooltip* y en el nombre accesible, y no ensanchan el diseño.
+
+#### A.2.5 Campo de texto y combobox
+
+Alto 40 px, borde 2 px `border`, `radius-md`, fondo `bg`. Con foco de teclado, borde de 3 px `focus-ring`.
+
+#### A.2.6 Barra de progreso
+
+`QProgressBar` de 12 px (8 px en el panel de IA): pista `track` con borde `track-border`; relleno `primary-bg` (**amarillo**). Sin texto dentro: el porcentaje se escribe al lado ("34 % leído").
+
+#### A.2.7 Tooltip
+
+Fondo `text`, texto `bg` (colores invertidos, mismo ratio que `text`/`bg`), 13 px, relleno 8 × 12 px. Obligatorio en botones de solo icono y en controles deshabilitados.
+
+#### A.2.8 Badge
+
+Alto 24 px, `radius-pill`, borde 1 px `border`, texto `text` semibold. Uso: "Sin internet". Siempre texto, nunca un punto de color solo.
+
+#### A.2.9 Chip de palabra
+
+Alto 32 px, `radius-md`, fondo `word-highlight-bg`, texto `word-highlight-fg` en negrita: muestra la palabra elegida en el panel de IA (mismo par que el resaltado: 8,16:1 en ambos temas).
+
+#### A.2.10 Chip de carpeta o tema
+
+Botón alternable (`QPushButton[variant="chip"]`, 2026-10-18) para filtrar la biblioteca por carpeta y "Mis palabras" por tema. Alto mínimo 32 px, radio 16 px (píldora), relleno horizontal 14 px, borde `border`. **Marcado:** fondo `primary-bg` y texto `primary-fg` (el amarillo de los botones primarios, 8,16:1 ya medido en [A.1.3](#a13-contraste-salida-de-contrastpy)), borde `primary-border`. **Foco de teclado:** anillo de 3 px `focus-ring` (`focus-ring-primary` si está marcado), solo con Tab, igual que el resto ([A.2.1](#a21-botón)). El texto lleva el nombre y el contador ("Biología 3"); nombres de más de 24 caracteres se recortan con "…". Los chips pasan a otra fila con un `FlowLayout`, así que nunca hay barra horizontal. Al lado, "+ Nueva carpeta" / "+ Nuevo tema" (chip no marcable) y, cuando hay un grupo concreto elegido, los botones fantasma **Renombrar** y **Borrar** (con confirmación; borrar una carpeta o un tema no borra sus documentos ni palabras).
+
+
+### A.3 Moléculas
+
+#### A.3.1 Zona de arrastre
+
+Borde **2 px discontinuo** `border`, `radius-xl`. Dos formas:
+- **Compacta** (con documentos): al lado de "Continuar leyendo", mínimo 320 × 230 px: icono, título, formatos aceptados y los botones **apilados** ("Elegir archivo" primario, "Probar con un ejemplo" secundario).
+- **De bienvenida** (primera vez): ancho completo, título "Te damos la bienvenida a ClearRead", frase amable y los botones **en fila**.
+
+Al arrastrar un archivo encima: borde `text` y fondo `ruler-bg` (cambio de borde + fondo, no solo color).
+
+#### A.3.2 Control de reproducción
+
+Botón primario de 148 × 48 px ("Reproducir" ▷ ↔ "Pausar" ‖ ↔ "Reanudar"), secundario "Detener", **alternable "Modo foco"** (icono de mira), slider "Velocidad" y el contador "Palabra 56 de 165". Los atajos están en los *tooltips* ("Modo foco (F)"); ya no hay línea de recordatorio de atajos.
+
+#### A.3.3 Fila de ajuste con vista previa
+
+Etiqueta · control · valor en texto. Cada cambio actualiza al instante la tarjeta "Vista previa" (con la fuente, el tamaño y el espaciado elegidos) y se guarda en `AppConfig`.
+
+#### A.3.4 Tarjeta de documento de la biblioteca
+
+`Card` (superficie, borde 1 px, `radius-lg`) con: icono · nombre (elidido, *tooltip* completo) y metadatos ("Texto · 1 página · Abierto hoy · Biología", el último dato es la carpeta si tiene) · **botón de carpeta** (icono `folder`, menú "Sin carpeta" + las carpetas, la actual marcada; nombre accesible "Mover {nombre} a una carpeta") · botón × "Quitar de la biblioteca" (pide confirmación; borra la copia guardada, nunca el archivo original) · barra de progreso con "34 % leído" · botón **"Abrir"** (nunca se corta). Se colocan en una **cuadrícula de 2 columnas**. *(Antes de 2026-10-18 se llamaba "tarjeta de documento reciente" y el × quitaba sin preguntar.)*
+
+#### A.3.5 Tarjeta de respuesta de IA
+
+Fondo `bg` sobre el panel, borde 1 px, `radius-lg`. Título ("Qué significa", "El párrafo, más simple"), cuerpo en la fuente de lectura, **"Guardada en Mis palabras."** (solo al explicar una palabra) y pie fijo "Respuesta creada con IA. Puede tener errores." Al llegar la respuesta se avisa a `QAccessible` para que el lector de pantalla la anuncie.
+
+#### A.3.6 Aviso de privacidad
+
+Primer uso (NFR-SEC01): tarjeta con borde **2 px** `text`, candado, título "Antes de usar el asistente", qué se envía y **adónde** (servidor de ClearRead → DeepSeek) y botones "Ahora no" / "Entendido". Hasta pulsar "Entendido" no se envía nada. Se guarda en `AppConfig.ai_privacy_accepted`. Recordatorio permanente al pie del panel.
+
+#### A.3.7 Tarjeta "Continuar leyendo" (HOME-F02)
+
+`Card` con: rótulo "Continuar leyendo" (muted) · nombre del último documento (elidido) · barra de progreso con "34 % leído" · botón primario **"Continuar"** (abre el documento y ofrece seguir donde se dejó).
+
+#### A.3.8 Tarjeta de estadística (HOME-F02)
+
+`Card` con la cifra en 28 px bold y su rótulo debajo: "Palabras leídas", "Tiempo de lectura", "Documentos". Debajo de las tres, la frase "Estas cifras se calculan en tu equipo y no se envían a ningún sitio."
+
+#### A.3.9 Tarjeta de palabra (AI-F05)
+
+`Card` con la palabra (20 px bold), su explicación, "Documento · fecha" (muted) y tres botones: **"Escuchar"** (altavoz), **"Tema: {tema}"** (menú con "Sin tema" y los temas; AI-F06, 2026-10-18) y **"Borrar"** (pide confirmación). Cada botón lleva nombre accesible con la palabra ("Escuchar célula", "Cambiar el tema de célula").
+
+#### A.3.10 Aviso "Seguir desde donde lo dejaste" (READ-F01)
+
+`Card` sobre la columna de lectura: título, "Estabas en la palabra 56 de 165.", botón secundario "Empezar de nuevo" y primario **"Seguir"**. Aparece solo si el documento se dejó a medias (después de la 1.ª palabra y antes de la última).
+
+
+### A.4 Organismos
+
+#### A.4.1 Barra superior de navegación
+
+Alto **56 px**, fondo `surface`, borde inferior 1 px `border`, relleno lateral 24 px.
+- **Inicio:** marca "ClearRead" · **"Mis palabras"** · "Ajustes" (fantasmas).
+- **Lectura:** "← Inicio" · título del documento centrado (truncado con "…") · "Asistente" (alternable; se desactiva sin internet, con *badge* "Sin internet") · "Mis palabras" · "Ajustes".
+- **Mis palabras / Ajustes:** "← Volver" · título.
+- **Procesando:** "Ajustes" deshabilitado.
+
+#### A.4.2 Lector (`ReaderWidget`)
+
+- `QTextEdit` de solo lectura sin marco, fondo `bg`, columna de **550–820 px** centrada, margen interior 40 px a los lados y 32 px arriba.
+- **Sílabas (opcional, el interruptor de Ajustes):** Claro → todas en `text`, y las **impares con fondo `syllable-odd-bg`** (amarillo muy suave, 10,67:1); Oscuro → alternancia **amarillo / lavanda** (8,16:1 y 9,16:1). El HTML lleva `background-color` solo si el tema define `syllable-odd-bg`.
+- **Palabra que suena** (`ExtraSelection`): **Claro = fondo `#392F5A` con letra `#F4D06F`; Oscuro = fondo `#F4D06F` con letra `#392F5A`** (decisión de la usuaria), con subrayado del color de la letra. Sin negrita (no cambia el ancho y no mueve las líneas).
+- **Regleta** (`FullWidthSelection`, `ruler-bg` opaco, en tonos de morado): cubre el ancho de la columna. Es un apoyo; ver [A.1.3](#a13-contraste-salida-de-contrastpy).
+- **Modo foco (READ-F02):** cuando se activa, todas las líneas visuales salvo la activa se pintan con `dim-text` y sin fondo de sílaba; la activa mantiene sus colores y la regleta. Se calcula con dos `ExtraSelection` (antes y después de la línea) sobre el diseño de `QTextLayout`, sin animación. Como el texto atenuado debe seguir en ≥ 7:1, el contraste entre líneas es moderado ([A.1.3](#a13-contraste-salida-de-contrastpy)). Sin ninguna palabra activa no se atenúa nada. Capturas: [`lectura_foco_light.png`](docs/design-system/mockups/real/v2/lectura_foco_light.png) · [`lectura_foco_dark.png`](docs/design-system/mockups/real/v2/lectura_foco_dark.png).
+- **Clic izquierdo** en una palabra: solo mueve el punto de inicio, en pausa y en silencio (UI-F02, 2026-10-18; antes empezaba a leer). **Doble clic:** selecciona la palabra y abre el menú "Explicar esta palabra" / "Simplificar este párrafo". **Clic derecho:** el mismo menú (D11). La voz solo arranca con Reproducir o `Espacio`.
+- **Páginas:** en la vista Continua el lector pinta un separador "Página N" (texto `text-muted` en negrita y una línea fina `border` hasta el borde) sobre el primer párrafo de cada página; en "Por páginas" muestra solo la página actual ([A.4.10](#a410-barra-de-páginas-y-modos-de-vista-ui-f06-ui-f07)).
+
+#### A.4.3 Barra de reproducción
+
+Alto **80 px**, fondo `surface`, borde superior 1 px, contenido de hasta 980 px. Contiene el [control de reproducción](#a32-control-de-reproducción). Visible siempre en Lectura.
+
+#### A.4.4 Panel lateral de IA
+
+- `QFrame` de **360 px** a la derecha, fondo `surface`, borde izquierdo 1 px, relleno 20 px, separación 16 px.
+- Se abre con el botón "Asistente", con clic derecho sobre una palabra o párrafo o con **Ctrl+I**. Al abrirse, la lectura se **pausa**.
+- Orden: cabecera ("Asistente" + ×) · palabra elegida ([chip](#a29-chip-de-palabra)) · botones "Explicar palabra" / "Simplificar párrafo" (el activo es primario) · zona de estado · pie con privacidad y "Consultas en esta sesión: N de 30".
+- **Estados:** vacío (instrucciones) · A primer uso ([aviso](#a36-aviso-de-privacidad)) · B cargando ("Buscando una explicación…" + barra indeterminada + "Cancelar") · C despertando ("Despertando el asistente…" + reloj + "Cancelar") · D respuesta ([tarjeta](#a35-tarjeta-de-respuesta-de-ia) + "Escuchar respuesta") · E error (icono "!" en círculo + mensaje de `strings.py` + "Reintentar", salvo `SESSION_LIMIT`, `DAILY_LIMIT` e `INPUT_TOO_LONG`) · F sin internet (botón de la barra deshabilitado + explicación en el panel).
+- Los errores del asistente se muestran **dentro del panel**, no con un diálogo modal (§4.10 de `document.md`).
+- "Escuchar respuesta" lee la respuesta con la voz SAPI5 **sin mover el punto del documento** y pausa la lectura si sonaba.
+- Captura: [`panel_ia_light.png`](docs/design-system/mockups/real/v2/panel_ia_light.png) · [`panel_ia_dark.png`](docs/design-system/mockups/real/v2/panel_ia_dark.png).
+
+#### A.4.5 Panel de ajustes
+
+- Pantalla completa con dos columnas (controles flexibles · "Vista previa" de 420 px). Secciones: **Tema** (2 tarjetas-radio, Claro y Oscuro, con muestra "Aa"), **Texto** (**fuente de lectura**, tamaño, interlineado, espacio entre letras en em, entre palabras en em, sílabas de colores), **Voz** (velocidad, voz) e **Idioma** (de la interfaz; se aplica al reiniciar, con aviso).
+- **Fuente de lectura:** desplegable con "Lexend (recomendada)", "Atkinson Hyperlegible" y "OpenDyslexic", y la nota "Ninguna fuente funciona igual para todas las personas: elige la que te resulte más cómoda."
+- **No hay "Ajustes avanzados"** (decisión de la usuaria, 2026-10-07): la dirección del asistente sigue en `AppConfig.backend_url` pero no se muestra. Tampoco hay campo de API key.
+- "Restablecer valores" (vuelve a la apariencia por defecto, conserva voz e idioma) y la tarjeta "Tu privacidad" con "Borrar documentos recientes".
+- Los cambios se guardan solos y se aplican al momento.
+
+#### A.4.6 Diálogo de error (`AccessibleErrorDialog`)
+
+`QDialog` modal, ancho 540 px, fondo `bg`, borde **2 px `text`**. Icono "!" en círculo de 48 px (borde `text`, no de otro color) · título (qué pasó) · una frase · caja "Qué puedes hacer" (bombilla + texto) · botones "Entendido" (primario, foco inicial) y, cuando ayuda, "Elegir otro archivo". Nunca muestra trazas ni códigos.
+
+#### A.4.7 Inicio como panel (HOME-F02, HOME-F03)
+
+Con documentos: título "Tu espacio de lectura" · fila de **"Continuar leyendo"** (flexible) + **zona de arrastre compacta** · fila de **tres estadísticas** · **"Mi biblioteca"** ([A.4.9](#a49-biblioteca-en-inicio-home-f04); antes "Documentos recientes") en tarjetas de 2 columnas. Sin documentos: solo la zona de bienvenida, con "Elegir archivo" y **"Probar con un ejemplo"**. El Inicio hace scroll **solo vertical**; no hay barra horizontal. "Probar con un ejemplo" abre `resources/samples/ejemplo_es.txt` (texto propio sobre la fotosíntesis, ≈ 165 palabras, sin datos personales); no pasa por OCR y queda en recientes como "Ejemplo: la fotosíntesis".
+
+**Estadísticas.** "Palabras leídas" cuenta cada palabra que la voz dice del documento (no las respuestas del asistente) y "Tiempo de lectura" suma el tiempo con la lectura en marcha; "Documentos" son los de la lista de recientes. Todo se guarda en `stats.json` dentro de `%APPDATA%\ClearRead` y no sale del equipo.
+
+#### A.4.8 Mis palabras (AI-F05)
+
+Pantalla completa de hasta 860 px: título "Mis palabras" + "3 palabras guardadas" · campo de búsqueda · lista de [tarjetas de palabra](#a39-tarjeta-de-palabra-ai-f05). La **búsqueda** ignora mayúsculas y tildes ("celula" encuentra "célula") y mira la palabra y la explicación. Estado vacío: "Aún no hay palabras guardadas" y una explicación. Capturas: [`mis_palabras_light.png`](docs/design-system/mockups/real/v2/mis_palabras_light.png) · [`mis_palabras_dark.png`](docs/design-system/mockups/real/v2/mis_palabras_dark.png).
+
+**Sin llamadas nuevas a la IA:** la palabra y su explicación se guardan cuando el asistente ya las mostró (`glossary.json`, hasta 500 entradas; una palabra repetida conserva solo su última explicación). "Escuchar" usa la voz del sistema, "Borrar" la quita **previa confirmación**.
+
+**Temas (AI-F06, 2026-10-18).** Bajo el buscador, una fila de [chips](#a210-chip-de-carpeta-o-tema) "Todas" · "Sin tema" · temas creados, con "+ Nuevo tema", Renombrar y Borrar. El filtro por tema se combina con la búsqueda. Un tema vacío muestra "No hay palabras en este tema.". Capturas: [`mis_palabras_temas_light.png`](docs/design-system/mockups/real/v3/mis_palabras_temas_light.png) · [`mis_palabras_temas_dark.png`](docs/design-system/mockups/real/v3/mis_palabras_temas_dark.png) (todas) y [`mis_palabras_tema_light.png`](docs/design-system/mockups/real/v3/mis_palabras_tema_light.png) · [`mis_palabras_tema_dark.png`](docs/design-system/mockups/real/v3/mis_palabras_tema_dark.png) (un tema).
+
+#### A.4.9 Biblioteca en Inicio (HOME-F04)
+
+Cabecera de la sección: título **"Mi biblioteca"** a la izquierda y un **campo de búsqueda** (hasta 320 px, con botón de borrar) a la derecha; debajo, la fila de [chips de carpeta](#a210-chip-de-carpeta-o-tema) ("Todos" · "Sin carpeta" · carpetas, cada una con contador) con "+ Nueva carpeta", Renombrar y Borrar; si hay una carpeta elegida, la línea muted "Los documentos nuevos se guardan en «Biología»."; después las tarjetas ([A.3.4](#a34-tarjeta-de-documento-de-la-biblioteca)). Una carpeta vacía o una búsqueda sin resultados muestran un mensaje muted en lugar de la cuadrícula. La cabecera y los chips aparecen cuando hay documentos o carpetas; con la biblioteca vacía se ve la bienvenida de [A.4.7](#a47-inicio-como-panel-home-f02-home-f03) (por eso la primera carpeta solo se crea después del primer documento; `document.md` §8). Capturas: [`biblioteca_todos_light.png`](docs/design-system/mockups/real/v3/biblioteca_todos_light.png) · [`biblioteca_todos_dark.png`](docs/design-system/mockups/real/v3/biblioteca_todos_dark.png) (todas), [`biblioteca_carpeta_light.png`](docs/design-system/mockups/real/v3/biblioteca_carpeta_light.png) · [`biblioteca_carpeta_dark.png`](docs/design-system/mockups/real/v3/biblioteca_carpeta_dark.png) (una carpeta) y las versiones `_1024_` a 1024 px de ancho.
+
+#### A.4.10 Barra de páginas y modos de vista (UI-F06, UI-F07)
+
+Barra bajo el lector (contenido de hasta 980 px, 16 px entre elementos), visible solo si el documento tiene más de una página. De izquierda a derecha: botón **"Anterior"** · campo numérico de página (`QSpinBox`, 72 px, sin flechas, borde 2 px `secondary`, foco de teclado de 3 px) · **"de N"** · botón **"Siguiente"** · espacio flexible · dos botones alternables **"Continua"** y **"Por páginas"** (el marcado usa el fondo `secondary-bg-hover`, el estado "marcado" de los botones normales). "Anterior" se desactiva en la página 1 y "Siguiente" en la última. Todo botón dice su atajo en el *tooltip* (`Ctrl+Izquierda`, `Ctrl+Derecha`). En "Por páginas" la lectura en voz alta pasa de página sola; en "Continua" la barra sigue el desplazamiento. Capturas: [`paginas_continua_light.png`](docs/design-system/mockups/real/v3/paginas_continua_light.png) · [`paginas_continua_dark.png`](docs/design-system/mockups/real/v3/paginas_continua_dark.png), con una palabra de la página 2 resaltada [`paginas_continua_pagina2_light.png`](docs/design-system/mockups/real/v3/paginas_continua_pagina2_light.png) · [`paginas_continua_pagina2_dark.png`](docs/design-system/mockups/real/v3/paginas_continua_pagina2_dark.png), y por páginas [`paginas_por_paginas_light.png`](docs/design-system/mockups/real/v3/paginas_por_paginas_light.png) · [`paginas_por_paginas_dark.png`](docs/design-system/mockups/real/v3/paginas_por_paginas_dark.png). La barra de desplazamiento vertical del lector se redondeó (14 px de ancho, asa de 48 px como mínimo, color `border`).
+
+**Contraste.** Estos componentes reutilizan pares de [A.1.3](#a13-contraste-salida-de-contrastpy) ya medidos con `contrast.py` (chip marcado = botón primario, 8,16:1). **No se midió aparte** el color del asa de la barra de desplazamiento ni el borde `border` de los chips sin marcar frente al fondo; `tests/test_theme.py` sigue comprobando que todo hex pertenece a la paleta.
+
+
+### A.5 Plantillas
+
+Ventana de referencia **1280 × 800 px**; mínima **1024 × 700 px**.
+
+#### A.5.1 Inicio
+
+```text
+┌──────────────────────────── 1280 ────────────────────────────┐
+│ Barra superior 56:  ClearRead ········ Mis palabras  Ajustes │
+├──────────────────────────────────────────────────────────────┤
+│ contenido hasta 1100 px, centrado, margen 32                  │
+│  Tu espacio de lectura                                        │
+│  ┌── Continuar leyendo (3) ──────┐ ┌─ zona de arrastre (2) ─┐ │
+│  │ nombre · progreso · Continuar │ │ Elegir · Probar ejemplo│ │
+│  └───────────────────────────────┘ └────────────────────────┘ │
+│  ┌─ palabras ─┐ ┌─ tiempo ─┐ ┌─ documentos ─┐                  │
+│  Documentos recientes (cuadrícula de 2 columnas)              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Responsive desde 1024 px:** el contenido ocupa todo el ancho disponible hasta 1100 px; la zona de arrastre tiene un mínimo de 320 px y las filas no necesitan más de 960 px. Un test comprueba, a 1024, 1100 y 1400 px, que no hay barra horizontal y que ninguna tarjeta ni botón "Abrir" se sale de la vista.
+
+#### A.5.2 Lectura (+ panel de IA)
+
+La columna de lectura (550–820 px) va centrada en el área flexible; con el panel abierto (360 px) el área mide 920 px a 1280 y 664 px a 1024. Sobre la columna aparece, si hace falta, el aviso de "Seguir desde donde lo dejaste".
+
+#### A.5.3 Ajustes y Mis palabras
+
+Ajustes: contenedor de 1120 px con dos columnas y scroll vertical. Mis palabras: columna única de hasta 860 px.
+
+
+### A.6 Páginas
+
+**Capturas reales de la v2** (ventana de 1280 × 800 a escala 125 % de Windows, por eso miden 1600 × 1000; app real, fuentes reales, documento de ejemplo; `tests/manual/run_real_v2.py`):
+
+| # | Pantalla | Claro | Oscuro | Notas |
+|:--|:--|:--|:--|:--|
+| 1 | Inicio vacío (primera vez) | [inicio_vacio_light.png](docs/design-system/mockups/real/v2/inicio_vacio_light.png) | [inicio_vacio_dark.png](docs/design-system/mockups/real/v2/inicio_vacio_dark.png) | Bienvenida y "Probar con un ejemplo" |
+| 1b | Foco de teclado | [foco_teclado_light.png](docs/design-system/mockups/real/v2/foco_teclado_light.png) | [foco_teclado_dark.png](docs/design-system/mockups/real/v2/foco_teclado_dark.png) | Anillo de Tab en "Probar con un ejemplo" |
+| 2 | Inicio con datos | [inicio_datos_light.png](docs/design-system/mockups/real/v2/inicio_datos_light.png) | [inicio_datos_dark.png](docs/design-system/mockups/real/v2/inicio_datos_dark.png) | Las **cifras de las estadísticas son valores ilustrativos** escritos por el script; el progreso (34 %) sale de la posición de lectura real del ejemplo |
+| 3 | Lectura, con sílabas | [lectura_light.png](docs/design-system/mockups/real/v2/lectura_light.png) | [lectura_dark.png](docs/design-system/mockups/real/v2/lectura_dark.png) | Palabra que suena, regleta, barra de reproducción |
+| 4 | Lectura en modo foco | [lectura_foco_light.png](docs/design-system/mockups/real/v2/lectura_foco_light.png) | [lectura_foco_dark.png](docs/design-system/mockups/real/v2/lectura_foco_dark.png) | Líneas atenuadas |
+| 5 | Panel de IA con respuesta | [panel_ia_light.png](docs/design-system/mockups/real/v2/panel_ia_light.png) | [panel_ia_dark.png](docs/design-system/mockups/real/v2/panel_ia_dark.png) | Respuesta **real** del backend desplegado a una palabra del ejemplo |
+| 6 | Mis palabras | [mis_palabras_light.png](docs/design-system/mockups/real/v2/mis_palabras_light.png) | [mis_palabras_dark.png](docs/design-system/mockups/real/v2/mis_palabras_dark.png) | Tres palabras explicadas por el backend real |
+| 7 | Ajustes | [ajustes_light.png](docs/design-system/mockups/real/v2/ajustes_light.png) | [ajustes_dark.png](docs/design-system/mockups/real/v2/ajustes_dark.png) | Fuente de lectura, 2 temas, sin "Ajustes avanzados" |
+
+**Capturas reales de la v3 (2026-10-18)** ([`mockups/real/v3/`](docs/design-system/mockups/real/v3/); app real, fuentes y tema reales, sin OCR porque la muestra es un PDF digital público de `tests/samples`; pantalla virtual `offscreen`, no un monitor físico; `tests/manual/run_real_v3.py` y `run_real_v4.py`; las carpetas, documentos y palabras de las capturas de la biblioteca son datos de muestra creados por el script):
+
+| # | Pantalla | Claro | Oscuro | Notas |
+|:--|:--|:--|:--|:--|
+| 8 | Lectura continua (páginas) | [paginas_continua_light.png](docs/design-system/mockups/real/v3/paginas_continua_light.png) | [paginas_continua_dark.png](docs/design-system/mockups/real/v3/paginas_continua_dark.png) | Barra de páginas y separadores "Página N" |
+| 8b | Continua, palabra de la página 2 | [light](docs/design-system/mockups/real/v3/paginas_continua_pagina2_light.png) | [dark](docs/design-system/mockups/real/v3/paginas_continua_pagina2_dark.png) | Palabra que suena en otra página |
+| 9 | Por páginas | [paginas_por_paginas_light.png](docs/design-system/mockups/real/v3/paginas_por_paginas_light.png) | [paginas_por_paginas_dark.png](docs/design-system/mockups/real/v3/paginas_por_paginas_dark.png) | Solo la página 2 |
+| 10 | Biblioteca, todos | [biblioteca_todos_light.png](docs/design-system/mockups/real/v3/biblioteca_todos_light.png) | [biblioteca_todos_dark.png](docs/design-system/mockups/real/v3/biblioteca_todos_dark.png) | Chips con contador, búsqueda, tarjetas con carpeta |
+| 10b | Biblioteca, una carpeta | [biblioteca_carpeta_light.png](docs/design-system/mockups/real/v3/biblioteca_carpeta_light.png) | [biblioteca_carpeta_dark.png](docs/design-system/mockups/real/v3/biblioteca_carpeta_dark.png) | Más versiones a 1024 px: [light](docs/design-system/mockups/real/v3/biblioteca_carpeta_1024_light.png) · [dark](docs/design-system/mockups/real/v3/biblioteca_carpeta_1024_dark.png) |
+| 11 | Mis palabras, temas | [mis_palabras_temas_light.png](docs/design-system/mockups/real/v3/mis_palabras_temas_light.png) | [mis_palabras_temas_dark.png](docs/design-system/mockups/real/v3/mis_palabras_temas_dark.png) | Chips de tema y botón "Tema" en cada tarjeta |
+| 11b | Mis palabras, un tema | [mis_palabras_tema_light.png](docs/design-system/mockups/real/v3/mis_palabras_tema_light.png) | [mis_palabras_tema_dark.png](docs/design-system/mockups/real/v3/mis_palabras_tema_dark.png) | Filtrado por un tema |
+
+Quedan de la sesión anterior (v1, Día 11) las capturas del panel de IA con error y sin red: [`mockups/real/panel_ia_error_real_*.png`](docs/design-system/mockups/real/) y [`panel_ia_sin_red_real_*.png`](docs/design-system/mockups/real/). Usan la paleta antigua; **no se rehicieron** en el Día 12.
+
+
+### A.7 Navegación
+
+#### A.7.1 Mapa de pantallas
+
+```mermaid
+flowchart LR
+    Inicio["Inicio<br/>(panel o bienvenida)"]
+    Procesando["Procesando"]
+    Lectura["Lectura"]
+    PanelIA["Panel de IA<br/>(dentro de Lectura)"]
+    Palabras["Mis palabras"]
+    Ajustes["Ajustes"]
+    Error["Diálogo de error<br/>(modal)"]
+
+    Inicio -- "arrastrar / Elegir archivo (Ctrl+O)" --> Procesando
+    Inicio -- "Probar con un ejemplo" --> Lectura
+    Inicio -- "Continuar / abrir reciente (caché)" --> Lectura
+    Procesando -- "terminado" --> Lectura
+    Procesando -- "Cancelar / Esc / Alt+←" --> Inicio
+    Procesando -- "falla" --> Error
+    Error -- "Entendido / Esc" --> Inicio
+    Lectura -- "← Inicio / Alt+←" --> Inicio
+    Lectura -- "Asistente / clic derecho / Ctrl+I" --> PanelIA
+    PanelIA -- "× / Esc / Ctrl+I" --> Lectura
+    Inicio -- "Mis palabras" --> Palabras
+    Lectura -- "Mis palabras" --> Palabras
+    Palabras -- "← Volver / Alt+←" --> Inicio
+    Palabras -- "← Volver / Alt+←" --> Lectura
+    Inicio -- "Ajustes (Ctrl+,)" --> Ajustes
+    Lectura -- "Ajustes (Ctrl+,)" --> Ajustes
+    Ajustes -- "← Volver / Esc / Alt+←" --> Inicio
+    Ajustes -- "← Volver / Esc / Alt+←" --> Lectura
+```
+
+#### A.7.2 Orden de foco (Tab)
+
+*Orden previsto: en el código sigue el orden en que se crean los widgets, no se fijó con `setTabOrder`.*
+
+| Pantalla | Orden |
+|:--|:--|
+| Inicio vacío | Mis palabras → Ajustes → **Elegir archivo** (foco inicial) → Probar con un ejemplo |
+| Inicio con documentos | … → **Elegir archivo** → Probar con un ejemplo → Continuar → tarjetas (× → Abrir) |
+| Procesando | **Cancelar** |
+| Lectura | ← Inicio → Asistente → Mis palabras → Ajustes → **lector** (foco inicial) → Reproducir → Detener → Modo foco → Velocidad |
+| Lectura + panel | … → panel: × → Explicar palabra → Simplificar párrafo → Reintentar/Cancelar/Escuchar |
+| Mis palabras | ← Volver → búsqueda → (por tarjeta) Escuchar → Borrar |
+| Ajustes | ← Volver → Tema → Fuente → Tamaño → Interlineado → Letras → Palabras → Sílabas → Velocidad → Voz → Idioma → Restablecer |
+
+#### A.7.3 Atajos de teclado
+
+| Atajo | Acción | Dónde |
+|:--|:--|:--|
+| **Espacio** | Reproducir / pausar / reanudar | Lectura |
+| **Esc** | Cerrar el panel de IA o, si no está abierto, detener la lectura; cancela el procesado; sale de Ajustes | Según contexto |
+| **F** | Activar / desactivar el modo foco | Lectura |
+| **Ctrl+I** | Abrir / cerrar el asistente | Lectura |
+| Ctrl+O | Elegir archivo | Inicio |
+| Ctrl+, | Abrir Ajustes | Inicio, Lectura |
+| Alt+← | Atrás | Lectura, Ajustes, Mis palabras, Procesando |
+| **PageUp / PageDown** | Subir / bajar una pantalla; en "Por páginas", al llegar al borde pasan de página | Lectura |
+| **Ctrl+←** / **Ctrl+→** | Página anterior / siguiente | Lectura |
+| **Ctrl+Inicio** / **Ctrl+Fin** | Primera / última página | Lectura |
+| **Ctrl++** (o Ctrl+=) / **Ctrl+−** / **Ctrl+0** | Letra más grande / más pequeña / tamaño por defecto (12–28 pt, se guarda) | Lectura |
+
+Los atajos de página y zoom se añadieron el 2026-10-18 (UI-F03). `F6` (mover el foco entre lector y panel) figura en `document.md` (UI-F03) pero **todavía no está implementado**, y el orden de Tab no se fijó con `setTabOrder` (A.11).
+
+#### A.7.4 Qué hace "Atrás" en cada pantalla
+
+| Pantalla | Atrás |
+|:--|:--|
+| Inicio | No hay atrás. |
+| Procesando | Equivale a **Cancelar**. |
+| Lectura | Detiene la voz, guarda la posición y vuelve a Inicio (cierra el panel de IA). |
+| Mis palabras | Detiene la voz y vuelve a la pantalla de origen (Inicio o Lectura). |
+| Ajustes | Vuelve a la pantalla de origen. Los cambios ya están guardados. |
+
+
+### A.8 Checklist de accesibilidad
+
+- [x] **Contraste:** todo texto ≥ 7:1 y todo borde, icono o indicador ≥ 3:1, medido con `contrast.py` y recalculado en `tests/test_theme.py` (A.1.3). Excepciones documentadas: la regleta y el amarillo sobre lavanda sin borde.
+- [x] **Solo dos colores de marca:** un test recorre `theme.py` y falla ante cualquier hex que no sea uno de los 16 tonos de A.1.1, y otro prohíbe hex fuera de `theme.py`.
+- [x] **Foco visible solo con teclado**, en morado o amarillo (test con eventos de foco `Tab`, `Backtab`, ratón y atajo).
+- [ ] **Teclado:** todo se puede hacer sin ratón; orden de Tab según A.7.2. *(Falta F6 y Ctrl++/−.)*
+- [x] **Tamaño de clic ≥ 32 px** (botones de 40–48 px).
+- [x] **Nunca solo color:** error = icono "!" + texto; deshabilitado = borde discontinuo + *tooltip*; opción elegida = borde grueso; palabra que suena = fondo + subrayado; toggle = "Sí/No"; sin internet = *badge* con texto.
+- [x] **Nombres accesibles** en botones de solo icono, tarjetas ("Abrir {documento}", "Escuchar {palabra}"), campo de búsqueda y respuesta de IA.
+- [x] **Sin cursivas, sin justificado, sin mayúsculas sostenidas.**
+- [x] **Home sin barra horizontal desde 1024 px.**
+- [ ] **Movimiento:** la barra indeterminada no respeta aún "Mostrar animaciones en Windows" (pendiente).
+- [ ] **Escalado de Windows** al 125 % y 150 %: el 125 % se ve en las capturas; el 150 % no se probó.
+- [ ] **Narrador de Windows:** no se probó.
+- [ ] **Prueba con personas con dislexia:** no se hizo.
+
+
+### A.9 Voz y tono
+
+**Cómo hablamos:** español neutro, de **tú**, frases cortas (≤ 20 palabras), en positivo y sin culpar a nadie. Cada mensaje de problema dice **qué pasó** y **qué se puede hacer**. Sin tecnicismos. Sin signos de exclamación en errores.
+
+| En vez de… | Decimos… |
+|:--|:--|
+| "Error: PdfPasswordError" | "No pudimos abrir este documento. El PDF tiene contraseña y ClearRead no puede leerlo así." |
+| "Procesando OCR página 5/12" | "Leyendo la página 5 de 12" |
+| "Backend no disponible (503)" | "El asistente no está disponible en este momento." |
+| "ACEPTAR" | "Entendido" |
+| "Estadísticas de uso" | "Estas cifras se calculan en tu equipo y no se envían a ningún sitio." |
+| "Glosario vacío" | "Aún no hay palabras guardadas" |
+
+Los mensajes de error de ingesta y del asistente son los de la v1 (viven en `ui/strings.py`; ver `document.md` §4.9 y §4.10). **Textos nuevos del Día 12** (todos en es y en): "Tu espacio de lectura", "Continuar leyendo", "Probar con un ejemplo", "Te damos la bienvenida a ClearRead", "Palabras leídas", "Tiempo de lectura", "Documentos", "Seguir desde donde lo dejaste", "Seguir", "Empezar de nuevo", "Modo foco", "Mis palabras", "Buscar una palabra", "Escuchar", "Borrar", "Guardada en Mis palabras.", "Fuente de lectura".
+
+
+### A.10 Traspaso a Qt
+
+#### A.10.1 Módulo de tema (`src/clearread/ui/theme.py`)
+
+- `ThemeId(Enum)`: `LIGHT = "light"`, `DARK = "dark"`. Es el valor de `AppConfig.theme`.
+- `ThemeTokens`: `@dataclass(frozen=True)` con un `str` (hex) por token de A.1.2: `bg`, `surface`, `text`, `text_muted`, `syllable_even`, `syllable_odd`, `syllable_odd_bg`, `word_highlight_bg`, `word_highlight_fg`, `ruler_bg`, `dim_text`, `focus_ring`, `focus_ring_primary`, `primary_bg`, `primary_fg`, `primary_bg_hover`, `primary_bg_pressed`, `primary_border`, `secondary`, `secondary_bg_hover`, `border`, `track`, `track_border`, `disabled_fg`, `disabled_bg`.
+- `THEMES`: los dos juegos de A.1.2, **copiados de esa tabla**. `tests/test_theme.py` recalcula cada ratio de A.1.3 y valida la regla de los dos colores.
+- `build_stylesheet(tokens)` genera el QSS; `syllable_palette(tokens)` devuelve `SyllablePalette(color_even, color_odd, background_odd)`.
+
+#### A.10.2 Reglas clave del QSS
+
+```css
+QPushButton                    { border: 2px solid {secondary}; background: transparent; color: {secondary}; }
+QPushButton[keyFocus="true"]   { border: 3px solid {focus_ring}; padding: 0 17px; }
+QPushButton[variant="primary"] { background: {primary_bg}; color: {primary_fg}; border-color: {primary_border}; }
+QPushButton[variant="primary"][keyFocus="true"] { border: 3px solid {focus_ring_primary}; }
+
+QSlider::groove:horizontal   { background: {track}; border: 1px solid {track_border}; }
+QSlider::sub-page:horizontal { background: {primary_bg}; }
+QProgressBar                 { background: {track}; border: 1px solid {track_border}; }
+QProgressBar::chunk          { background: {primary_bg}; }
+```
+
+Las variantes se marcan con propiedades dinámicas (`variant`, `role`, `keyFocus`) y se refrescan con `style().unpolish()/polish()`.
+
+#### A.10.3 Lo que no va por QSS
+
+| Elemento | Cómo se tematiza |
+|:--|:--|
+| Sílabas | `TextFormatter(syllabifier, palette, style)` con `syllable_palette(tokens)` (el fondo de las impares es `background-color` en el HTML) |
+| Palabra resaltada, regleta y modo foco | `ReaderWidget.apply_theme(tokens)`: `word`, `ruler` y `dim` (`QTextCharFormat`) como `ExtraSelection` |
+| Iconos | SVG recoloreados al cargar (A.1.7) |
+| Foco de teclado | `KeyboardFocusRing` (filtro de eventos de la aplicación) |
+| Barra de título | Nativa de Windows: no se tematiza |
+
+#### A.10.4 Tipografía en el código
+
+`ReadingStyle(font_family, font_size_pt, letter_spacing_em, word_spacing_em)` → `css()` convierte los em a píxeles. `ui/fonts.py` registra las tres fuentes con `QFontDatabase.addApplicationFont`. La clave de la caché de documentos incluye tema, fuente, tamaño, espaciados y sílabas, así que cambiar cualquiera regenera el HTML sin recalcular el `TokenPositionMap`.
+
+
+### A.11 Decisiones y tareas pendientes
+
+**Decisiones de la usuaria (2026-10-07), aplicadas en este documento y en el código:** solo dos colores de marca (A.1.1); solo Claro y Oscuro, sin Alto Contraste; botones primarios, barras y deslizadores amarillos en ambos temas; sin bordes de otro color; foco solo con teclado y en amarillo o morado; palabra que suena invertida entre temas; sílabas con fondo amarillo suave (Claro) o alternancia amarillo/lavanda (Oscuro); regleta y modo foco en tonos de morado; "Ajustes avanzados" oculto; Lexend por defecto con Atkinson Hyperlegible y OpenDyslexic como opciones; 18 pt, interlineado 1,5, letra +0,12 em y palabra +0,16 em.
+
+**Pendientes y límites honestos**
+
+1. **Sin pruebas con personas.** Ni la tipografía por defecto ni el modo foco se probaron con lectores con dislexia (A.1.4).
+2. **Modo foco discreto.** El 7:1 limita cuánto se puede atenuar (A.1.3). Si la usuaria prefiere un atenuado más fuerte, hay que decidir entre bajar el umbral de las líneas atenuadas (con una excepción documentada) o añadir otra señal.
+3. **F6** (UI-F03) sigue sin implementar, igual que fijar el orden de Tab con `setTabOrder`. ~~Ctrl++/Ctrl+−~~ se implementaron el 2026-10-18 (A.7.3).
+4. **Estadísticas.** Cuentan las palabras que dice la voz y el tiempo con la lectura en marcha; leer sin voz (con el ratón) no suma. Es una definición simple, no una medición del esfuerzo de lectura.
+5. **Escalado de Windows al 150 %, Narrador y "Mostrar animaciones":** sin probar.
+6. **Mockups v1** (`mockups/*.png`): obsoletos; se podrían borrar. Las capturas del panel de IA con error y sin red (v1) no se rehicieron.
+7. **`clearread.spec` (Día 13):** debe incluir `resources/samples/` además de `resources/fonts/` y los iconos nuevos; verificarlo en `dist/` con la skill `package-exe`. Donde este documento dice "Día 12" para compilar el `.exe`, léase **Día 13**; la prueba en máquina limpia es el **Día 14** (`document.md` §6.5).
+8. **Barra de título oscura:** se deja la nativa de Windows.
+9. **Adiciones del 2026-10-18 sin probar a mano:** las capturas de v3 son de la app real en pantalla virtual; no se probaron con ratón físico, ni con lectores de pantalla, ni con escalado de Windows al 150 %. No se midió el contraste del asa de la barra de desplazamiento ni del borde de los chips sin marcar (A.4.10).
+

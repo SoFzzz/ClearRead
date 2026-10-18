@@ -8,19 +8,27 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from clearread.services.glossary import GlossaryEntry, search_entries
+from clearread.services.glossary import (
+    GlossaryEntry,
+    count_by_topic,
+    filter_entries,
+)
+from clearread.services.groups import NO_GROUP, Group
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import ThemeTokens
+from clearread.ui.views.group_filter import GroupFilter
 from clearread.ui.views.home_view import ElidedLabel, fit_button
 
 CONTENT_MAX_WIDTH = 860
+TOPIC_NAME_CHARS = 24
 PAGE_MARGIN = 32
 
 
@@ -33,9 +41,14 @@ def format_added(added_on: str, language: Language) -> str:
 class WordCard(QFrame):
     listen_requested = Signal(str)  # text to read aloud
     delete_requested = Signal(str)  # word
+    topic_changed = Signal(str, str)  # word, topic id ("" = no topic)
 
     def __init__(
-        self, entry: GlossaryEntry, tokens: ThemeTokens, language: Language
+        self,
+        entry: GlossaryEntry,
+        tokens: ThemeTokens,
+        language: Language,
+        topics: list[Group] | None = None,
     ) -> None:
         super().__init__()
         self.entry = entry
@@ -69,11 +82,21 @@ class WordCard(QFrame):
         self.delete_button.clicked.connect(
             lambda: self.delete_requested.emit(entry.word)
         )
-        for button in (self.listen_button, self.delete_button):
+        topics = topics or []
+        self.topic_button = QPushButton(self._topic_text(entry, topics, language))
+        self.topic_button.setIcon(load_icon("folder", tokens.secondary))
+        self.topic_button.setToolTip(tr("words.topic_tooltip", language))
+        self.topic_button.setAccessibleName(
+            tr("words.topic_named", language, word=entry.word)
+        )
+        self.topic_menu = self._build_topic_menu(entry, topics, language)
+        self.topic_button.setMenu(self.topic_menu)
+        for button in (self.listen_button, self.delete_button, self.topic_button):
             fit_button(button)
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
         buttons.addWidget(self.listen_button)
+        buttons.addWidget(self.topic_button)
         buttons.addWidget(self.delete_button)
         buttons.addStretch(1)
         layout = QVBoxLayout(self)
@@ -84,16 +107,48 @@ class WordCard(QFrame):
         layout.addWidget(meta)
         layout.addLayout(buttons)
 
+    @staticmethod
+    def _topic_text(
+        entry: GlossaryEntry, topics: list[Group], language: Language
+    ) -> str:
+        topic = next((t for t in topics if t.id == entry.topic), None)
+        name = topic.name if topic else tr("topic.none", language)
+        if len(name) > TOPIC_NAME_CHARS:
+            name = name[: TOPIC_NAME_CHARS - 1] + "…"
+        return tr("words.topic_button", language, topic=name)
+
+    def _build_topic_menu(
+        self, entry: GlossaryEntry, topics: list[Group], language: Language
+    ) -> QMenu:
+        menu = QMenu(self.topic_button)
+        options = [(NO_GROUP, tr("topic.none", language))]
+        options += [(t.id, t.name) for t in topics]
+        for topic_id, name in options:
+            action = menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(topic_id == entry.topic)
+            action.triggered.connect(
+                lambda _checked=False, target=topic_id: self.topic_changed.emit(
+                    entry.word, target
+                )
+            )
+        return menu
+
 
 class WordsView(QWidget):
     listen_requested = Signal(str)
     delete_requested = Signal(str)
+    topic_changed = Signal(str, str)  # word, topic id
+    topic_add_requested = Signal()
+    topic_rename_requested = Signal(str)
+    topic_delete_requested = Signal(str)
 
     def __init__(self, tokens: ThemeTokens, language: Language) -> None:
         super().__init__()
         self._tokens = tokens
         self._language = language
         self._entries: list[GlossaryEntry] = []
+        self._topics: list[Group] = []
         self.cards: list[WordCard] = []
         self._build_ui()
 
@@ -116,6 +171,12 @@ class WordsView(QWidget):
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.textChanged.connect(self._render)
 
+        self.topic_filter = GroupFilter("topic", self._language)
+        self.topic_filter.selection_changed.connect(self._render)
+        self.topic_filter.add_requested.connect(self.topic_add_requested)
+        self.topic_filter.rename_requested.connect(self.topic_rename_requested)
+        self.topic_filter.delete_requested.connect(self.topic_delete_requested)
+
         self.empty_title = QLabel(self._t("words.empty_title"))
         self.empty_title.setProperty("role", "heading")
         self.empty_body = QLabel(self._t("words.empty_body"))
@@ -137,6 +198,7 @@ class WordsView(QWidget):
         column.setContentsMargins(PAGE_MARGIN, 28, PAGE_MARGIN, PAGE_MARGIN)
         column.setSpacing(16)
         column.addLayout(header)
+        column.addWidget(self.topic_filter)
         column.addWidget(self.search_edit)
         column.addWidget(self.empty_box)
         column.addWidget(self.no_results_label)
@@ -164,8 +226,12 @@ class WordsView(QWidget):
         self._tokens = tokens
         self._render()
 
-    def set_entries(self, entries: list[GlossaryEntry]) -> None:
+    def set_entries(
+        self, entries: list[GlossaryEntry], topics: list[Group] | None = None
+    ) -> None:
         self._entries = entries
+        if topics is not None:
+            self._topics = topics
         self._render()
 
     def _render(self) -> None:
@@ -175,18 +241,32 @@ class WordsView(QWidget):
                 widget.hide()
                 widget.setParent(None)
                 widget.deleteLater()
-        shown = search_entries(self._entries, self.search_edit.text())
+        self.topic_filter.set_groups(
+            self._topics, count_by_topic(self._entries), len(self._entries)
+        )
+        shown = filter_entries(
+            self._entries, self.topic_filter.selected, self.search_edit.text()
+        )
         self.cards = []
         for entry in shown:
-            card = WordCard(entry, self._tokens, self._language)
+            card = WordCard(entry, self._tokens, self._language, self._topics)
             card.listen_requested.connect(self.listen_requested)
             card.delete_requested.connect(self.delete_requested)
+            card.topic_changed.connect(self.topic_changed)
             self._list.addWidget(card)
             self.cards.append(card)
+        self._show_texts(len(shown))
+
+    def _show_texts(self, shown: int) -> None:
         total = len(self._entries)
+        searching = bool(self.search_edit.text().strip())
         self.empty_box.setVisible(total == 0)
         self.search_edit.setVisible(total > 0)
-        self.no_results_label.setVisible(total > 0 and not shown)
+        self.topic_filter.setVisible(total > 0 or bool(self._topics))
+        self.no_results_label.setText(
+            self._t("words.no_results" if searching else "words.topic_empty")
+        )
+        self.no_results_label.setVisible(total > 0 and shown == 0)
         self.count_label.setText(
             self._t("words.count_one")
             if total == 1

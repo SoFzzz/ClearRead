@@ -1,6 +1,7 @@
 # ClearRead Desktop — Design System
 
-> **Versión:** 2.0 (rediseño del Día 12 de `document.md` §6.5) · **Fecha:** 2026-10-07
+> **Versión:** 2.1 (v2.0 del rediseño del Día 12 de `document.md` §6.5, más las adiciones del 2026-10-18) · **Fecha:** 2026-10-18
+> **Adiciones del 2026-10-18 (`document.md` §4.13):** chip de carpeta/tema ([§2.10](#210-chip-de-carpeta-o-tema)), cabecera de la biblioteca ([§4.9](#49-biblioteca-en-inicio-home-f04)), botones de las tarjetas de carpeta y tema ([§3.4](#34-tarjeta-de-documento-de-la-biblioteca) y [§3.9](#39-tarjeta-de-palabra-ai-f05)), barra de páginas y modos de vista ([§4.10](#410-barra-de-páginas-y-modos-de-vista-ui-f06-ui-f07)). **No se añadió ningún color ni token:** todo usa los tokens existentes de [§1.2](#12-tokens-semánticos-por-tema) (`primary-bg`/`primary-fg`, `primary-border`, `secondary-bg-hover`, `border`, `surface`, `text`, `text-muted`, `focus-ring`). Capturas reales: [`mockups/real/v3/`](mockups/real/v3/) (ver [§6](#6-páginas)).
 > **Estado:** decisiones de la usuaria (2026-10-07) ya aplicadas en el código. La versión 1.0 (Día 2) queda sustituida.
 > **Capturas reales de esta versión:** [`mockups/real/v2/`](mockups/real/v2/), hechas con la app real y el documento de ejemplo (ver [§6](#6-páginas)).
 > **Mockups v1** ([`mockups/*.png`](mockups/) y [`mockups/source/`](mockups/source/), de Claude Design): son del diseño anterior (3 temas, turquesa y naranja). Se conservan como historial; **no representan** la app actual.
@@ -367,6 +368,10 @@ Alto 24 px, `radius-pill`, borde 1 px `border`, texto `text` semibold. Uso: "Sin
 
 Alto 32 px, `radius-md`, fondo `word-highlight-bg`, texto `word-highlight-fg` en negrita: muestra la palabra elegida en el panel de IA (mismo par que el resaltado: 8,16:1 en ambos temas).
 
+### 2.10 Chip de carpeta o tema
+
+Botón alternable (`QPushButton[variant="chip"]`, 2026-10-18) para filtrar la biblioteca por carpeta y "Mis palabras" por tema. Alto mínimo 32 px, radio 16 px (píldora), relleno horizontal 14 px, borde `border`. **Marcado:** fondo `primary-bg` y texto `primary-fg` (el amarillo de los botones primarios, 8,16:1 ya medido en [§1.3](#13-contraste-salida-de-contrastpy)), borde `primary-border`. **Foco de teclado:** anillo de 3 px `focus-ring` (`focus-ring-primary` si está marcado), solo con Tab, igual que el resto ([§2.1](#21-botón)). El texto lleva el nombre y el contador ("Biología 3"); nombres de más de 24 caracteres se recortan con "…". Los chips pasan a otra fila con un `FlowLayout`, así que nunca hay barra horizontal. Al lado, "+ Nueva carpeta" / "+ Nuevo tema" (chip no marcable) y, cuando hay un grupo concreto elegido, los botones fantasma **Renombrar** y **Borrar** (con confirmación; borrar una carpeta o un tema no borra sus documentos ni palabras).
+
 ---
 
 ## 3. Moléculas
@@ -387,9 +392,9 @@ Botón primario de 148 × 48 px ("Reproducir" ▷ ↔ "Pausar" ‖ ↔ "Reanudar
 
 Etiqueta · control · valor en texto. Cada cambio actualiza al instante la tarjeta "Vista previa" (con la fuente, el tamaño y el espaciado elegidos) y se guarda en `AppConfig`.
 
-### 3.4 Tarjeta de documento reciente
+### 3.4 Tarjeta de documento de la biblioteca
 
-`Card` (superficie, borde 1 px, `radius-lg`) con: icono · nombre (elidido, *tooltip* completo) y metadatos ("Texto · 1 página · Abierto hoy") · botón × "Quitar de recientes" · barra de progreso con "34 % leído" · botón **"Abrir"** (nunca se corta). Se colocan en una **cuadrícula de 2 columnas**.
+`Card` (superficie, borde 1 px, `radius-lg`) con: icono · nombre (elidido, *tooltip* completo) y metadatos ("Texto · 1 página · Abierto hoy · Biología", el último dato es la carpeta si tiene) · **botón de carpeta** (icono `folder`, menú "Sin carpeta" + las carpetas, la actual marcada; nombre accesible "Mover {nombre} a una carpeta") · botón × "Quitar de la biblioteca" (pide confirmación; borra la copia guardada, nunca el archivo original) · barra de progreso con "34 % leído" · botón **"Abrir"** (nunca se corta). Se colocan en una **cuadrícula de 2 columnas**. *(Antes de 2026-10-18 se llamaba "tarjeta de documento reciente" y el × quitaba sin preguntar.)*
 
 ### 3.5 Tarjeta de respuesta de IA
 
@@ -409,7 +414,7 @@ Primer uso (NFR-SEC01): tarjeta con borde **2 px** `text`, candado, título "Ant
 
 ### 3.9 Tarjeta de palabra (AI-F05)
 
-`Card` con la palabra (20 px bold), su explicación, "Documento · fecha" (muted) y dos botones: **"Escuchar"** (altavoz) y **"Borrar"**. Cada botón lleva nombre accesible con la palabra ("Escuchar célula").
+`Card` con la palabra (20 px bold), su explicación, "Documento · fecha" (muted) y tres botones: **"Escuchar"** (altavoz), **"Tema: {tema}"** (menú con "Sin tema" y los temas; AI-F06, 2026-10-18) y **"Borrar"** (pide confirmación). Cada botón lleva nombre accesible con la palabra ("Escuchar célula", "Cambiar el tema de célula").
 
 ### 3.10 Aviso "Seguir desde donde lo dejaste" (READ-F01)
 
@@ -434,7 +439,8 @@ Alto **56 px**, fondo `surface`, borde inferior 1 px `border`, relleno lateral 2
 - **Palabra que suena** (`ExtraSelection`): **Claro = fondo `#392F5A` con letra `#F4D06F`; Oscuro = fondo `#F4D06F` con letra `#392F5A`** (decisión de la usuaria), con subrayado del color de la letra. Sin negrita (no cambia el ancho y no mueve las líneas).
 - **Regleta** (`FullWidthSelection`, `ruler-bg` opaco, en tonos de morado): cubre el ancho de la columna. Es un apoyo; ver [§1.3](#13-contraste-salida-de-contrastpy).
 - **Modo foco (READ-F02):** cuando se activa, todas las líneas visuales salvo la activa se pintan con `dim-text` y sin fondo de sílaba; la activa mantiene sus colores y la regleta. Se calcula con dos `ExtraSelection` (antes y después de la línea) sobre el diseño de `QTextLayout`, sin animación. Como el texto atenuado debe seguir en ≥ 7:1, el contraste entre líneas es moderado ([§1.3](#13-contraste-salida-de-contrastpy)). Sin ninguna palabra activa no se atenúa nada. Capturas: [`lectura_foco_light.png`](mockups/real/v2/lectura_foco_light.png) · [`lectura_foco_dark.png`](mockups/real/v2/lectura_foco_dark.png).
-- **Clic izquierdo** en una palabra: empieza a leer desde ahí (UI-F02). **Clic derecho:** menú "Explicar esta palabra" / "Simplificar este párrafo" (D11).
+- **Clic izquierdo** en una palabra: solo mueve el punto de inicio, en pausa y en silencio (UI-F02, 2026-10-18; antes empezaba a leer). **Doble clic:** selecciona la palabra y abre el menú "Explicar esta palabra" / "Simplificar este párrafo". **Clic derecho:** el mismo menú (D11). La voz solo arranca con Reproducir o `Espacio`.
+- **Páginas:** en la vista Continua el lector pinta un separador "Página N" (texto `text-muted` en negrita y una línea fina `border` hasta el borde) sobre el primer párrafo de cada página; en "Por páginas" muestra solo la página actual ([§4.10](#410-barra-de-páginas-y-modos-de-vista-ui-f06-ui-f07)).
 
 ### 4.3 Barra de reproducción
 
@@ -464,7 +470,7 @@ Alto **80 px**, fondo `surface`, borde superior 1 px, contenido de hasta 980 px.
 
 ### 4.7 Inicio como panel (HOME-F02, HOME-F03)
 
-Con documentos: título "Tu espacio de lectura" · fila de **"Continuar leyendo"** (flexible) + **zona de arrastre compacta** · fila de **tres estadísticas** · "Documentos recientes" en tarjetas de 2 columnas. Sin documentos: solo la zona de bienvenida, con "Elegir archivo" y **"Probar con un ejemplo"**. El Inicio hace scroll **solo vertical**; no hay barra horizontal. "Probar con un ejemplo" abre `resources/samples/ejemplo_es.txt` (texto propio sobre la fotosíntesis, ≈ 165 palabras, sin datos personales); no pasa por OCR y queda en recientes como "Ejemplo: la fotosíntesis".
+Con documentos: título "Tu espacio de lectura" · fila de **"Continuar leyendo"** (flexible) + **zona de arrastre compacta** · fila de **tres estadísticas** · **"Mi biblioteca"** ([§4.9](#49-biblioteca-en-inicio-home-f04); antes "Documentos recientes") en tarjetas de 2 columnas. Sin documentos: solo la zona de bienvenida, con "Elegir archivo" y **"Probar con un ejemplo"**. El Inicio hace scroll **solo vertical**; no hay barra horizontal. "Probar con un ejemplo" abre `resources/samples/ejemplo_es.txt` (texto propio sobre la fotosíntesis, ≈ 165 palabras, sin datos personales); no pasa por OCR y queda en recientes como "Ejemplo: la fotosíntesis".
 
 **Estadísticas.** "Palabras leídas" cuenta cada palabra que la voz dice del documento (no las respuestas del asistente) y "Tiempo de lectura" suma el tiempo con la lectura en marcha; "Documentos" son los de la lista de recientes. Todo se guarda en `stats.json` dentro de `%APPDATA%\ClearRead` y no sale del equipo.
 
@@ -472,7 +478,19 @@ Con documentos: título "Tu espacio de lectura" · fila de **"Continuar leyendo"
 
 Pantalla completa de hasta 860 px: título "Mis palabras" + "3 palabras guardadas" · campo de búsqueda · lista de [tarjetas de palabra](#39-tarjeta-de-palabra-ai-f05). La **búsqueda** ignora mayúsculas y tildes ("celula" encuentra "célula") y mira la palabra y la explicación. Estado vacío: "Aún no hay palabras guardadas" y una explicación. Capturas: [`mis_palabras_light.png`](mockups/real/v2/mis_palabras_light.png) · [`mis_palabras_dark.png`](mockups/real/v2/mis_palabras_dark.png).
 
-**Sin llamadas nuevas a la IA:** la palabra y su explicación se guardan cuando el asistente ya las mostró (`glossary.json`, hasta 500 entradas; una palabra repetida conserva solo su última explicación). "Escuchar" usa la voz del sistema, "Borrar" la quita.
+**Sin llamadas nuevas a la IA:** la palabra y su explicación se guardan cuando el asistente ya las mostró (`glossary.json`, hasta 500 entradas; una palabra repetida conserva solo su última explicación). "Escuchar" usa la voz del sistema, "Borrar" la quita **previa confirmación**.
+
+**Temas (AI-F06, 2026-10-18).** Bajo el buscador, una fila de [chips](#210-chip-de-carpeta-o-tema) "Todas" · "Sin tema" · temas creados, con "+ Nuevo tema", Renombrar y Borrar. El filtro por tema se combina con la búsqueda. Un tema vacío muestra "No hay palabras en este tema.". Capturas: [`mis_palabras_temas_light.png`](mockups/real/v3/mis_palabras_temas_light.png) · [`mis_palabras_temas_dark.png`](mockups/real/v3/mis_palabras_temas_dark.png) (todas) y [`mis_palabras_tema_light.png`](mockups/real/v3/mis_palabras_tema_light.png) · [`mis_palabras_tema_dark.png`](mockups/real/v3/mis_palabras_tema_dark.png) (un tema).
+
+### 4.9 Biblioteca en Inicio (HOME-F04)
+
+Cabecera de la sección: título **"Mi biblioteca"** a la izquierda y un **campo de búsqueda** (hasta 320 px, con botón de borrar) a la derecha; debajo, la fila de [chips de carpeta](#210-chip-de-carpeta-o-tema) ("Todos" · "Sin carpeta" · carpetas, cada una con contador) con "+ Nueva carpeta", Renombrar y Borrar; si hay una carpeta elegida, la línea muted "Los documentos nuevos se guardan en «Biología»."; después las tarjetas ([§3.4](#34-tarjeta-de-documento-de-la-biblioteca)). Una carpeta vacía o una búsqueda sin resultados muestran un mensaje muted en lugar de la cuadrícula. La cabecera y los chips aparecen cuando hay documentos o carpetas; con la biblioteca vacía se ve la bienvenida de [§4.7](#47-inicio-como-panel-home-f02-home-f03) (por eso la primera carpeta solo se crea después del primer documento; `document.md` §8). Capturas: [`biblioteca_todos_light.png`](mockups/real/v3/biblioteca_todos_light.png) · [`biblioteca_todos_dark.png`](mockups/real/v3/biblioteca_todos_dark.png) (todas), [`biblioteca_carpeta_light.png`](mockups/real/v3/biblioteca_carpeta_light.png) · [`biblioteca_carpeta_dark.png`](mockups/real/v3/biblioteca_carpeta_dark.png) (una carpeta) y las versiones `_1024_` a 1024 px de ancho.
+
+### 4.10 Barra de páginas y modos de vista (UI-F06, UI-F07)
+
+Barra bajo el lector (contenido de hasta 980 px, 16 px entre elementos), visible solo si el documento tiene más de una página. De izquierda a derecha: botón **"Anterior"** · campo numérico de página (`QSpinBox`, 72 px, sin flechas, borde 2 px `secondary`, foco de teclado de 3 px) · **"de N"** · botón **"Siguiente"** · espacio flexible · dos botones alternables **"Continua"** y **"Por páginas"** (el marcado usa el fondo `secondary-bg-hover`, el estado "marcado" de los botones normales). "Anterior" se desactiva en la página 1 y "Siguiente" en la última. Todo botón dice su atajo en el *tooltip* (`Ctrl+Izquierda`, `Ctrl+Derecha`). En "Por páginas" la lectura en voz alta pasa de página sola; en "Continua" la barra sigue el desplazamiento. Capturas: [`paginas_continua_light.png`](mockups/real/v3/paginas_continua_light.png) · [`paginas_continua_dark.png`](mockups/real/v3/paginas_continua_dark.png), con una palabra de la página 2 resaltada [`paginas_continua_pagina2_light.png`](mockups/real/v3/paginas_continua_pagina2_light.png) · [`paginas_continua_pagina2_dark.png`](mockups/real/v3/paginas_continua_pagina2_dark.png), y por páginas [`paginas_por_paginas_light.png`](mockups/real/v3/paginas_por_paginas_light.png) · [`paginas_por_paginas_dark.png`](mockups/real/v3/paginas_por_paginas_dark.png). La barra de desplazamiento vertical del lector se redondeó (14 px de ancho, asa de 48 px como mínimo, color `border`).
+
+**Contraste.** Estos componentes reutilizan pares de [§1.3](#13-contraste-salida-de-contrastpy) ya medidos con `contrast.py` (chip marcado = botón primario, 8,16:1). **No se midió aparte** el color del asa de la barra de desplazamiento ni el borde `border` de los chips sin marcar frente al fondo; `tests/test_theme.py` sigue comprobando que todo hex pertenece a la paleta.
 
 ---
 
@@ -522,6 +540,18 @@ Ajustes: contenedor de 1120 px con dos columnas y scroll vertical. Mis palabras:
 | 5 | Panel de IA con respuesta | [panel_ia_light.png](mockups/real/v2/panel_ia_light.png) | [panel_ia_dark.png](mockups/real/v2/panel_ia_dark.png) | Respuesta **real** del backend desplegado a una palabra del ejemplo |
 | 6 | Mis palabras | [mis_palabras_light.png](mockups/real/v2/mis_palabras_light.png) | [mis_palabras_dark.png](mockups/real/v2/mis_palabras_dark.png) | Tres palabras explicadas por el backend real |
 | 7 | Ajustes | [ajustes_light.png](mockups/real/v2/ajustes_light.png) | [ajustes_dark.png](mockups/real/v2/ajustes_dark.png) | Fuente de lectura, 2 temas, sin "Ajustes avanzados" |
+
+**Capturas reales de la v3 (2026-10-18)** ([`mockups/real/v3/`](mockups/real/v3/); app real, fuentes y tema reales, sin OCR porque la muestra es un PDF digital público de `tests/samples`; pantalla virtual `offscreen`, no un monitor físico; `tests/manual/run_real_v3.py` y `run_real_v4.py`; las carpetas, documentos y palabras de las capturas de la biblioteca son datos de muestra creados por el script):
+
+| # | Pantalla | Claro | Oscuro | Notas |
+|:--|:--|:--|:--|:--|
+| 8 | Lectura continua (páginas) | [paginas_continua_light.png](mockups/real/v3/paginas_continua_light.png) | [paginas_continua_dark.png](mockups/real/v3/paginas_continua_dark.png) | Barra de páginas y separadores "Página N" |
+| 8b | Continua, palabra de la página 2 | [light](mockups/real/v3/paginas_continua_pagina2_light.png) | [dark](mockups/real/v3/paginas_continua_pagina2_dark.png) | Palabra que suena en otra página |
+| 9 | Por páginas | [paginas_por_paginas_light.png](mockups/real/v3/paginas_por_paginas_light.png) | [paginas_por_paginas_dark.png](mockups/real/v3/paginas_por_paginas_dark.png) | Solo la página 2 |
+| 10 | Biblioteca, todos | [biblioteca_todos_light.png](mockups/real/v3/biblioteca_todos_light.png) | [biblioteca_todos_dark.png](mockups/real/v3/biblioteca_todos_dark.png) | Chips con contador, búsqueda, tarjetas con carpeta |
+| 10b | Biblioteca, una carpeta | [biblioteca_carpeta_light.png](mockups/real/v3/biblioteca_carpeta_light.png) | [biblioteca_carpeta_dark.png](mockups/real/v3/biblioteca_carpeta_dark.png) | Más versiones a 1024 px: [light](mockups/real/v3/biblioteca_carpeta_1024_light.png) · [dark](mockups/real/v3/biblioteca_carpeta_1024_dark.png) |
+| 11 | Mis palabras, temas | [mis_palabras_temas_light.png](mockups/real/v3/mis_palabras_temas_light.png) | [mis_palabras_temas_dark.png](mockups/real/v3/mis_palabras_temas_dark.png) | Chips de tema y botón "Tema" en cada tarjeta |
+| 11b | Mis palabras, un tema | [mis_palabras_tema_light.png](mockups/real/v3/mis_palabras_tema_light.png) | [mis_palabras_tema_dark.png](mockups/real/v3/mis_palabras_tema_dark.png) | Filtrado por un tema |
 
 Quedan de la sesión anterior (v1, Día 11) las capturas del panel de IA con error y sin red: [`mockups/real/panel_ia_error_real_*.png`](mockups/real/) y [`panel_ia_sin_red_real_*.png`](mockups/real/). Usan la paleta antigua; **no se rehicieron** en el Día 12.
 
@@ -586,8 +616,12 @@ flowchart LR
 | Ctrl+O | Elegir archivo | Inicio |
 | Ctrl+, | Abrir Ajustes | Inicio, Lectura |
 | Alt+← | Atrás | Lectura, Ajustes, Mis palabras, Procesando |
+| **PageUp / PageDown** | Subir / bajar una pantalla; en "Por páginas", al llegar al borde pasan de página | Lectura |
+| **Ctrl+←** / **Ctrl+→** | Página anterior / siguiente | Lectura |
+| **Ctrl+Inicio** / **Ctrl+Fin** | Primera / última página | Lectura |
+| **Ctrl++** (o Ctrl+=) / **Ctrl+−** / **Ctrl+0** | Letra más grande / más pequeña / tamaño por defecto (12–28 pt, se guarda) | Lectura |
 
-`F6` (mover el foco entre lector y panel) y `Ctrl++` / `Ctrl+−` (tamaño de letra) figuran en `document.md` (UI-F03) pero **todavía no están implementados** (§11).
+Los atajos de página y zoom se añadieron el 2026-10-18 (UI-F03). `F6` (mover el foco entre lector y panel) figura en `document.md` (UI-F03) pero **todavía no está implementado**, y el orden de Tab no se fijó con `setTabOrder` (§11).
 
 ### 7.4 Qué hace "Atrás" en cada pantalla
 
@@ -685,9 +719,10 @@ Las variantes se marcan con propiedades dinámicas (`variant`, `role`, `keyFocus
 
 1. **Sin pruebas con personas.** Ni la tipografía por defecto ni el modo foco se probaron con lectores con dislexia (§1.4).
 2. **Modo foco discreto.** El 7:1 limita cuánto se puede atenuar (§1.3). Si la usuaria prefiere un atenuado más fuerte, hay que decidir entre bajar el umbral de las líneas atenuadas (con una excepción documentada) o añadir otra señal.
-3. **F6 y Ctrl++/Ctrl+−** (UI-F03) siguen sin implementar.
+3. **F6** (UI-F03) sigue sin implementar, igual que fijar el orden de Tab con `setTabOrder`. ~~Ctrl++/Ctrl+−~~ se implementaron el 2026-10-18 (§7.3).
 4. **Estadísticas.** Cuentan las palabras que dice la voz y el tiempo con la lectura en marcha; leer sin voz (con el ratón) no suma. Es una definición simple, no una medición del esfuerzo de lectura.
 5. **Escalado de Windows al 150 %, Narrador y "Mostrar animaciones":** sin probar.
 6. **Mockups v1** (`mockups/*.png`): obsoletos; se podrían borrar. Las capturas del panel de IA con error y sin red (v1) no se rehicieron.
 7. **`clearread.spec` (Día 13):** debe incluir `resources/samples/` además de `resources/fonts/` y los iconos nuevos; verificarlo en `dist/` con la skill `package-exe`. Donde este documento dice "Día 12" para compilar el `.exe`, léase **Día 13**; la prueba en máquina limpia es el **Día 14** (`document.md` §6.5).
 8. **Barra de título oscura:** se deja la nativa de Windows.
+9. **Adiciones del 2026-10-18 sin probar a mano:** las capturas de v3 son de la app real en pantalla virtual; no se probaron con ratón físico, ni con lectores de pantalla, ni con escalado de Windows al 150 %. No se midió el contraste del asa de la barra de desplazamiento ni del borde de los chips sin marcar (§4.10).

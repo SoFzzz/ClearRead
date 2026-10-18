@@ -31,20 +31,39 @@ Leer una guía fotocopiada, un examen o unos apuntes escaneados exige un esfuerz
 | **Abre PDFs y fotos** | PDF (digital o escaneado), JPG, PNG, JFIF, BMP y TIFF. Arrastrar y soltar o elegir archivo. |
 | **OCR local con IA** | Reconoce el texto de fotos y escaneos con un modelo de deep learning (RapidOCR sobre ONNX) que funciona sin internet y reconoce la ñ, las tildes y los signos ¿ ¡. Endereza automáticamente páginas inclinadas. |
 | **Lectura en voz alta sincronizada** | La voz de Windows lee el texto respetando comas y puntos mientras se resalta la palabra que suena y una regleta marca la línea. Pausar, reanudar y velocidad ajustable. |
-| **Clic para leer desde ahí** | Pulsa cualquier palabra y la lectura empieza en ella. |
+| **Tú controlas la voz** | Un clic en una palabra solo marca desde dónde leer, sin sonido; la voz suena únicamente con **Reproducir** o la tecla **Espacio**, y **Pausa** la detiene al instante. Un doble clic selecciona la palabra y abre el menú del asistente. |
+| **Páginas** | Los documentos conservan sus páginas: barra con Anterior, número de página y Siguiente, y dos vistas, **Continua** (todo seguido) o **Por páginas**. Con la voz en marcha, la página pasa sola. |
 | **Sílabas coloreadas** | Segmentación silábica fonética del español (opcional). |
 | **Modo foco** | Atenúa todo menos la línea que se está leyendo. |
 | **Tipografía adaptable** | Lexend (por defecto), Atkinson Hyperlegible u OpenDyslexic; tamaño, interlineado y espaciado ajustables. |
 | **Temas claro y oscuro** | Contraste de texto ≥ 7:1 (WCAG AAA), comprobado con la fórmula oficial del W3C. |
 | **Asistente de IA (opcional)** | Clic derecho → *Explicar esta palabra* o *Simplificar este párrafo*, en lenguaje sencillo. Solo se envía el texto que eliges. |
-| **Mis palabras** | Glosario automático con las palabras que te explicó el asistente, para repasarlas sin conexión. |
-| **Continuar leyendo** | Recuerda dónde quedaste en cada documento; los recientes abren al instante sin volver a procesarlos. |
-| **Español e inglés** | La interfaz se puede usar en los dos idiomas. |
+| **Mis palabras** | Glosario automático con las palabras que te explicó el asistente, para repasarlas sin conexión. Se ordenan en **temas** (por ejemplo, uno por asignatura). |
+| **Continuar leyendo** | Recuerda dónde quedaste en cada documento; los ya procesados abren al instante. |
+| **Mi biblioteca** | Hasta 200 documentos, con **carpetas** para ordenarlos, búsqueda por nombre y la opción de quitar los que ya no necesitas (tu archivo original nunca se toca). |
+| **Español e inglés** | La interfaz se puede usar en los dos idiomas; al cambiar de idioma, ClearRead pide confirmación y se reinicia solo. |
+| **Zoom** | `Ctrl` + `+` / `-` cambia el tamaño de la letra y `Ctrl` + `0` lo restablece. |
 
 <p align="center">
-  <img src="docs/design-system/mockups/real/v2/inicio_datos_light.png" alt="Pantalla de inicio" width="49%">
+  <img src="docs/design-system/mockups/real/v3/biblioteca_todos_light.png" alt="Mi biblioteca con carpetas" width="49%">
   <img src="docs/design-system/mockups/real/v2/panel_ia_light.png" alt="Panel del asistente de IA" width="49%">
 </p>
+
+## Atajos de teclado
+
+| Atajo | Acción |
+|:---|:---|
+| `Espacio` | Reproducir / pausar |
+| `Esc` | Detener la lectura (o cerrar el asistente, el procesado o Ajustes) |
+| `F` | Modo foco |
+| `Av Pág` / `Re Pág` | Bajar / subir una pantalla (en "Por páginas", pasa de página al llegar al borde) |
+| `Ctrl` + `←` / `→` | Página anterior / siguiente |
+| `Ctrl` + `Inicio` / `Fin` | Primera / última página |
+| `Ctrl` + `+` / `-` / `0` | Letra más grande / más pequeña / tamaño por defecto |
+| `Ctrl` + `I` | Abrir o cerrar el asistente |
+| `Ctrl` + `O` | Elegir archivo (en Inicio) |
+| `Ctrl` + `,` | Ajustes |
+| `Alt` + `←` | Volver |
 
 ## Descarga e instalación
 
@@ -58,7 +77,7 @@ No necesita Python ni internet. El asistente de IA es la única función que req
 
 - Tus documentos **nunca salen de tu equipo**: el OCR, la voz y el formato son locales.
 - El asistente de IA solo envía **la palabra o el párrafo que eliges**, y la primera vez te pide permiso.
-- Los documentos recientes y las estadísticas se guardan solo en tu equipo (`%APPDATA%\ClearRead`) y se pueden borrar desde Ajustes.
+- Tu biblioteca (documentos procesados, carpetas), tus palabras y las estadísticas se guardan solo en tu equipo (`%APPDATA%\ClearRead`); los documentos se pueden quitar uno a uno o borrar todos desde Ajustes.
 
 ## Arquitectura
 
@@ -70,7 +89,7 @@ ClearRead.exe (escritorio, núcleo offline)  ──HTTPS──►  Backend FastA
 
 - **App de escritorio:** Python 3.11 + PySide6 (Qt). El OCR y la voz corren en hilos propios para que la interfaz nunca se congele.
 - **Backend propio:** FastAPI desplegado en Render. La clave de DeepSeek vive solo en el servidor, nunca en el `.exe`.
-- La especificación completa está en [`document.md`](document.md) y el sistema de diseño en [`docs/design-system/README.md`](docs/design-system/README.md).
+- La especificación completa está en [`document.md`](document.md) y el sistema de diseño (Anexo A), el despliegue del backend y la publicación de una versión (§6.6) en el mismo archivo.
 
 ### Tecnologías
 
@@ -106,7 +125,7 @@ py -3.11 -m venv backend\.venv
 .\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
 ```
 
-Guías: [despliegue del backend](docs/deploy.md) · [publicar una versión](docs/release.md).
+Guías (en [`document.md`](document.md) §6.6): despliegue del backend en Render y publicación de una versión con la prueba en máquina limpia.
 
 ### Estructura
 
@@ -115,7 +134,7 @@ src/clearread/      app de escritorio (core, services, workers, ui)
 backend/            API FastAPI (proyecto independiente)
 resources/          fuentes, modelos ONNX, iconos y documento de ejemplo
 tests/              pruebas automáticas y scripts de prueba manual
-docs/               design system, despliegue y publicación
+docs/design-system/  capturas (mockups) del design system
 document.md         especificación técnica y requisitos
 ```
 
@@ -126,6 +145,7 @@ document.md         especificación técnica y requisitos
 - La primera consulta al asistente puede tardar hasta un minuto si el servidor gratuito estaba en reposo.
 - El reconocimiento con fotos de móvil reales aún no se ha calibrado con un set propio de fotos.
 - La tipografía y el modo foco no se han probado todavía con lectores con dislexia.
+- Las funciones nuevas de la biblioteca, las páginas y el reinicio por cambio de idioma se probaron con tests automáticos y capturas de la app real, pero aún no con ratón físico, con la voz real ni en el `.exe` recompilado.
 
 ## Créditos
 

@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMenu,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -27,16 +29,20 @@ from PySide6.QtWidgets import (
 )
 
 from clearread.services.document_library import RecentDocument
+from clearread.services.groups import FILTER_ALL, NO_GROUP, Group
 from clearread.services.ingestor import DocumentIngestor
 from clearread.services.reading_stats import ReadingStats
+from clearread.services.text_search import search_key
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import ThemeTokens
+from clearread.ui.views.group_filter import GroupFilter
 
 CONTENT_MAX_WIDTH = 1100
 PAGE_MARGIN = 32
 GRID_SPACING = 16
 RECENT_COLUMNS = 2
+SEARCH_MAX_WIDTH = 320
 DROP_ZONE_MIN_WIDTH = 320
 DROP_ZONE_MIN_HEIGHT = 230
 PROCESSING_CARD_WIDTH = 600
@@ -160,6 +166,7 @@ def _progress_bar(percent: int) -> QProgressBar:
 class RecentItem(QFrame):
     open_requested = Signal(str)
     remove_requested = Signal(str)
+    move_requested = Signal(str, str)  # key, folder id ("" = no folder)
 
     def __init__(
         self,
@@ -167,6 +174,7 @@ class RecentItem(QFrame):
         today: date,
         tokens: ThemeTokens,
         language: Language,
+        folders: list[Group] | None = None,
     ) -> None:
         super().__init__()
         self.key = entry.key
@@ -181,19 +189,31 @@ class RecentItem(QFrame):
         self.name_label = ElidedLabel(entry.name, role="heading")
         self.name_label.setStyleSheet("font-size: 15px;")
         meta_key = recent_meta_key(entry)
-        self.meta_label = ElidedLabel(
-            tr(
-                meta_key,
-                language,
-                pages=format_pages(entry.pages, language),
-                opened=format_opened(entry.opened_at, today, language),
-            ),
-            role="muted",
+        meta = tr(
+            meta_key,
+            language,
+            pages=format_pages(entry.pages, language),
+            opened=format_opened(entry.opened_at, today, language),
         )
+        folders = folders or []
+        folder = next((f for f in folders if f.id == entry.folder_id), None)
+        if folder is not None:
+            meta = tr("home.meta_in_folder", language, meta=meta, folder=folder.name)
+        self.meta_label = ElidedLabel(meta, role="muted")
         texts = QVBoxLayout()
         texts.setSpacing(2)
         texts.addWidget(self.name_label)
         texts.addWidget(self.meta_label)
+
+        self.move_button = QPushButton()
+        self.move_button.setIcon(load_icon("folder", tokens.secondary))
+        self.move_button.setFixedWidth(ICON_BOX)
+        self.move_button.setToolTip(tr("home.move_tooltip", language))
+        self.move_button.setAccessibleName(
+            tr("home.move_named", language, name=entry.name)
+        )
+        self.move_menu = self._build_move_menu(entry, folders, language)
+        self.move_button.setMenu(self.move_menu)
 
         self.remove_button = QPushButton()
         self.remove_button.setIcon(load_icon("close", tokens.secondary))
@@ -219,6 +239,7 @@ class RecentItem(QFrame):
         top.setSpacing(12)
         top.addWidget(icon, alignment=Qt.AlignmentFlag.AlignTop)
         top.addLayout(texts, stretch=1)
+        top.addWidget(self.move_button, alignment=Qt.AlignmentFlag.AlignTop)
         top.addWidget(self.remove_button, alignment=Qt.AlignmentFlag.AlignTop)
         bottom = QHBoxLayout()
         bottom.setSpacing(12)
@@ -231,6 +252,23 @@ class RecentItem(QFrame):
         layout.setSpacing(12)
         layout.addLayout(top)
         layout.addLayout(bottom)
+
+    def _build_move_menu(
+        self, entry: RecentDocument, folders: list[Group], language: Language
+    ) -> QMenu:
+        menu = QMenu(self.move_button)
+        options = [(NO_GROUP, tr("folder.none", language))]
+        options += [(f.id, f.name) for f in folders]
+        for folder_id, name in options:
+            action = menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(folder_id == entry.folder_id)
+            action.triggered.connect(
+                lambda _checked=False, target=folder_id: self.move_requested.emit(
+                    self.key, target
+                )
+            )
+        return menu
 
 
 class StatCard(QFrame):
@@ -253,18 +291,25 @@ class StatCard(QFrame):
 
 
 class HomeView(QWidget):
-    """Dashboard: continue reading, drop zone, statistics and recent documents."""
+    """Dashboard: continue reading, drop zone, statistics and the document library."""
 
     file_chosen = Signal(str)
     sample_requested = Signal()
     recent_open_requested = Signal(str)
     recent_remove_requested = Signal(str)
+    recent_move_requested = Signal(str, str)  # key, folder id
+    folder_add_requested = Signal()
+    folder_rename_requested = Signal(str)
+    folder_delete_requested = Signal(str)
 
     def __init__(self, tokens: ThemeTokens, language: Language) -> None:
         super().__init__()
         self._tokens = tokens
         self._language = language
         self.recent_items: list[RecentDocument] = []
+        self.visible_items: list[RecentDocument] = []
+        self._folders: list[Group] = []
+        self._today = local_today()
         self._stats = ReadingStats()
         self._continue_key = ""
         self.setAcceptDrops(True)
@@ -303,8 +348,34 @@ class HomeView(QWidget):
         stats_layout.addLayout(stats)
         stats_layout.addWidget(self.stats_hint)
 
-        self.recent_heading = QLabel(self._t("home.recent_title"))
+        self.recent_heading = QLabel(self._t("home.library_title"))
         self.recent_heading.setProperty("role", "heading")
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText(self._t("home.search_placeholder"))
+        self.search_edit.setAccessibleName(self._t("home.search_placeholder"))
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.setMaximumWidth(SEARCH_MAX_WIDTH)
+        self.search_edit.textChanged.connect(self._render_library)
+        library_header = QHBoxLayout()
+        library_header.setContentsMargins(0, 0, 0, 0)
+        library_header.setSpacing(GRID_SPACING)
+        library_header.addWidget(self.recent_heading)
+        library_header.addStretch(1)
+        library_header.addWidget(self.search_edit, stretch=1)
+        self.library_header = QWidget()
+        self.library_header.setLayout(library_header)
+
+        self.folder_filter = GroupFilter("folder", self._language)
+        self.folder_filter.selection_changed.connect(self._render_library)
+        self.folder_filter.add_requested.connect(self.folder_add_requested)
+        self.folder_filter.rename_requested.connect(self.folder_rename_requested)
+        self.folder_filter.delete_requested.connect(self.folder_delete_requested)
+        self.save_into_label = QLabel()
+        self.save_into_label.setProperty("role", "muted")
+        self.save_into_label.setWordWrap(True)
+        self.library_message = QLabel()
+        self.library_message.setProperty("role", "muted")
+        self.library_message.setWordWrap(True)
         self._recent_grid = QGridLayout()
         self._recent_grid.setSpacing(GRID_SPACING)
         for column in range(RECENT_COLUMNS):
@@ -318,7 +389,10 @@ class HomeView(QWidget):
         column.addWidget(self.title_label)
         column.addLayout(top)
         column.addWidget(self.stats_box)
-        column.addWidget(self.recent_heading)
+        column.addWidget(self.library_header)
+        column.addWidget(self.folder_filter)
+        column.addWidget(self.save_into_label)
+        column.addWidget(self.library_message)
         column.addLayout(self._recent_grid)
         column.addStretch(1)
 
@@ -422,7 +496,56 @@ class HomeView(QWidget):
             format_count(len(self.recent_items), self._language)
         )
 
-    def set_recents(self, entries: list[RecentDocument], today: date) -> None:
+    def set_recents(
+        self,
+        entries: list[RecentDocument],
+        today: date,
+        folders: list[Group] | None = None,
+    ) -> None:
+        self.recent_items = entries
+        self._today = today
+        if folders is not None:
+            self._folders = folders
+        self._show_mode(entries)
+        self._render_library()
+        self.set_stats(self._stats)
+
+    @property
+    def current_folder_id(self) -> str:
+        """The folder new documents go to: the selected one, or none."""
+        selected = self.folder_filter.selected
+        return NO_GROUP if selected == FILTER_ALL else selected
+
+    def _folder_ids(self) -> set[str]:
+        return {f.id for f in self._folders}
+
+    @staticmethod
+    def _folder_of(entry: RecentDocument, known: set[str]) -> str:
+        return entry.folder_id if entry.folder_id in known else NO_GROUP
+
+    def _render_library(self) -> None:
+        counts: dict[str, int] = {}
+        known = self._folder_ids()
+        for entry in self.recent_items:
+            folder = self._folder_of(entry, known)
+            counts[folder] = counts.get(folder, 0) + 1
+        self.folder_filter.set_groups(self._folders, counts, len(self.recent_items))
+        self.visible_items = self._filtered_entries()
+        self._fill_grid(self.visible_items)
+        self._show_library_texts()
+
+    def _filtered_entries(self) -> list[RecentDocument]:
+        selected = self.folder_filter.selected
+        needle = search_key(self.search_edit.text())
+        known = self._folder_ids()
+        return [
+            e
+            for e in self.recent_items
+            if (selected == FILTER_ALL or self._folder_of(e, known) == selected)
+            and (not needle or needle in search_key(e.name))
+        ]
+
+    def _fill_grid(self, entries: list[RecentDocument]) -> None:
         while self._recent_grid.count():
             widget = self._recent_grid.takeAt(0).widget()
             if widget is not None:
@@ -430,22 +553,44 @@ class HomeView(QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
         for index, entry in enumerate(entries):
-            row = RecentItem(entry, today, self._tokens, self._language)
+            row = RecentItem(
+                entry, self._today, self._tokens, self._language, self._folders
+            )
             row.open_requested.connect(self.recent_open_requested)
             row.remove_requested.connect(self.recent_remove_requested)
+            row.move_requested.connect(self.recent_move_requested)
             self._recent_grid.addWidget(
                 row, index // RECENT_COLUMNS, index % RECENT_COLUMNS
             )
-        self.recent_items = entries
-        self._show_mode(entries)
-        self.set_stats(self._stats)
+
+    def _show_library_texts(self) -> None:
+        folder = next(
+            (f for f in self._folders if f.id == self.current_folder_id), None
+        )
+        self.save_into_label.setVisible(folder is not None)
+        if folder is not None:
+            self.save_into_label.setText(self._t("home.save_into", folder=folder.name))
+        message = ""
+        if not self.visible_items and self.recent_items:
+            searching = bool(self.search_edit.text().strip())
+            message = self._t(
+                "home.search_no_results" if searching else "home.folder_empty"
+            )
+        elif not self.recent_items and self._folders:
+            message = self._t("home.folder_empty")
+        self.library_message.setText(message)
+        self.library_message.setVisible(bool(message))
 
     def _show_mode(self, entries: list[RecentDocument]) -> None:
         empty = not entries
-        self.title_label.setVisible(not empty)
+        has_library = bool(entries or self._folders)
+        self.title_label.setVisible(has_library)
         self.continue_card.setVisible(not empty)
         self.stats_box.setVisible(not empty)
-        self.recent_heading.setVisible(not empty)
+        self.library_header.setVisible(has_library)
+        self.recent_heading.setVisible(has_library)
+        self.search_edit.setVisible(not empty)
+        self.folder_filter.setVisible(has_library)
         self.drop_title.setText(
             self._t("home.empty.title" if empty else "home.drop_title")
         )

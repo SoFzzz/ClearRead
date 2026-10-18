@@ -6,8 +6,6 @@ never on the UI thread (AI-F04).
 """
 
 import json
-import os
-import tempfile
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -17,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+from clearread.services.atomic_json import write_json_atomic
 
 
 class AIErrorKind(Enum):
@@ -122,17 +122,10 @@ class DiskResponseCache:
         return {k: v for k, v in data.items() if isinstance(v, str)}
 
     def _save(self) -> None:
-        temp_file: str | None = None
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            fd, temp_file = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")
-            with os.fdopen(fd, "w", encoding="utf-8") as file:
-                json.dump(self._entries, file, ensure_ascii=False)
-            os.replace(temp_file, self._path)
+            write_json_atomic(self._path, self._entries)
         except OSError:
-            # Losing the cache write only costs a repeated request.
-            if temp_file is not None:
-                Path(temp_file).unlink(missing_ok=True)
+            pass  # losing the cache write only costs a repeated request
 
 
 def kind_for_error(status_code: int, body: Any) -> AIErrorKind:

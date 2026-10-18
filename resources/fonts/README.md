@@ -40,5 +40,5 @@ Archivos que viajan dentro del `.exe` (§6.3). **El código de la app nunca los 
 - Las tres fuentes de lectura (Lexend, Atkinson Hyperlegible y OpenDyslexic) se eligen en Ajustes; Lexend es la de por defecto (`AppConfig.reading_font`).
 - Solo se empaqueta el peso **Regular** de las dos nuevas: la lectura no usa negrita (la palabra resaltada se distingue por el fondo, el color y el subrayado). Si Qt recibiera una negrita de una fuente sin ese peso, la sintetizaría ensanchando el trazo y moviendo las líneas.
 - Cobertura comprobada con `QFontMetricsF.inFontUcs4` para `ñ Ñ á é í ó ú ü ¿ ¡ « » — “ ”` en las tres (hay un test: `tests/test_redesign.py`).
-- **No se ha encontrado ni citado ningún estudio revisado por pares sobre Lexend ni sobre Atkinson Hyperlegible**; se eligieron por forma, licencia y cobertura (ver `docs/design-system/README.md` §1.4).
+- **No se ha encontrado ni citado ningún estudio revisado por pares sobre Lexend ni sobre Atkinson Hyperlegible**; se eligieron por forma, licencia y cobertura (ver `document.md` Anexo A, A.1.4).
 - Son recursos, no dependencias de Python. La OFL permite incrustarlas y redistribuirlas; no se renombran ni se modifican.

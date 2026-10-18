@@ -277,23 +277,27 @@ def record_words(view: ReadingView) -> list[int]:
     return events
 
 
-def test_click_on_a_word_reads_from_it_and_the_first_event_is_that_word(
+def spoken_anything(engines: EngineSource) -> bool:
+    return any(engine.said for engine in engines.created)
+
+
+def test_click_on_a_word_only_moves_the_start_point_and_stays_silent(
     view: ReadingView, engines: EngineSource, qtbot: QtBot
 ) -> None:
     shown(view, qtbot)
     events = record_words(view)
     target = 6
     click_word(view, qtbot, target)
-    assert view.state is PlaybackState.PLAYING
+    assert view.state is PlaybackState.PAUSED
     assert view.current_word_idx == target
-    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    assert events[0] == target
-    assert events == list(range(target, len(view.token_map)))
-    script = speech_from(view.tts_script, view.token_map, target).text
-    assert engines.latest.said[-1] == script
+    token = view.token_map[target]
+    assert view.editor.highlighted_range() == (token.doc_start_pos, token.doc_end_pos)
+    qtbot.wait(300)
+    assert events == []
+    assert not spoken_anything(engines)
 
 
-def test_click_while_playing_restarts_from_that_word_without_two_voices(
+def test_click_while_playing_stops_the_voice_and_moves_the_start_point(
     view: ReadingView, engines: EngineSource, qtbot: QtBot
 ) -> None:
     shown(view, qtbot)
@@ -301,15 +305,34 @@ def test_click_while_playing_restarts_from_that_word_without_two_voices(
     view.toggle_play()
     qtbot.waitUntil(lambda: view.current_word_idx >= 3, timeout=TIMEOUT_MS)
     target = 1
-    already = len(events)
     click_word(view, qtbot, target)
-    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    after_click = events[already:]
-    assert after_click == list(range(target, len(view.token_map)))
+    assert view.state is PlaybackState.PAUSED
+    qtbot.wait(300)  # words still in flight must not move anything
+    already = len(events)
+    qtbot.wait(300)
+    assert len(events) == already
+    assert view.state is PlaybackState.PAUSED
+    assert view.current_word_idx == target
     assert engines.voices.peak == 1
 
 
-def test_click_while_paused_reads_from_the_clicked_word(
+def test_play_after_a_click_reads_from_the_clicked_word(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    events = record_words(view)
+    target = 7
+    click_word(view, qtbot, target)
+    assert events == []
+    view.toggle_play()
+    assert view.state is PlaybackState.PLAYING
+    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
+    assert events == list(range(target, len(view.token_map)))
+    script = speech_from(view.tts_script, view.token_map, target).text
+    assert engines.latest.said[-1] == script
+
+
+def test_click_while_paused_moves_the_start_point_without_sound(
     view: ReadingView, qtbot: QtBot
 ) -> None:
     shown(view, qtbot)
@@ -317,11 +340,59 @@ def test_click_while_paused_reads_from_the_clicked_word(
     qtbot.waitUntil(lambda: view.current_word_idx >= 2, timeout=TIMEOUT_MS)
     view.toggle_play()
     assert view.state is PlaybackState.PAUSED
+    qtbot.wait(300)
     events = record_words(view)
     click_word(view, qtbot, 7)
-    assert view.state is PlaybackState.PLAYING
-    qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
-    assert events[0] == 7
+    qtbot.wait(300)
+    assert view.state is PlaybackState.PAUSED
+    assert view.current_word_idx == 7
+    assert events == []
+
+
+def test_pause_stops_at_once_and_late_signals_cannot_restart_the_highlight(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    view.toggle_play()
+    qtbot.waitUntil(lambda: view.current_word_idx >= 2, timeout=TIMEOUT_MS)
+    view.toggle_play()
+    paused_at = view.current_word_idx
+    paused_range = view.editor.highlighted_range()
+    view._on_word_spoken(paused_at + 3)
+    view._on_playback_ended()
+    assert view.state is PlaybackState.PAUSED
+    assert view.current_word_idx == paused_at
+    assert view.editor.highlighted_range() == paused_range
+    assert view.play_button.text() == "Reanudar"
+
+
+def test_the_play_button_shows_pause_only_while_the_voice_is_playing(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    assert view.play_button.text() == "Reproducir"
+    click_word(view, qtbot, 3)
+    assert view.play_button.text() == "Reanudar"
+    view.toggle_play()
+    assert view.play_button.text() == "Pausar"
+    assert view.play_button.toolTip() == "Pausar (Espacio)"
+    view.toggle_play()
+    assert view.play_button.text() == "Reanudar"
+
+
+def test_an_assistant_answer_read_aloud_does_not_resume_the_document(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    click_word(view, qtbot, 3)
+    view.speak_aside("Respuesta corta")
+    qtbot.waitUntil(lambda: engines.latest.said[-1:] == ["Respuesta corta"])
+    qtbot.wait(400)
+    assert view.state is PlaybackState.PAUSED
+    assert view.current_word_idx == 3
+    assert view.editor.highlighted_range() == (
+        view.token_map[3].doc_start_pos,
+        view.token_map[3].doc_end_pos,
+    )
 
 
 def test_click_on_a_space_or_punctuation_chooses_the_next_word(
@@ -329,7 +400,6 @@ def test_click_on_a_space_or_punctuation_chooses_the_next_word(
 ) -> None:
     shown(view, qtbot)
     plain = view.editor.toPlainText()
-    events = record_words(view)
     for position in (plain.index("."), plain.index(" ")):  # period, first space
         expected = next(
             t.word_index for t in view.token_map if t.doc_start_pos > position
@@ -337,9 +407,7 @@ def test_click_on_a_space_or_punctuation_chooses_the_next_word(
         x, y = x_of(view, position)
         click_at(view, qtbot, x + 2, y)  # inside the left half of that character
         assert view.current_word_idx == expected
-        qtbot.waitUntil(lambda: bool(events), timeout=TIMEOUT_MS)
-        assert events[0] == expected
-        events.clear()
+        assert view.state is PlaybackState.PAUSED
 
 
 def test_click_on_the_right_half_of_a_last_letter_still_picks_that_word(
@@ -352,21 +420,60 @@ def test_click_on_the_right_half_of_a_last_letter_still_picks_that_word(
     assert view.current_word_idx == token.word_index
 
 
-def test_double_click_selects_no_text_and_words_show_a_hand_cursor(
-    view: ReadingView, qtbot: QtBot
-) -> None:
-    shown(view, qtbot)
-    token = view.token_map[2]
-    x, y = x_of(view, token.doc_start_pos)
+def double_click_word(view: ReadingView, qtbot: QtBot, index: int) -> None:
+    click_word(view, qtbot, index)  # a real double click starts with a click
+    x, y = x_of(view, view.token_map[index].doc_start_pos)
     qtbot.mouseDClick(
         view.editor.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(x + 6, y)
     )
-    assert not view.editor.textCursor().hasSelection()
-    view.editor.viewport().setCursor(Qt.CursorShape.IBeamCursor)
-    qtbot.mouseMove(view.editor.viewport(), QPoint(x + 6, y))
-    assert view.editor.viewport().cursor().shape() == Qt.CursorShape.IBeamCursor
-    view.editor.enable_char_clicks()
-    assert view.editor.viewport().cursor().shape() == Qt.CursorShape.PointingHandCursor
+
+
+def test_double_click_selects_the_word_and_offers_the_menu_without_speaking(
+    view: ReadingView, engines: EngineSource, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    # The real slot opens a blocking menu; only the request itself is checked here.
+    view.editor.context_menu_requested.disconnect(view._show_context_menu)
+    view.set_assistant_available(True)
+    events = record_words(view)
+    with qtbot.waitSignal(
+        view.editor.context_menu_requested, timeout=TIMEOUT_MS
+    ) as hit:
+        double_click_word(view, qtbot, 2)
+    token = view.token_map[2]
+    assert token.doc_start_pos <= hit.args[0] < token.doc_end_pos
+    assert view.editor.textCursor().selectedText() == token.spoken_text
+    qtbot.wait(300)
+    assert view.state is PlaybackState.PAUSED
+    assert events == []
+    assert not spoken_anything(engines)
+
+
+def test_double_click_without_the_assistant_only_selects_the_word(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    view.set_assistant_available(False)
+    with qtbot.assertNotEmitted(view.editor.context_menu_requested):
+        double_click_word(view, qtbot, 2)
+    assert view.editor.textCursor().selectedText() == view.token_map[2].spoken_text
+    assert view.state is PlaybackState.PAUSED
+
+
+def test_dragging_the_mouse_selects_text_and_keeps_the_start_point(
+    view: ReadingView, qtbot: QtBot
+) -> None:
+    shown(view, qtbot)
+    first, last = view.token_map[1], view.token_map[3]
+    start_x, y = x_of(view, first.doc_start_pos)
+    end_x, _ = x_of(view, last.doc_end_pos)
+    click_word(view, qtbot, 0)
+    viewport = view.editor.viewport()
+    qtbot.mousePress(viewport, Qt.MouseButton.LeftButton, pos=QPoint(start_x + 2, y))
+    qtbot.mouseMove(viewport, QPoint(end_x - 2, y))
+    qtbot.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=QPoint(end_x - 2, y))
+    assert view.editor.textCursor().hasSelection()
+    assert view.current_word_idx == 0
 
 
 def test_click_without_a_document_does_nothing(

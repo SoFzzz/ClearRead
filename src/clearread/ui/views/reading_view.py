@@ -6,18 +6,9 @@ from enum import Enum
 
 from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import (
-    QColor,
-    QContextMenuEvent,
     QFont,
-    QFontMetricsF,
     QKeySequence,
-    QMouseEvent,
-    QPalette,
     QShortcut,
-    QTextBlockFormat,
-    QTextCharFormat,
-    QTextCursor,
-    QTextFormat,
 )
 from PySide6.QtWidgets import (
     QFrame,
@@ -25,8 +16,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QPushButton,
-    QSlider,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -36,251 +25,42 @@ from clearread.services.text_formatter import (
     FormattedDocument,
     ReadingStyle,
     WordToken,
+    page_index_at,
     speech_from,
     token_index_at,
 )
 from clearread.services.tts_controller import (
-    DEFAULT_RATE_WPM,
-    MAX_RATE_WPM,
-    MIN_RATE_WPM,
     TTSController,
     TTSErrorKind,
 )
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
-from clearread.ui.theme import THEMES, ThemeId, ThemeTokens
+from clearread.ui.theme import THEMES, ThemeId
 from clearread.ui.views.ai_panel import AIPanel
+from clearread.ui.views.page_bar import PageBar
+from clearread.ui.views.play_bar import PlayBar
+from clearread.ui.views.reader_widget import ReaderWidget
 
 COLUMN_MIN_WIDTH = 550
 COLUMN_MAX_WIDTH = 820
-PLAY_BAR_MAX_WIDTH = 980
-READER_MARGIN_X = 40
-READER_MARGIN_TOP = 32
-PLAY_BAR_HEIGHT = 80
-PLAY_BUTTON_SIZE = (148, 48)
-SPEED_SLIDER_WIDTH = 230
-BAR_PADDING_X = 24
-BAR_PADDING_Y = 8
-BAR_SPACING = 16
-DEFAULT_LINE_SPACING = 1.5  # multiple of the font size (design system 1.4)
-POINTS_PER_INCH = 72.0
+ZOOM_IN, ZOOM_OUT, ZOOM_RESET = 1, -1, 0
 _ERROR_KEYS = {
     TTSErrorKind.INIT_FAILED.name: "reading.error.tts_init",
     TTSErrorKind.PLAYBACK_FAILED.name: "reading.error.tts_playback",
 }
 
 
+class ViewMode(Enum):
+    """The value is what AppConfig.reading_view_mode stores."""
+
+    CONTINUOUS = "continuous"
+    PAGED = "paged"
+
+
 class PlaybackState(Enum):
     IDLE = "idle"
     PLAYING = "playing"
     PAUSED = "paused"
-
-
-class ReaderWidget(QTextEdit):
-    """Read-only text with a spoken-word highlight and a full-width line ruler."""
-
-    char_clicked = Signal(int)  # document position of the character that was pressed
-    context_menu_requested = Signal(int, QPoint)  # character position, global point
-
-    def __init__(self, tokens: ThemeTokens) -> None:
-        super().__init__()
-        self._clickable = False
-        self._context_menu_enabled = False
-        self.setReadOnly(True)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setViewportMargins(READER_MARGIN_X, READER_MARGIN_TOP, READER_MARGIN_X, 0)
-        self._word_format = QTextCharFormat()
-        self._ruler_format = QTextCharFormat()
-        self._line_spacing = DEFAULT_LINE_SPACING
-        self._dim_format = QTextCharFormat()
-        self._active_token: WordToken | None = None
-        self._focus_mode = False
-        self.reading_font = QFont(
-            ReadingStyle().font_family, ReadingStyle().font_size_pt
-        )
-        self.apply_theme(tokens)
-
-    def enable_char_clicks(self) -> None:
-        """Turn presses into ``char_clicked`` instead of a caret or a text selection."""
-        self._clickable = True
-        self.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def enable_context_menu(self, enabled: bool) -> None:
-        self._context_menu_enabled = enabled
-
-    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        if self._context_menu_enabled:
-            position = self._char_under(event.pos())
-            self.context_menu_requested.emit(position, event.globalPos())
-        else:
-            super().contextMenuEvent(event)
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if not self._clickable:
-            super().mousePressEvent(event)
-        elif event.button() == Qt.MouseButton.LeftButton:
-            self.char_clicked.emit(self._char_under(event.position().toPoint()))
-
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if not self._clickable:
-            super().mouseDoubleClickEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if not self._clickable:
-            super().mouseMoveEvent(event)
-
-    def _char_under(self, point: QPoint) -> int:
-        # cursorForPosition() answers with the nearest gap between characters: the right
-        # half of a letter would resolve to the character after it. The gap's own x tells
-        # which side of it the press landed on.
-        gap = self.cursorForPosition(point)
-        gap_x = self.cursorRect(gap).x()
-        return gap.position() - 1 if point.x() < gap_x else gap.position()
-
-    def fit_height(self, text_width: int, minimum: int, maximum: int) -> None:
-        """Make the widget as tall as its text at ``text_width``, within the limits.
-
-        There is no scroll bar: beyond ``maximum`` the text is cut and the view stays
-        on the highlighted word.
-        """
-        self.document().setTextWidth(text_width)
-        margins = self.viewportMargins()
-        needed = (
-            round(self.document().size().height()) + margins.top() + margins.bottom()
-        )
-        self.setFixedHeight(max(minimum, min(maximum, needed)))
-
-    def apply_theme(self, tokens: ThemeTokens) -> None:
-        palette = self.palette()
-        palette.setColor(QPalette.ColorRole.Base, QColor(tokens.bg))
-        palette.setColor(QPalette.ColorRole.Text, QColor(tokens.text))
-        self.setPalette(palette)
-
-        word = QTextCharFormat()
-        word.setBackground(QColor(tokens.word_highlight_bg))
-        word.setForeground(QColor(tokens.word_highlight_fg))
-        word.setFontUnderline(True)
-        word.setUnderlineColor(QColor(tokens.word_highlight_fg))
-        self._word_format = word
-
-        dim = QTextCharFormat()
-        dim.setForeground(QColor(tokens.dim_text))
-        dim.setBackground(QColor(tokens.bg))
-        self._dim_format = dim
-
-        ruler = QTextCharFormat()
-        ruler.setBackground(QColor(tokens.ruler_bg))
-        ruler.setProperty(QTextFormat.Property.FullWidthSelection, True)
-        self._ruler_format = ruler
-        self._refresh_selections()
-
-    def set_line_spacing(self, line_spacing: float) -> None:
-        self._line_spacing = line_spacing
-
-    def set_reading_font(self, font: QFont) -> None:
-        # Kept apart from font(): the window's QSS sets a UI font on every widget, and
-        # the line spacing must be computed from the font the text is drawn with.
-        self.reading_font = font
-        self.setFont(font)
-
-    def set_content(self, html_content: str) -> None:
-        self.setHtml(html_content)
-        self._apply_line_spacing()
-
-    def _apply_line_spacing(self) -> None:
-        # Qt's proportional height is relative to the font's own line pitch (1.8 times
-        # the font size for OpenDyslexic), so the design's "multiple of the font size"
-        # is converted to a percentage of that pitch.
-        font = self.reading_font
-        em_px = font.pointSizeF() * self.logicalDpiY() / POINTS_PER_INCH
-        natural_px = QFontMetricsF(font).lineSpacing()
-        block_format = QTextBlockFormat()
-        block_format.setLineHeight(
-            100.0 * self._line_spacing * em_px / natural_px,
-            QTextBlockFormat.LineHeightTypes.ProportionalHeight.value,
-        )
-        cursor = QTextCursor(self.document())
-        cursor.select(QTextCursor.SelectionType.Document)
-        cursor.mergeBlockFormat(block_format)
-
-    def set_focus_mode(self, enabled: bool) -> None:
-        """Dim every line except the active one (READ-F02)."""
-        self._focus_mode = enabled
-        self._refresh_selections()
-
-    @property
-    def focus_mode(self) -> bool:
-        return self._focus_mode
-
-    def highlight_token(self, token: WordToken) -> None:
-        self._active_token = token
-        self._refresh_selections()
-        caret = QTextCursor(self.document())
-        caret.setPosition(token.doc_start_pos)
-        self.setTextCursor(caret)
-        self.ensureCursorVisible()
-
-    def _refresh_selections(self) -> None:
-        token = self._active_token
-        if token is None:
-            self.setExtraSelections([])
-            return
-        document = self.document()
-        selections: list[QTextEdit.ExtraSelection] = []
-        if self._focus_mode:
-            line_start, line_end = self._line_range(token.doc_start_pos)
-            for start, end in (
-                (0, line_start),
-                (line_end, document.characterCount() - 1),
-            ):
-                if end > start:
-                    selections.append(self._selection(start, end, self._dim_format))
-        ruler_cursor = QTextCursor(document)
-        ruler_cursor.setPosition(token.doc_start_pos)
-        ruler = QTextEdit.ExtraSelection()
-        ruler.cursor = ruler_cursor
-        ruler.format = self._ruler_format
-        selections.append(ruler)
-        selections.append(
-            self._selection(token.doc_start_pos, token.doc_end_pos, self._word_format)
-        )
-        self.setExtraSelections(selections)
-
-    def _selection(
-        self, start: int, end: int, text_format: QTextCharFormat
-    ) -> QTextEdit.ExtraSelection:
-        cursor = QTextCursor(self.document())
-        cursor.setPosition(start)
-        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
-        selection = QTextEdit.ExtraSelection()
-        selection.cursor = cursor
-        selection.format = text_format
-        return selection
-
-    def _line_range(self, position: int) -> tuple[int, int]:
-        """Document range of the visual line that holds ``position``."""
-        document = self.document()
-        block = document.findBlock(position)
-        document.documentLayout().blockBoundingRect(block)  # makes Qt lay the block out
-        layout = block.layout()
-        line = layout.lineForTextPosition(position - block.position())
-        if layout is None or not line.isValid():
-            return block.position(), block.position() + block.length() - 1
-        start = block.position() + line.textStart()
-        return start, start + line.textLength()
-
-    def highlighted_range(self) -> tuple[int, int] | None:
-        """Character range of the word currently highlighted, if any."""
-        selections = self.extraSelections()
-        if not selections:
-            return None
-        cursor = selections[-1].cursor
-        return cursor.selectionStart(), cursor.selectionEnd()
-
-    def clear_highlights(self) -> None:
-        self._active_token = None
-        self.setExtraSelections([])
 
 
 class ReadingView(QWidget):
@@ -290,6 +70,8 @@ class ReadingView(QWidget):
     assistant_open_changed = Signal(bool)
     aside_finished = Signal()  # the assistant's answer stopped being read aloud
     reading_session = Signal(int, float)  # words spoken, seconds spent playing
+    view_mode_changed = Signal(str)  # ViewMode value chosen with the page bar
+    zoom_requested = Signal(int)  # ZOOM_IN, ZOOM_OUT or ZOOM_RESET
 
     def __init__(
         self,
@@ -297,6 +79,7 @@ class ReadingView(QWidget):
         theme: ThemeId = ThemeId.LIGHT,
         language: Language = Language.ES,
         clock: Callable[[], float] = time.monotonic,
+        view_mode: ViewMode = ViewMode.CONTINUOUS,
     ) -> None:
         super().__init__()
         self._clock = clock
@@ -309,6 +92,9 @@ class ReadingView(QWidget):
         self.token_map: list[WordToken] = []
         self.tts_script = ""
         self.current_word_idx = 0
+        self.page_starts: tuple[int, ...] = (0,)
+        self.current_page = 0
+        self.view_mode = view_mode
         self.state = PlaybackState.IDLE
         self._aside = False  # the voice reads an assistant answer, not the document
         self._ai_anchor: int | None = None  # where the last assistant request pointed
@@ -324,6 +110,22 @@ class ReadingView(QWidget):
         self.status_label.setWordWrap(True)
         self.status_label.hide()
         self.resume_banner = self._build_resume_banner()
+        self.page_bar = PageBar(self._language)
+        self.prev_page_button = self.page_bar.prev_page_button
+        self.next_page_button = self.page_bar.next_page_button
+        self.page_spin = self.page_bar.page_spin
+        self.page_total_label = self.page_bar.page_total_label
+        self.continuous_button = self.page_bar.continuous_button
+        self.paged_button = self.page_bar.paged_button
+        self.page_bar.sync_mode(self.view_mode is ViewMode.PAGED)
+        self.play_bar = PlayBar()
+        self.play_button = self.play_bar.play_button
+        self.stop_button = self.play_bar.stop_button
+        self.focus_button = self.play_bar.focus_button
+        self.speed_label = self.play_bar.speed_label
+        self.speed_slider = self.play_bar.speed_slider
+        self.speed_value_label = self.play_bar.speed_value_label
+        self.counter_label = self.play_bar.counter_label
 
         column = QFrame()
         column.setMinimumWidth(COLUMN_MIN_WIDTH)
@@ -337,8 +139,9 @@ class ReadingView(QWidget):
         reader = QVBoxLayout()
         reader.setContentsMargins(0, 0, 0, 0)
         reader.setSpacing(0)
+        reader.addWidget(self.page_bar)
         reader.addLayout(self._centered(column), stretch=1)
-        reader.addWidget(self._build_play_bar())
+        reader.addWidget(self.play_bar)
 
         self.ai_panel = AIPanel(self._tokens, self._language)
         self.ai_panel.hide()
@@ -384,60 +187,6 @@ class ReadingView(QWidget):
         row.addStretch(1)
         return row
 
-    def _build_play_bar(self) -> QFrame:
-        bar = QFrame()
-        bar.setObjectName("PlayBar")
-        bar.setFixedHeight(PLAY_BAR_HEIGHT)
-
-        self.play_button = QPushButton()
-        self.play_button.setProperty("variant", "primary")
-        self.play_button.setFixedSize(*PLAY_BUTTON_SIZE)
-        self.stop_button = QPushButton()
-        self.stop_button.setFixedHeight(PLAY_BUTTON_SIZE[1])
-        self.focus_button = QPushButton()
-        self.focus_button.setCheckable(True)
-        self.focus_button.setFixedHeight(PLAY_BUTTON_SIZE[1])
-
-        self.speed_label = QLabel()
-        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setRange(MIN_RATE_WPM, MAX_RATE_WPM)
-        self.speed_slider.setValue(DEFAULT_RATE_WPM)
-        self.speed_slider.setFixedWidth(SPEED_SLIDER_WIDTH)
-        self.speed_value_label = QLabel()
-        speed_header = QHBoxLayout()
-        speed_header.addWidget(self.speed_label)
-        speed_header.addStretch(1)
-        speed_header.addWidget(self.speed_value_label)
-        speed = QVBoxLayout()
-        speed.setSpacing(0)
-        speed.addLayout(speed_header)
-        speed.addWidget(self.speed_slider)
-
-        self.counter_label = QLabel()
-        info = QVBoxLayout()
-        info.setSpacing(0)
-        info.addWidget(self.counter_label)
-
-        content = QWidget()
-        content.setObjectName("PlayBarContent")
-        content.setMaximumWidth(PLAY_BAR_MAX_WIDTH)
-        row = QHBoxLayout(content)
-        row.setContentsMargins(0, BAR_PADDING_Y, 0, BAR_PADDING_Y)
-        row.setSpacing(BAR_SPACING)
-        row.addWidget(self.play_button)
-        row.addWidget(self.stop_button)
-        row.addWidget(self.focus_button)
-        row.addLayout(speed)
-        row.addStretch(1)
-        row.addLayout(info)
-
-        outer = QHBoxLayout(bar)
-        outer.setContentsMargins(BAR_PADDING_X, 0, BAR_PADDING_X, 0)
-        outer.addStretch(1)
-        outer.addWidget(content, stretch=3)
-        outer.addStretch(1)
-        return bar
-
     def _connect_signals(self) -> None:
         self.play_button.clicked.connect(self.toggle_play)
         self.stop_button.clicked.connect(self.stop_reading)
@@ -445,6 +194,20 @@ class ReadingView(QWidget):
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.editor.char_clicked.connect(self._on_char_clicked)
         self.editor.context_menu_requested.connect(self._show_context_menu)
+        self.editor.scrolled.connect(self._on_editor_scrolled)
+        self.prev_page_button.clicked.connect(
+            lambda: self.go_to_page(self.current_page - 1)
+        )
+        self.next_page_button.clicked.connect(
+            lambda: self.go_to_page(self.current_page + 1)
+        )
+        self.page_spin.valueChanged.connect(lambda number: self.go_to_page(number - 1))
+        self.continuous_button.clicked.connect(
+            lambda: self._choose_view_mode(ViewMode.CONTINUOUS)
+        )
+        self.paged_button.clicked.connect(
+            lambda: self._choose_view_mode(ViewMode.PAGED)
+        )
         self.ai_panel.close_clicked.connect(lambda: self.set_assistant_open(False))
         self._tts.word_spoken.connect(self._on_word_spoken)
         self._tts.playback_ended.connect(self._on_playback_ended)
@@ -453,6 +216,16 @@ class ReadingView(QWidget):
             (Qt.Key.Key_Space, self.toggle_play),
             (Qt.Key.Key_Escape, self._on_escape),
             (Qt.Key.Key_F, self.focus_button.toggle),
+            (Qt.Key.Key_PageDown, lambda: self._scroll_page(1)),
+            (Qt.Key.Key_PageUp, lambda: self._scroll_page(-1)),
+            ("Ctrl+Right", lambda: self.go_to_page(self.current_page + 1)),
+            ("Ctrl+Left", lambda: self.go_to_page(self.current_page - 1)),
+            ("Ctrl+Home", lambda: self.go_to_page(0)),
+            ("Ctrl+End", lambda: self.go_to_page(self.page_count - 1)),
+            ("Ctrl++", lambda: self.zoom_requested.emit(ZOOM_IN)),
+            ("Ctrl+=", lambda: self.zoom_requested.emit(ZOOM_IN)),
+            ("Ctrl+-", lambda: self.zoom_requested.emit(ZOOM_OUT)),
+            ("Ctrl+0", lambda: self.zoom_requested.emit(ZOOM_RESET)),
         )
         for key, slot in shortcuts:
             shortcut = QShortcut(QKeySequence(key), self)
@@ -489,6 +262,7 @@ class ReadingView(QWidget):
         self.focus_button.setToolTip(
             self._t("reading.tooltip", action=focus, shortcut=self._t("reading.key_f"))
         )
+        self._refresh_page_bar_texts()
         self.resume_title.setText(self._t("reading.resume_title"))
         self.resume_continue_button.setText(self._t("reading.resume_continue"))
         self.resume_restart_button.setText(self._t("reading.resume_restart"))
@@ -497,6 +271,15 @@ class ReadingView(QWidget):
             self._t("reading.speed_value", wpm=self.speed_slider.value())
         )
         self._refresh_counter()
+
+    def _refresh_page_bar_texts(self) -> None:
+        self.page_bar.refresh_texts(self.page_count)
+        self.editor.set_page_labels(
+            [
+                self._t("reading.page_label", number=n + 1)
+                for n in range(self.page_count)
+            ]
+        )
 
     def _refresh_counter(self) -> None:
         total = len(self.token_map)
@@ -529,9 +312,7 @@ class ReadingView(QWidget):
     def _resume_here(self) -> None:
         self.resume_banner.hide()
         if 0 <= self.resume_index < len(self.token_map):
-            self.current_word_idx = self.resume_index
-            self.editor.highlight_token(self.token_map[self.resume_index])
-            self._set_state(PlaybackState.PAUSED)
+            self._move_start_to(self.resume_index)
 
     def _dismiss_resume(self) -> None:
         self.resume_banner.hide()
@@ -546,8 +327,13 @@ class ReadingView(QWidget):
         self.token_map = document.token_map
         self.tts_script = document.tts_script
         self.current_word_idx = 0
-        self.editor.set_content(document.html_content)
+        self.page_starts = document.page_starts
+        self.editor.set_content(document.html_content, document.page_starts)
+        self.editor.set_paged(self.view_mode is ViewMode.PAGED)
         self.editor.clear_highlights()
+        self._set_current_page(0)
+        self._refresh_page_bar_texts()
+        self.page_bar.setVisible(self.page_count > 1)
         self.status_label.hide()
         self.resume_index = resume_at
         offer = 0 < resume_at < len(self.token_map) - 1
@@ -578,11 +364,77 @@ class ReadingView(QWidget):
         self.editor.apply_theme(self._tokens)
         self.editor.set_reading_font(QFont(style.font_family, style.font_size_pt))
         self.editor.set_line_spacing(line_spacing)
+        anchor = self.editor.first_visible_position()
         self.editor.set_content(html_content)
         self.editor.clear_highlights()
+        self.editor.scroll_to_position(anchor)
         if self.state is not PlaybackState.IDLE and self.token_map:
-            self.editor.highlight_token(self.token_map[self.current_word_idx])
+            self._highlight_word(self.current_word_idx)
         self._refresh_texts()
+
+    @property
+    def page_count(self) -> int:
+        return len(self.page_starts)
+
+    def go_to_page(self, index: int) -> None:
+        """Show page ``index`` (0-based); it never starts or stops the voice."""
+        index = max(0, min(index, self.page_count - 1))
+        if self.view_mode is ViewMode.PAGED:
+            self._turn_to_page(index, force=True)
+        else:
+            self.editor.scroll_to_position(self.page_starts[index])
+            self._set_current_page(index)
+
+    def _turn_to_page(self, index: int, force: bool = False) -> None:
+        if force or index != self.current_page:
+            self.editor.show_page(index)
+        self._set_current_page(index)
+
+    def _set_current_page(self, index: int) -> None:
+        self.current_page = index
+        self.page_bar.show_page(index, self.page_count)
+
+    def _on_editor_scrolled(self) -> None:
+        if self.view_mode is ViewMode.CONTINUOUS and self.page_count > 1:
+            self._set_current_page(self.editor.visible_page())
+
+    def _scroll_page(self, direction: int) -> None:
+        """PageUp/PageDown scroll a screen; in page mode they turn the page at its end."""
+        bar = self.editor.verticalScrollBar()
+        edge = bar.maximum() if direction > 0 else bar.minimum()
+        target = self.current_page + direction
+        turns = self.view_mode is ViewMode.PAGED and 0 <= target < self.page_count
+        if turns and bar.value() == edge:
+            self.go_to_page(target)
+            if direction < 0:
+                bar.setValue(bar.maximum())
+        else:
+            bar.setValue(bar.value() + direction * bar.pageStep())
+
+    def _anchor_position(self) -> int:
+        """Character to keep on screen when the view mode changes."""
+        if self.state is not PlaybackState.IDLE and self.token_map:
+            return self.token_map[self.current_word_idx].doc_start_pos
+        return self.editor.first_visible_position()
+
+    def set_view_mode(self, mode: ViewMode) -> None:
+        """Switch between continuous and page mode, keeping the current word in view."""
+        if mode is self.view_mode:
+            return
+        anchor = self._anchor_position()
+        self.view_mode = mode
+        self.editor.set_paged(mode is ViewMode.PAGED)
+        self.editor.show_page(page_index_at(self.page_starts, anchor))
+        self.editor.scroll_to_position(anchor)
+        self._set_current_page(page_index_at(self.page_starts, anchor))
+        self._sync_mode_buttons()
+
+    def _choose_view_mode(self, mode: ViewMode) -> None:
+        self.set_view_mode(mode)
+        self.view_mode_changed.emit(mode.value)
+
+    def _sync_mode_buttons(self) -> None:
+        self.page_bar.sync_mode(self.view_mode is ViewMode.PAGED)
 
     def set_speed(self, wpm: int) -> None:
         self.speed_slider.setValue(wpm)
@@ -606,15 +458,31 @@ class ReadingView(QWidget):
         self.resume_index = word_index
         speech = speech_from(self.tts_script, self.token_map, word_index)
         self._set_state(PlaybackState.PLAYING)
-        self.editor.highlight_token(self.token_map[word_index])
+        self._highlight_word(word_index)
         self._tts.speak_text(
             speech.text, start_offset=word_index, word_spans=speech.word_spans
         )
 
+    def _move_start_to(self, word_index: int) -> None:
+        """Silently choose where Play will read from; only Play starts the voice."""
+        self._tts.stop()
+        self._end_aside()
+        self.resume_banner.hide()
+        self.current_word_idx = word_index
+        self.resume_index = word_index
+        self._highlight_word(word_index, center=True)
+        self._set_state(PlaybackState.PAUSED)
+
     @Slot(int)
     def _on_char_clicked(self, char_index: int) -> None:
         if self.token_map:
-            self._speak_from(token_index_at(self.token_map, char_index))
+            self._move_start_to(token_index_at(self.token_map, char_index))
+
+    def _highlight_word(self, word_index: int, center: bool = False) -> None:
+        token = self.token_map[word_index]
+        if self.view_mode is ViewMode.PAGED:
+            self._turn_to_page(page_index_at(self.page_starts, token.doc_start_pos))
+        self.editor.highlight_token(token, center)
 
     def stop_reading(self) -> None:
         self._tts.stop()
@@ -630,20 +498,22 @@ class ReadingView(QWidget):
 
     @Slot(int)
     def _on_word_spoken(self, word_index: int) -> None:
-        if self._aside:
+        if self._aside or self.state is PlaybackState.PAUSED:
             return
         if not 0 <= word_index < len(self.token_map):
             return
         self.current_word_idx = word_index
         self.resume_index = word_index
         self._session_words += 1
-        self.editor.highlight_token(self.token_map[word_index])
+        self._highlight_word(word_index)
         self._refresh_counter()
 
     @Slot()
     def _on_playback_ended(self) -> None:
         if self._aside:
             self._end_aside()
+            return
+        if self.state is PlaybackState.PAUSED:
             return
         self.resume_index = max(len(self.token_map) - 1, 0)
         self.current_word_idx = 0
