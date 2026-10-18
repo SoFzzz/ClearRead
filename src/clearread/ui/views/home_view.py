@@ -13,6 +13,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QBoxLayout,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -49,6 +50,8 @@ PROCESSING_CARD_WIDTH = 600
 ICON_BOX = 40
 SECONDS_PER_MINUTE = 60
 MINUTES_PER_HOUR = 60
+DESTINATION_MIN_CHARS = 8
+NEW_FOLDER_ITEM = "+new"  # item data; a real folder id is a plain hex string
 
 
 def local_today() -> date:
@@ -312,6 +315,10 @@ class HomeView(QWidget):
         self._today = local_today()
         self._stats = ReadingStats()
         self._continue_key = ""
+        self._destination = NO_GROUP
+        self._dragging = False
+        self._empty = True
+        self._new_folder_pending = False
         self.setAcceptDrops(True)
         self._build_ui()
         shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
@@ -366,13 +373,10 @@ class HomeView(QWidget):
         self.library_header.setLayout(library_header)
 
         self.folder_filter = GroupFilter("folder", self._language)
-        self.folder_filter.selection_changed.connect(self._render_library)
-        self.folder_filter.add_requested.connect(self.folder_add_requested)
+        self.folder_filter.selection_changed.connect(self._on_chip_selected)
+        self.folder_filter.add_requested.connect(self._request_new_folder)
         self.folder_filter.rename_requested.connect(self.folder_rename_requested)
         self.folder_filter.delete_requested.connect(self.folder_delete_requested)
-        self.save_into_label = QLabel()
-        self.save_into_label.setProperty("role", "muted")
-        self.save_into_label.setWordWrap(True)
         self.library_message = QLabel()
         self.library_message.setProperty("role", "muted")
         self.library_message.setWordWrap(True)
@@ -391,7 +395,6 @@ class HomeView(QWidget):
         column.addWidget(self.stats_box)
         column.addWidget(self.library_header)
         column.addWidget(self.folder_filter)
-        column.addWidget(self.save_into_label)
         column.addWidget(self.library_message)
         column.addLayout(self._recent_grid)
         column.addStretch(1)
@@ -455,6 +458,12 @@ class HomeView(QWidget):
         self.drop_hint = QLabel(self._t("home.formats_hint"))
         self.drop_hint.setProperty("role", "muted")
         self.drop_hint.setWordWrap(True)
+        self.saved_label = QLabel()
+        self.saved_label.setProperty("role", "muted")
+        self.saved_label.setWordWrap(True)
+        self.saved_label.setAccessibleName(self._t("home.saved_status"))
+        self.saved_label.hide()
+        destination_row = self._build_destination_row()
         self.choose_button = QPushButton(self._t("home.choose_file"))
         self.choose_button.setIcon(load_icon("folder", self._tokens.primary_fg))
         self.choose_button.setProperty("variant", "primary")
@@ -477,8 +486,32 @@ class HomeView(QWidget):
         layout.addWidget(self.drop_title)
         layout.addWidget(self.drop_hint)
         layout.addStretch(1)
+        layout.addLayout(destination_row)
+        layout.addWidget(self.saved_label)
         layout.addLayout(self._zone_buttons)
         return zone
+
+    def _build_destination_row(self) -> QHBoxLayout:
+        label = QLabel(self._t("home.save_to"))
+        self.destination_combo = QComboBox()
+        self.destination_combo.setAccessibleName(self._t("home.save_to_accessible"))
+        self.destination_combo.setToolTip(self._t("home.save_to_tooltip"))
+        # Long folder names must not widen the card (HOME-F02: no horizontal scroll).
+        self.destination_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.destination_combo.setMinimumContentsLength(DESTINATION_MIN_CHARS)
+        self.destination_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
+        label.setBuddy(self.destination_combo)
+        self._fill_destination_combo()
+        self.destination_combo.currentIndexChanged.connect(self._on_destination_picked)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(label)
+        row.addWidget(self.destination_combo, stretch=1)
+        return row
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         """Recolour the icons, which are rendered with the theme colours."""
@@ -505,16 +538,75 @@ class HomeView(QWidget):
         self.recent_items = entries
         self._today = today
         if folders is not None:
+            previous_ids = self._folder_ids()
             self._folders = folders
+            self._adopt_new_folder(previous_ids)
+            self._fill_destination_combo()
         self._show_mode(entries)
         self._render_library()
         self.set_stats(self._stats)
 
     @property
     def current_folder_id(self) -> str:
-        """The folder new documents go to: the selected one, or none."""
-        selected = self.folder_filter.selected
-        return NO_GROUP if selected == FILTER_ALL else selected
+        """The folder new documents go to (the destination chosen in the drop card)."""
+        return self._destination
+
+    def _on_chip_selected(self, selected: str) -> None:
+        """Picking a chip also sets the destination; "All" means no folder."""
+        self._destination = NO_GROUP if selected == FILTER_ALL else selected
+        self.saved_label.hide()
+        self._fill_destination_combo()
+        self._render_library()
+
+    def _request_new_folder(self) -> None:
+        self._new_folder_pending = True
+        self.folder_add_requested.emit()
+
+    def _fill_destination_combo(self) -> None:
+        if self._destination not in self._folder_ids():
+            self._destination = NO_GROUP
+        combo = self.destination_combo
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self._t("folder.none"), NO_GROUP)
+        for folder in self._folders:
+            combo.addItem(folder.name, folder.id)
+            combo.setItemData(
+                combo.count() - 1, folder.name, Qt.ItemDataRole.ToolTipRole
+            )
+        combo.addItem(self._t("folder.add"), NEW_FOLDER_ITEM)
+        combo.setCurrentIndex(combo.findData(self._destination))
+        combo.blockSignals(False)
+
+    def _on_destination_picked(self, index: int) -> None:
+        picked = self.destination_combo.itemData(index)
+        if picked == NEW_FOLDER_ITEM:
+            self._fill_destination_combo()
+            self._request_new_folder()
+            return
+        self._destination = picked
+        self.saved_label.hide()
+        self._refresh_drop_texts()
+
+    def _adopt_new_folder(self, previous_ids: set[str]) -> None:
+        """A folder just created from the drop card or the chips becomes the destination."""
+        created = [f.id for f in self._folders if f.id not in previous_ids]
+        if self._new_folder_pending and len(created) == 1:
+            self._destination = created[0]
+        self._new_folder_pending = False
+
+    def _destination_name(self) -> str:
+        return self._folder_name(self._destination)
+
+    def _folder_name(self, folder_id: str) -> str:
+        folder = next((f for f in self._folders if f.id == folder_id), None)
+        return folder.name if folder else self._t("folder.none")
+
+    def confirm_saved(self, folder_id: str, already_in_library: bool) -> None:
+        """Say, without blocking, where the document that was just opened is stored."""
+        key = "home.already_in" if already_in_library else "home.saved_in"
+        self.saved_label.setText(self._t(key, folder=self._folder_name(folder_id)))
+        self.saved_label.show()
 
     def _folder_ids(self) -> set[str]:
         return {f.id for f in self._folders}
@@ -533,6 +625,7 @@ class HomeView(QWidget):
         self.visible_items = self._filtered_entries()
         self._fill_grid(self.visible_items)
         self._show_library_texts()
+        self._refresh_drop_texts()
 
     def _filtered_entries(self) -> list[RecentDocument]:
         selected = self.folder_filter.selected
@@ -564,12 +657,6 @@ class HomeView(QWidget):
             )
 
     def _show_library_texts(self) -> None:
-        folder = next(
-            (f for f in self._folders if f.id == self.current_folder_id), None
-        )
-        self.save_into_label.setVisible(folder is not None)
-        if folder is not None:
-            self.save_into_label.setText(self._t("home.save_into", folder=folder.name))
         message = ""
         if not self.visible_items and self.recent_items:
             searching = bool(self.search_edit.text().strip())
@@ -591,12 +678,7 @@ class HomeView(QWidget):
         self.recent_heading.setVisible(has_library)
         self.search_edit.setVisible(not empty)
         self.folder_filter.setVisible(has_library)
-        self.drop_title.setText(
-            self._t("home.empty.title" if empty else "home.drop_title")
-        )
-        self.drop_hint.setText(
-            self._t("home.empty.body" if empty else "home.formats_hint")
-        )
+        self._empty = empty
         self.drop_zone.setMinimumHeight(260 if empty else DROP_ZONE_MIN_HEIGHT)
         self._zone_buttons.setDirection(
             QBoxLayout.Direction.LeftToRight
@@ -611,6 +693,22 @@ class HomeView(QWidget):
             self.continue_progress.setText(
                 self._t("home.progress", percent=latest.progress_percent)
             )
+
+    def _refresh_drop_texts(self) -> None:
+        if self._dragging:
+            key = (
+                "home.drop_release_in"
+                if self._destination
+                else "home.drop_release_none"
+            )
+            self.drop_title.setText(self._t(key, folder=self._destination_name()))
+            return
+        self.drop_title.setText(
+            self._t("home.empty.title" if self._empty else "home.drop_title")
+        )
+        self.drop_hint.setText(
+            self._t("home.empty.body" if self._empty else "home.formats_hint")
+        )
 
     def recent_item_widgets(self) -> list[RecentItem]:
         items = (self._recent_grid.itemAt(i) for i in range(self._recent_grid.count()))
@@ -642,6 +740,8 @@ class HomeView(QWidget):
             self.file_chosen.emit(urls[0].toLocalFile())
 
     def _set_dragging(self, dragging: bool) -> None:
+        self._dragging = dragging
+        self._refresh_drop_texts()
         self.drop_zone.setProperty("dragging", dragging)
         self.drop_zone.style().unpolish(self.drop_zone)
         self.drop_zone.style().polish(self.drop_zone)

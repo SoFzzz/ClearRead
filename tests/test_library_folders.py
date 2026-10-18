@@ -471,15 +471,12 @@ def test_the_chips_count_documents_and_filter_the_cards(qtbot: QtBot) -> None:
         "geometria.pdf",
     ]
     assert home.current_folder_id == maths.id
-    assert (
-        home.save_into_label.isVisible()
-        and "Matemáticas" in home.save_into_label.text()
-    )
+    assert home.destination_combo.currentData() == maths.id
     home.folder_filter.chips[""].click()
     assert [i.name_label.full_text for i in home.recent_item_widgets()] == [
         "suelto.pdf"
     ]
-    assert home.current_folder_id == "" and home.save_into_label.isHidden()
+    assert home.current_folder_id == "" and home.destination_combo.currentData() == ""
     assert science.id in home.folder_filter.chips
 
 

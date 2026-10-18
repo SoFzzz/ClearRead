@@ -1,4 +1,4 @@
-"""Play bar of the reading view: play/pause, stop, focus mode, speed and word counter."""
+"""Play bar of the reading view: play/pause, stop, focus mode, syllable colours, speed and word counter."""
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -25,7 +25,7 @@ from clearread.ui.views.page_bar import (
 
 PLAY_BAR_HEIGHT = 80
 PLAY_BUTTON_SIZE = (148, 48)
-SPEED_SLIDER_WIDTH = 230
+SPEED_SLIDER_WIDTH = 180
 
 
 class PlayBar(QFrame):
@@ -41,6 +41,9 @@ class PlayBar(QFrame):
         self.focus_button = QPushButton()
         self.focus_button.setCheckable(True)
         self.focus_button.setFixedHeight(PLAY_BUTTON_SIZE[1])
+        self.syllables_button = QPushButton()
+        self.syllables_button.setCheckable(True)
+        self.syllables_button.setFixedHeight(PLAY_BUTTON_SIZE[1])
         self.speed_label = QLabel()
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setRange(MIN_RATE_WPM, MAX_RATE_WPM)
@@ -75,6 +78,7 @@ class PlayBar(QFrame):
         row.addWidget(self.play_button)
         row.addWidget(self.stop_button)
         row.addWidget(self.focus_button)
+        row.addWidget(self.syllables_button)
         row.addLayout(self._speed_column())
         row.addStretch(1)
         row.addLayout(info)

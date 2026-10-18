@@ -72,6 +72,7 @@ class ReadingView(QWidget):
     reading_session = Signal(int, float)  # words spoken, seconds spent playing
     view_mode_changed = Signal(str)  # ViewMode value chosen with the page bar
     zoom_requested = Signal(int)  # ZOOM_IN, ZOOM_OUT or ZOOM_RESET
+    syllables_toggled = Signal(bool)  # chosen with the bar's button or its shortcut
 
     def __init__(
         self,
@@ -122,6 +123,7 @@ class ReadingView(QWidget):
         self.play_button = self.play_bar.play_button
         self.stop_button = self.play_bar.stop_button
         self.focus_button = self.play_bar.focus_button
+        self.syllables_button = self.play_bar.syllables_button
         self.speed_label = self.play_bar.speed_label
         self.speed_slider = self.play_bar.speed_slider
         self.speed_value_label = self.play_bar.speed_value_label
@@ -191,6 +193,7 @@ class ReadingView(QWidget):
         self.play_button.clicked.connect(self.toggle_play)
         self.stop_button.clicked.connect(self.stop_reading)
         self.focus_button.toggled.connect(self.set_focus_mode)
+        self.syllables_button.toggled.connect(self.syllables_toggled)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.editor.char_clicked.connect(self._on_char_clicked)
         self.editor.context_menu_requested.connect(self._show_context_menu)
@@ -216,6 +219,7 @@ class ReadingView(QWidget):
             (Qt.Key.Key_Space, self.toggle_play),
             (Qt.Key.Key_Escape, self._on_escape),
             (Qt.Key.Key_F, self.focus_button.toggle),
+            (Qt.Key.Key_S, self.syllables_button.toggle),
             (Qt.Key.Key_PageDown, lambda: self._scroll_page(1)),
             (Qt.Key.Key_PageUp, lambda: self._scroll_page(-1)),
             ("Ctrl+Right", lambda: self.go_to_page(self.current_page + 1)),
@@ -261,6 +265,15 @@ class ReadingView(QWidget):
         self.focus_button.setIcon(load_icon("focus", self._tokens.secondary))
         self.focus_button.setToolTip(
             self._t("reading.tooltip", action=focus, shortcut=self._t("reading.key_f"))
+        )
+        syllables = self._t("reading.syllables")
+        self.syllables_button.setText(syllables)
+        self.syllables_button.setToolTip(
+            self._t(
+                "reading.tooltip",
+                action=self._t("settings.syllables"),
+                shortcut=self._t("reading.key_s"),
+            )
         )
         self._refresh_page_bar_texts()
         self.resume_title.setText(self._t("reading.resume_title"))
@@ -308,6 +321,12 @@ class ReadingView(QWidget):
         self.editor.set_focus_mode(enabled)
         if self.focus_button.isChecked() != enabled:
             self.focus_button.setChecked(enabled)
+
+    def set_syllables_checked(self, enabled: bool) -> None:
+        """Show the syllable switch without announcing a change."""
+        self.syllables_button.blockSignals(True)
+        self.syllables_button.setChecked(enabled)
+        self.syllables_button.blockSignals(False)
 
     def _resume_here(self) -> None:
         self.resume_banner.hide()

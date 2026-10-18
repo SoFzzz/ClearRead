@@ -80,6 +80,7 @@ TEXT_PAIRS = [
     ("syllable_odd", "bg"),
     ("syllable_odd", "ruler_bg"),
     ("word_highlight_fg", "word_highlight_bg"),
+    ("selection_fg", "selection_bg"),
     ("dim_text", "bg"),
     ("primary_fg", "primary_bg"),
     ("primary_fg", "primary_bg_hover"),

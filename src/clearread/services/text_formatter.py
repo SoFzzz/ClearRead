@@ -68,6 +68,9 @@ class SyllablePalette:
     color_even: str
     color_odd: str
     background_odd: str | None = None  # soft fill behind every odd syllable
+    color_plain: str | None = (
+        None  # words when syllable colours are off; None: color_even
+    )
 
 
 @dataclass(frozen=True)
@@ -232,9 +235,10 @@ class TextFormatter:
         return f'<p style="margin-bottom: 14px;">{"".join(parts)}</p>'
 
     def _colour_word(self, word: str, enable_syllables: bool) -> str:
-        syllables = (
-            self._syllabifier.syllabify_word(word).syllables if enable_syllables else ()
-        )
+        if not enable_syllables:
+            colour = self._palette.color_plain or self._palette.color_even
+            return f'<span style="color: {colour};">{html.escape(word)}</span>'
+        syllables = self._syllabifier.syllabify_word(word).syllables
         if "".join(syllables) != word:
             syllables = (word,)
         return "".join(

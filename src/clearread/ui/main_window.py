@@ -44,7 +44,7 @@ from clearread.services.text_formatter import (
     ReadingStyle,
     TextFormatter,
 )
-from clearread.services.tts_controller import TTSController
+from clearread.services.tts_controller import TTSController, VoiceInfo, choose_voice
 from clearread.ui.ai_assistant import AIAssistant
 from clearread.ui.dialogs import (
     AccessibleErrorDialog,
@@ -235,6 +235,7 @@ class MainWindow(QMainWindow):
         self.reading_view.reading_session.connect(self._on_reading_session)
         self.reading_view.view_mode_changed.connect(self._on_view_mode_changed)
         self.reading_view.zoom_requested.connect(self._on_zoom_requested)
+        self.reading_view.syllables_toggled.connect(self._on_syllables_toggled)
         self.settings_view.config_changed.connect(self._on_settings_changed)
         self.settings_view.clear_recents_requested.connect(self.clear_recents)
         self.settings_view.back_requested.connect(self.go_back)
@@ -422,6 +423,7 @@ class MainWindow(QMainWindow):
             return
         if self._library.has(key) and self._show_cached(key, source.name):
             self._library.touch(key)
+            self._announce_stored(key, True)
             return
         self._start_worker(
             PendingDocument(source, key, self.home_view.current_folder_id)
@@ -441,6 +443,7 @@ class MainWindow(QMainWindow):
             return
         if self._library.has(key) and self._show_cached(key, name):
             self._library.touch(key)
+            self._announce_stored(key, True)
             return
         formatted = self._format(raw_text)
         cached = CachedDocument(raw_text, formatted, self._appearance_key())
@@ -453,7 +456,14 @@ class MainWindow(QMainWindow):
             display_name=name,
             folder_id=self.home_view.current_folder_id,
         )
+        self._announce_stored(key, False)
         self._show_reading(formatted, name, raw_text, key)
+
+    def _announce_stored(self, key: str, already: bool) -> None:
+        """A document already in the library keeps its folder, whatever the destination."""
+        stored = self._library.recent(key)
+        if stored is not None:
+            self.home_view.confirm_saved(stored.folder_id, already)
 
     def _start_worker(self, pending: PendingDocument) -> None:
         self._runner.start(
@@ -481,6 +491,7 @@ class MainWindow(QMainWindow):
             processed.is_photo,
             folder_id=pending.folder_id,
         )
+        self._announce_stored(pending.key, False)
         self._show_reading(
             processed.formatted, pending.source.name, processed.raw_text, pending.key
         )
@@ -589,6 +600,7 @@ class MainWindow(QMainWindow):
     def _apply_speech_settings(self) -> None:
         self._tts.set_voice(self._config.voice_id)
         self.reading_view.set_speed(self._config.reading_speed_wpm)
+        self.reading_view.set_syllables_checked(self._config.syllables_enabled)
 
     def _on_settings_changed(self, new: AppConfig) -> None:
         old = self._config
@@ -612,10 +624,26 @@ class MainWindow(QMainWindow):
             or old.line_spacing != new.line_spacing
         ):
             self._refresh_reading()
+        self.reading_view.set_syllables_checked(new.syllables_enabled)
         if new.reading_speed_wpm != old.reading_speed_wpm:
             self.reading_view.set_speed(new.reading_speed_wpm)
         if new.voice_id != old.voice_id:
             self._tts.set_voice(new.voice_id)
+        self._save_config()
+
+    def follow_language_voice(self) -> None:
+        """Keep the reading voice in the interface language, now and once voices are listed."""
+        self._tts.voices_listed.connect(self._adopt_language_voice)
+        if self._tts.voices:
+            self._adopt_language_voice(self._tts.voices)
+
+    def _adopt_language_voice(self, voices: list[VoiceInfo]) -> None:
+        chosen = choose_voice(voices, self._config.ui_language, self._config.voice_id)
+        if chosen == self._config.voice_id:
+            return
+        self._config.voice_id = chosen
+        self._tts.set_voice(chosen)
+        self.settings_view.set_config(replace(self._config))
         self._save_config()
 
     def _on_reading_speed_changed(self, wpm: int) -> None:
@@ -642,6 +670,13 @@ class MainWindow(QMainWindow):
         resized = replace(self._config, font_size_pt=size)
         self.settings_view.set_config(replace(resized))
         self._on_settings_changed(resized)
+
+    def _on_syllables_toggled(self, enabled: bool) -> None:
+        if enabled == self._config.syllables_enabled:
+            return
+        changed = replace(self._config, syllables_enabled=enabled)
+        self.settings_view.set_config(replace(changed))
+        self._on_settings_changed(changed)
 
     def _restart(self) -> None:
         self.restart_requested = True

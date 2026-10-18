@@ -260,3 +260,18 @@ def test_symbols_are_not_read_and_symbol_only_tokens_are_not_words(
     text, words = speech(formatter, "Uno _ dos * tres ___ #cuatro")
     assert text == "Uno   dos   tres" + " " * 6 + "cuatro"
     assert words == ["Uno", "dos", "tres", "cuatro"]
+
+
+def test_without_syllables_the_plain_colour_is_used_when_the_palette_has_one() -> None:
+    palette = SyllablePalette("#111111", "#222222", color_plain="#333333")
+    formatter = TextFormatter(SpanishSyllabifier(), palette)
+    html_content = formatter.format_document("cuaderno", enable_syllables=False)
+    assert 'color: #333333;">cuaderno<' in html_content.html_content
+    assert "#111111" not in html_content.html_content
+
+
+def test_the_theme_palette_paints_plain_words_in_the_text_colour() -> None:
+    from clearread.ui.theme import THEMES, ThemeId, syllable_palette
+
+    for theme in ThemeId:
+        assert syllable_palette(THEMES[theme]).color_plain == THEMES[theme].text

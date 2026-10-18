@@ -28,6 +28,8 @@ class ThemeTokens:
     syllable_odd_bg: str  # empty: odd syllables carry no background
     word_highlight_bg: str
     word_highlight_fg: str
+    selection_bg: str  # text the user selects with the mouse
+    selection_fg: str
     ruler_bg: str
     dim_text: str  # lines other than the active one in focus mode
     focus_ring: str
@@ -57,6 +59,8 @@ THEMES: dict[ThemeId, ThemeTokens] = {
         syllable_odd_bg="#FBF0CC",
         word_highlight_bg="#392F5A",
         word_highlight_fg="#F4D06F",
+        selection_bg="#F4D06F",
+        selection_fg="#392F5A",
         ruler_bg="#D2C7EA",
         dim_text="#4F417C",
         focus_ring="#392F5A",
@@ -84,6 +88,8 @@ THEMES: dict[ThemeId, ThemeTokens] = {
         syllable_odd_bg="",
         word_highlight_bg="#F4D06F",
         word_highlight_fg="#392F5A",
+        selection_bg="#F8E3A9",
+        selection_fg="#392F5A",
         ruler_bg="#2B2344",
         dim_text="#CFC4E8",
         focus_ring="#F4D06F",
@@ -107,7 +113,8 @@ THEMES: dict[ThemeId, ThemeTokens] = {
 # is set by ui/focus_ring.py, so a mouse click never draws it.
 _STYLESHEET = Template(
     """
-QWidget { background: $bg; color: $text; font-family: "Segoe UI"; font-size: 15px; }
+QWidget { background: $bg; color: $text; font-family: "Segoe UI"; font-size: 15px;
+          selection-background-color: $selection_bg; selection-color: $selection_fg; }
 QFrame#PlayBar { background: $surface; border: none; border-top: 1px solid $border; }
 QLabel, QWidget#PlayBarContent { background: transparent; }
 QLabel[role="muted"] { color: $text_muted; }
@@ -236,4 +243,5 @@ def syllable_palette(tokens: ThemeTokens) -> SyllablePalette:
         color_even=tokens.syllable_even,
         color_odd=tokens.syllable_odd,
         background_odd=tokens.syllable_odd_bg or None,
+        color_plain=tokens.text,
     )

@@ -162,6 +162,8 @@ CATALOG: dict[str, dict[str, str]] = {
     "reading.key_esc": {"es": "Esc", "en": "Esc"},
     "reading.key_f": {"es": "F", "en": "F"},
     "reading.focus": {"es": "Modo foco", "en": "Focus mode"},
+    "reading.key_s": {"es": "S", "en": "S"},
+    "reading.syllables": {"es": "Sílabas", "en": "Syllables"},
     "reading.resume_title": {
         "es": "Seguir desde donde lo dejaste",
         "en": "Pick up where you left off",
@@ -617,9 +619,31 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "There are no documents here yet. Choose or drop one and it will be "
         "saved here.",
     },
-    "home.save_into": {
-        "es": "Los documentos nuevos se guardan en «{folder}».",
-        "en": 'New documents are saved in "{folder}".',
+    "home.save_to": {"es": "Guardar en:", "en": "Save in:"},
+    "home.save_to_accessible": {
+        "es": "Carpeta donde se guardará el documento",
+        "en": "Folder where the document will be saved",
+    },
+    "home.save_to_tooltip": {
+        "es": "Elige la carpeta de los documentos nuevos o crea una carpeta.",
+        "en": "Choose the folder for new documents or create a new one.",
+    },
+    "home.drop_release_in": {
+        "es": "Suelta para guardar en «{folder}»",
+        "en": 'Drop to save in "{folder}"',
+    },
+    "home.drop_release_none": {
+        "es": "Suelta para guardar sin carpeta",
+        "en": "Drop to save without a folder",
+    },
+    "home.saved_status": {"es": "Estado del guardado", "en": "Save status"},
+    "home.saved_in": {
+        "es": "Guardado en «{folder}»",
+        "en": 'Saved in "{folder}"',
+    },
+    "home.already_in": {
+        "es": "Ya estaba en tu biblioteca, en «{folder}»",
+        "en": 'Already in your library, in "{folder}"',
     },
     "home.meta_in_folder": {
         "es": "{meta} · {folder}",

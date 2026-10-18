@@ -36,7 +36,7 @@ from clearread.services.text_formatter import (
     SyllablePalette,
     TextFormatter,
 )
-from clearread.services.tts_controller import VoiceInfo
+from clearread.services.tts_controller import VoiceInfo, sort_voices
 from clearread.ui.dialogs import make_clear_recents_box, make_restart_box
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, syllable_palette
@@ -396,7 +396,7 @@ class SettingsView(QWidget):
     def set_voices(self, voices: list[VoiceInfo]) -> None:
         self.voice_combo.blockSignals(True)
         self.voice_combo.clear()
-        for voice in voices:
+        for voice in sort_voices(voices, self._language.value):
             self.voice_combo.addItem(voice.name, voice.id)
         if not voices:
             self.voice_combo.addItem(self._t("settings.no_voices"), "")

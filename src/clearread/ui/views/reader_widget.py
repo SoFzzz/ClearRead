@@ -121,6 +121,12 @@ class ReaderWidget(QTextEdit):
         palette = self.palette()
         palette.setColor(QPalette.ColorRole.Base, QColor(tokens.bg))
         palette.setColor(QPalette.ColorRole.Text, QColor(tokens.text))
+        # Set for every colour group, so the selection keeps its yellow when the widget
+        # loses focus (e.g. while the context menu is open) instead of going grey.
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(tokens.selection_bg))
+        palette.setColor(
+            QPalette.ColorRole.HighlightedText, QColor(tokens.selection_fg)
+        )
         self.setPalette(palette)
 
         word = QTextCharFormat()

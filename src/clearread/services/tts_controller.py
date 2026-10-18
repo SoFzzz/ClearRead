@@ -12,7 +12,14 @@ import pythoncom
 import pyttsx3
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
-SPANISH_VOICE = re.compile(r"spanish|espa.ol|helena|sabina|es-es|es-mx", re.IGNORECASE)
+# SAPI5 voices carry their language in the registry id ("..._EN-US_ZIRA_11.0"); the
+# display name is the fallback. pyttsx3 2.98 leaves ``voice.languages`` empty for SAPI5.
+_ID_LANGUAGE = re.compile(r"(?<![a-z])(es|en)[-_]?[a-z]{2}(?![a-z])", re.IGNORECASE)
+_NAME_LANGUAGES = (
+    ("es", re.compile(r"spanish|espa.ol|helena|sabina", re.IGNORECASE)),
+    ("en", re.compile(r"english|ingl.s", re.IGNORECASE)),
+)
+DEFAULT_VOICE_LANGUAGE = "es"
 DEFAULT_RATE_WPM = 150
 MIN_RATE_WPM = 80
 MAX_RATE_WPM = 320
@@ -49,8 +56,18 @@ class VoiceInfo:
     name: str
 
     @property
+    def language(self) -> str | None:
+        """``"es"`` or ``"en"`` when the voice speaks one of them, else ``None``."""
+        tagged = _ID_LANGUAGE.search(self.id)
+        if tagged is not None:
+            return tagged.group(1).lower()
+        return next(
+            (code for code, name in _NAME_LANGUAGES if name.search(self.name)), None
+        )
+
+    @property
     def is_spanish(self) -> bool:
-        return SPANISH_VOICE.search(self.name) is not None
+        return self.language == "es"
 
 
 def sapi_rate_for(displayed_wpm: int) -> int:
@@ -61,9 +78,28 @@ def sapi_rate_for(displayed_wpm: int) -> int:
     return min(_RATE_STEPS, key=lambda step: abs(step[0] - displayed_wpm))[1]
 
 
-def sort_voices(voices: list[VoiceInfo]) -> list[VoiceInfo]:
-    """Spanish voices first, each group in alphabetical order."""
-    return sorted(voices, key=lambda voice: (not voice.is_spanish, voice.name.lower()))
+def sort_voices(
+    voices: list[VoiceInfo], language: str = DEFAULT_VOICE_LANGUAGE
+) -> list[VoiceInfo]:
+    """Voices of ``language`` first, each group in alphabetical order."""
+    return sorted(
+        voices, key=lambda voice: (voice.language != language, voice.name.lower())
+    )
+
+
+def choose_voice(voices: list[VoiceInfo], language: str, current_id: str) -> str:
+    """Id of the voice to use for the interface ``language``.
+
+    The current voice stays when it already speaks that language. Otherwise the first
+    installed voice of the language is taken; with none installed the current one stays.
+    """
+    current = next((voice for voice in voices if voice.id == current_id), None)
+    if current is not None and current.language == language:
+        return current_id
+    matching = sort_voices(voices, language)
+    if matching and matching[0].language == language:
+        return matching[0].id
+    return current_id
 
 
 class TTSErrorKind(Enum):

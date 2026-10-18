@@ -59,6 +59,7 @@ def main() -> int:
         folders=GroupStore(get_user_data_dir() / FOLDERS_FILE),
         topics=GroupStore(get_user_data_dir() / TOPICS_FILE),
     )
+    window.follow_language_voice()
     window.resize(1280, 800)
     window.show()
     exit_code = app.exec()
