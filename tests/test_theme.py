@@ -34,11 +34,14 @@ PALETTE = {
     "#D2C7EA": "purple",  # light: ruler, hover
     "#6B5C9E": "purple",  # light: borders
     "#43386B": "purple",  # light: secondary text
-    "#4F417C": "purple",  # light: dimmed lines (focus mode)
+    "#46396F": "purple",  # light: dimmed lines (focus mode)
+    "#E6DDF6": "purple",  # light: page sheet
     "#FBF0CC": "yellow",  # light: odd-syllable fill, pressed primary
     "#F8E3A9": "yellow",  # hover primary
     "#E4DCF3": "purple",  # dark: text
-    "#CFC4E8": "purple",  # dark: secondary text, dimmed lines
+    "#CFC4E8": "purple",  # dark: disabled text
+    "#D8CEEE": "purple",  # dark: secondary text, dimmed lines
+    "#41356A": "purple",  # dark: page sheet
     "#9B8DC7": "purple",  # dark: borders
     "#2B2344": "purple",  # dark: surfaces
     "#261F3C": "purple",  # dark: tracks, focus ring on yellow
@@ -75,6 +78,11 @@ TEXT_PAIRS = [
     ("text", "ruler_bg"),
     ("text_muted", "bg"),
     ("text_muted", "surface"),
+    ("text", "page_bg"),
+    ("text_muted", "page_bg"),
+    ("syllable_even", "page_bg"),
+    ("syllable_odd", "page_bg"),
+    ("dim_text", "page_bg"),
     ("syllable_even", "bg"),
     ("syllable_even", "ruler_bg"),
     ("syllable_odd", "bg"),
@@ -93,6 +101,8 @@ TEXT_PAIRS = [
 NON_TEXT_PAIRS = [
     ("border", "bg"),
     ("border", "surface"),
+    ("page_border", "page_bg"),
+    ("page_border", "bg"),
     ("focus_ring", "bg"),
     ("focus_ring", "surface"),
     ("focus_ring_primary", "primary_bg"),

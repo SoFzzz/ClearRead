@@ -39,10 +39,11 @@ from clearread.ui.theme import THEMES, ThemeId
 from clearread.ui.views.ai_panel import AIPanel
 from clearread.ui.views.page_bar import PageBar
 from clearread.ui.views.play_bar import PlayBar
-from clearread.ui.views.reader_widget import ReaderWidget
+from clearread.ui.views.reader_widget import ReaderWidget, wrap_in_page_sheet
 
 COLUMN_MIN_WIDTH = 550
 COLUMN_MAX_WIDTH = 820
+COLUMN_MARGIN_Y = 16  # app background above and below the sheet
 ZOOM_IN, ZOOM_OUT, ZOOM_RESET = 1, -1, 0
 _ERROR_KEYS = {
     TTSErrorKind.INIT_FAILED.name: "reading.error.tts_init",
@@ -129,13 +130,14 @@ class ReadingView(QWidget):
         self.speed_value_label = self.play_bar.speed_value_label
         self.counter_label = self.play_bar.counter_label
 
+        self.page_sheet = wrap_in_page_sheet(self.editor)
         column = QFrame()
         column.setMinimumWidth(COLUMN_MIN_WIDTH)
         column.setMaximumWidth(COLUMN_MAX_WIDTH)
         column_layout = QVBoxLayout(column)
-        column_layout.setContentsMargins(0, 0, 0, 0)
+        column_layout.setContentsMargins(0, COLUMN_MARGIN_Y, 0, COLUMN_MARGIN_Y)
         column_layout.addWidget(self.resume_banner)
-        column_layout.addWidget(self.editor, stretch=1)
+        column_layout.addWidget(self.page_sheet, stretch=1)
         column_layout.addWidget(self.status_label)
 
         reader = QVBoxLayout()

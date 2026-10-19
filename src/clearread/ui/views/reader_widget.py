@@ -17,19 +17,34 @@ from PySide6.QtGui import (
     QTextCursor,
     QTextFormat,
 )
-from PySide6.QtWidgets import QFrame, QTextEdit
+from PySide6.QtWidgets import QFrame, QTextEdit, QVBoxLayout
 
 from clearread.services.text_formatter import ReadingStyle, WordToken, page_index_at
 from clearread.ui.theme import ThemeTokens
 
-READER_MARGIN_X = 40
-READER_MARGIN_TOP = 32
+READER_MARGIN_X = (
+    32  # plus PAGE_SHEET_PADDING and the border: ~45 px from the sheet edge
+)
+READER_MARGIN_Y = 24
+PAGE_SHEET_PADDING = (
+    12  # equals the sheet's corner radius, so the text box clears the curve
+)
 DEFAULT_LINE_SPACING = 1.5  # multiple of the font size (design system 1.4)
 POINTS_PER_INCH = 72.0
 PAGE_GAP = 48  # px above the first paragraph of a page, where its label is painted
 PAGE_LABEL_SCALE = 0.6  # label size relative to the reading font
 PAGE_LABEL_MIN_PT = 11.0
 PROBE_OFFSET = 2  # px below the top of the text used to tell which page is on screen
+
+
+def wrap_in_page_sheet(reader: "ReaderWidget") -> QFrame:
+    """Put ``reader`` on a bordered, rounded sheet of paper (styled by the theme QSS)."""
+    sheet = QFrame()
+    sheet.setObjectName("PageSheet")
+    layout = QVBoxLayout(sheet)
+    layout.setContentsMargins(*(PAGE_SHEET_PADDING,) * 4)
+    layout.addWidget(reader)
+    return sheet
 
 
 class ReaderWidget(QTextEdit):
@@ -46,7 +61,9 @@ class ReaderWidget(QTextEdit):
         self.setReadOnly(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setViewportMargins(READER_MARGIN_X, READER_MARGIN_TOP, READER_MARGIN_X, 0)
+        self.setViewportMargins(
+            READER_MARGIN_X, READER_MARGIN_Y, READER_MARGIN_X, READER_MARGIN_Y
+        )
         self._word_format = QTextCharFormat()
         self._ruler_format = QTextCharFormat()
         self._line_spacing = DEFAULT_LINE_SPACING
@@ -119,7 +136,7 @@ class ReaderWidget(QTextEdit):
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         palette = self.palette()
-        palette.setColor(QPalette.ColorRole.Base, QColor(tokens.bg))
+        palette.setColor(QPalette.ColorRole.Base, QColor(tokens.page_bg))
         palette.setColor(QPalette.ColorRole.Text, QColor(tokens.text))
         # Set for every colour group, so the selection keeps its yellow when the widget
         # loses focus (e.g. while the context menu is open) instead of going grey.
@@ -138,7 +155,7 @@ class ReaderWidget(QTextEdit):
 
         dim = QTextCharFormat()
         dim.setForeground(QColor(tokens.dim_text))
-        dim.setBackground(QColor(tokens.bg))
+        dim.setBackground(QColor(tokens.page_bg))
         self._dim_format = dim
         self._label_color = QColor(tokens.text_muted)
         self._rule_color = QColor(tokens.border)

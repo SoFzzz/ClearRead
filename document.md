@@ -6,7 +6,7 @@
 > **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~14 días calendario (2026-10-02 → 2026-10-15) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
 > **Cambios v1.5.0:** la materia exige el proyecto **desplegado**, por lo que el asistente de IA pasa a llamar a un backend propio (§4.11) en lugar de a DeepSeek directamente; la API key sale de la app.  
 > **Rediseño del Día 12 (2026-10-07), pedido por la usuaria:** solo dos colores de marca (morado `#392F5A` y amarillo `#F4D06F`) y sus tonos; solo temas Claro y Oscuro (se elimina Alto Contraste); tipografía Lexend por defecto con espaciado moderado; Inicio como panel; ejemplo incluido; posición de lectura, modo foco y "Mis palabras". Requisitos nuevos: HOME-F02, HOME-F03, READ-F01, READ-F02, AI-F05, UI-F04 y UI-F05 (§5.1, §4.12). Detalle visual en el Anexo A (v2.0).  
-> **Cambios del 2026-10-18, pedidos por la usuaria (§4.13):** (1) **voz con control estricto**: un clic en una palabra solo mueve el punto de inicio y la voz suena únicamente con Reproducir o `Espacio` (**sustituye UI-F02**); (2) cambiar el idioma pide confirmación y la app **se reinicia sola** (cambia I18N-F01); (3) **páginas** del documento, barra de páginas y modos de vista "Continua" / "Por páginas", con atajos de página y zoom (UI-F06, UI-F07; amplía UI-F03); (4) **biblioteca** con carpetas, búsqueda y hasta 200 documentos (HOME-F04, cambia HOME-F01 y HOME-F02) y **temas** en "Mis palabras" (AI-F06, cambia AI-F05); (5) revisión y refactor del código. **Segunda tanda del mismo día:** (6) **color de la selección de texto** amarillo/morado (antes seguía el color de acento de Windows, que se veía rojo; UI-F05); (7) **la voz sigue el idioma de la interfaz** (modifica I18N-F01, que decía que la voz seguía siendo española); (8) botón **«Sílabas»** (atajo `S`) en la barra de reproducción (UI-F08; amplía UI-F03); (9) selector **«Guardar en:»** en la zona de arrastre de Inicio (actualiza HOME-F04). Requisitos nuevos: UI-F06, UI-F07, UI-F08, HOME-F04, AI-F06. **Comprobado:** suite de tests (app: 1404 passed, 1 skipped, ejecutada el 2026-10-18 en el equipo de desarrollo) y capturas con la app real en pantalla virtual (`offscreen`; por decisión de la usuaria las capturas se retiraron del repositorio). **No comprobado:** pruebas físicas con ratón y arrastre (incluido arrastrar desde el Explorador), escucha de la voz, el amarillo de la selección, el cambio de voz y el botón «Sílabas» en el `.exe` compilado, el reinicio en el `.exe` y la recompilación del `.exe` con los módulos nuevos (§8).  
+> **Cambios del 2026-10-18, pedidos por la usuaria (§4.13):** (1) **voz con control estricto**: un clic en una palabra solo mueve el punto de inicio y la voz suena únicamente con Reproducir o `Espacio` (**sustituye UI-F02**); (2) cambiar el idioma pide confirmación y la app **se reinicia sola** (cambia I18N-F01); (3) **páginas** del documento, barra de páginas y modos de vista "Continua" / "Por páginas", con atajos de página y zoom (UI-F06, UI-F07; amplía UI-F03); (4) **biblioteca** con carpetas, búsqueda y hasta 200 documentos (HOME-F04, cambia HOME-F01 y HOME-F02) y **temas** en "Mis palabras" (AI-F06, cambia AI-F05); (5) revisión y refactor del código. **Segunda tanda del mismo día:** (6) **color de la selección de texto** amarillo/morado (antes seguía el color de acento de Windows, que se veía rojo; UI-F05); (7) **la voz sigue el idioma de la interfaz** (modifica I18N-F01, que decía que la voz seguía siendo española); (8) botón **«Sílabas»** (atajo `S`) en la barra de reproducción (UI-F08; amplía UI-F03); (9) selector **«Guardar en:»** en la zona de arrastre de Inicio (actualiza HOME-F04). **Tercera tanda:** (10) **hoja de lectura**: el texto se ve sobre una hoja lila pastel con margen, borde y esquinas redondeadas en ambos temas (tokens `page_bg`, `page_border`; Anexo A, A.4.2). Requisitos nuevos: UI-F06, UI-F07, UI-F08, HOME-F04, AI-F06. **Comprobado:** suite de tests (app: 1424 passed, 1 skipped, ejecutada el 2026-10-18 en el equipo de desarrollo) y capturas con la app real en pantalla virtual (`offscreen`; por decisión de la usuaria las capturas se retiraron del repositorio). **No comprobado:** pruebas físicas con ratón y arrastre (incluido arrastrar desde el Explorador), escucha de la voz, el amarillo de la selección, el cambio de voz y el botón «Sílabas» en el `.exe` compilado, el reinicio en el `.exe` y la recompilación del `.exe` con los módulos nuevos (§8).  
 > **Idioma UI:** Español | **Idioma de Código y Nombres Técnicos:** Inglés  
 
 ---
@@ -1871,6 +1871,7 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 | 8 | La voz sigue el idioma de la interfaz (`es` o `en`); Ajustes lista primero las voces de ese idioma | I18N-F01, CFG-F02 | «La voz sigue siendo española» |
 | 9 | Botón alternable «Sílabas» (atajo `S`) en la barra de reproducción, sincronizado con Ajustes | UI-F08, UI-F03 | Sílabas solo desde Ajustes |
 | 10 | Selector «Guardar en:» en la zona de arrastre de Inicio, con confirmación del destino | HOME-F04 | El destino era la ficha de carpeta elegida, con la línea «Los documentos nuevos se guardan en…» |
+| 11 | **Hoja de lectura** (tercera tanda): el texto del lector se ve sobre una "hoja" lila pastel con borde de 1 px, esquinas de 12 px y márgenes interiores de ≈ 45 px, separada del fondo de la app; tokens nuevos `page_bg` (Claro `#E6DDF6`, Oscuro `#41356A`) y `page_border`; `dim_text` (Claro) y `text_muted`/`dim_text` (Oscuro) se ajustaron para seguir en ≥ 7:1 sobre la hoja (Anexo A, A.1.2, A.1.3, A.4.2) | UI-F04, NFR-A11Y01 | Texto directamente sobre `bg`, con margen de 40 px |
 
 **Módulos nuevos o cambiados**
 
@@ -1898,7 +1899,7 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 
 **Archivos de datos nuevos** (en `%APPDATA%\ClearRead`, junto a `config.json`, `recents.json`, `glossary.json` y `stats.json`): `folders.json` y `topics.json` (lista de `{id, name}`). Los campos nuevos (`folder_id`, `topic`, `page_starts`, `reading_view_mode`) son opcionales al leer: los archivos de versiones anteriores siguen abriendo.
 
-**Pruebas.** (Primera tanda.) Nuevos: `tests/test_pages.py`, `tests/test_groups.py`, `tests/test_library_folders.py`, `tests/test_glossary_topics.py`, `tests/test_restart.py`; modificados: `test_reading_view.py` (voz estricta), `test_settings.py` (reinicio), `test_document_library.py`, `test_redesign.py`, `test_strings.py`. **Resultado ejecutado el 2026-10-18 en este equipo (pytest, ruta de CLAUDE.md §i): app 1338 passed, 1 skipped; backend 52 passed.** Capturas reales de la app en pantalla virtual (`QT_QPA_PLATFORM=offscreen`, `tests/manual/run_real_v3.py` y `run_real_v4.py`, tema Claro y Oscuro); las imágenes se retiraron del repositorio por decisión de la usuaria. **Segunda tanda (2026-10-18):** nuevos `tests/test_selection_voice_syllables.py` y `tests/test_home_destination.py`; modificados `tests/test_library_folders.py`, `tests/test_text_formatter.py` y `tests/test_theme.py`. **Resultado ejecutado el 2026-10-18 en el equipo de desarrollo: app 1404 passed, 1 skipped** (el backend no se volvió a ejecutar en esta tanda; su último resultado es el de 52 passed). **Comprobación real de las voces** en el equipo de desarrollo: hay Helena (es), David y Zira (en) y Haruka (ja); se eligió es = Helena y en = David.
+**Pruebas.** (Primera tanda.) Nuevos: `tests/test_pages.py`, `tests/test_groups.py`, `tests/test_library_folders.py`, `tests/test_glossary_topics.py`, `tests/test_restart.py`; modificados: `test_reading_view.py` (voz estricta), `test_settings.py` (reinicio), `test_document_library.py`, `test_redesign.py`, `test_strings.py`. **Resultado ejecutado el 2026-10-18 en este equipo (pytest, ruta de CLAUDE.md §i): app 1338 passed, 1 skipped; backend 52 passed.** Capturas reales de la app en pantalla virtual (`QT_QPA_PLATFORM=offscreen`, `tests/manual/run_real_v3.py` y `run_real_v4.py`, tema Claro y Oscuro); las imágenes se retiraron del repositorio por decisión de la usuaria. **Segunda tanda (2026-10-18):** nuevos `tests/test_selection_voice_syllables.py` y `tests/test_home_destination.py`; modificados `tests/test_library_folders.py`, `tests/test_text_formatter.py` y `tests/test_theme.py`. **Resultado ejecutado el 2026-10-18 en el equipo de desarrollo: app 1424 passed, 1 skipped** (el backend no se volvió a ejecutar en esta tanda; su último resultado es el de 52 passed). **Comprobación real de las voces** en el equipo de desarrollo: hay Helena (es), David y Zira (en) y Haruka (ja); se eligió es = Helena y en = David.
 
 **Lo que NO se comprobó** (§8): el amarillo de la selección, el cambio de voz y el botón «Sílabas» en el `.exe` compilado; arrastrar un archivo real desde el Explorador; ratón físico y arrastre (los tests y las capturas usan eventos sintéticos de Qt), escucha de la voz real con el comportamiento nuevo (`tests/manual/check_click_real.py` existe y habla en voz alta, pero no se ejecutó con estos cambios), relanzamiento del `.exe` compilado y recompilación del `.exe` con los módulos nuevos.
 
@@ -2439,7 +2440,7 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 > **Renumeración del 2026-10-07:** el cronograma (§6.5) ahora es D12 = rediseño, D13 = `.exe` final y D14 = prueba en máquina limpia y video. Donde los puntos de abajo dicen "Día 12" para compilar o probar el `.exe`, léase **Día 13** (compilar) o **Día 14** (máquina limpia).
 
 - **Día 13 — `.exe` final en este equipo (2026-10-07), resultado parcial.** `clearread.spec` creado y compilado con `--clean --noconfirm` (compilación ~2 min 20 s con `time` de Bash en este equipo): `dist/ClearRead` pesa **321 MB** (`du`), con PySide6 92 MB, `cv2` 83 MB, `onnxruntime` 36 MB, `numpy.libs` 21 MB y `rapidocr_onnxruntime` 16 MB. Verificado en `dist/`: fuentes con licencias, modelos ONNX, iconos (incluidos `app.ico`, `qico`, `qsvg`, `networkinformation`), ejemplo, `upx=False`, sin `fastapi`/`uvicorn`/`DEEPSEEK_API_KEY`/`sk-…`; `offline-audit` sin fallos. La primera compilación falló al arrancar por falta de `silabeador/exceptions.lst`; se añadió al spec. El `.exe` abre la ventana de Inicio con el icono en el título (~7 s hasta tener ventana, medido con `Stopwatch`; la meta de < 2 s de §6.3 **no** se cumple en este equipo). **Esta compilación usó un token de relleno** porque la creación de `resources/client_token.local.json` desde `backend/.env` no se autorizó; por eso **no hay `.zip` ni SHA256 todavía** y no se probó la IA contra Render. No se probaron a mano (no hay control de la interfaz en esta sesión): ejemplo, OCR, voz, pausa, clic en palabra, modo foco, temas, fuente, idioma, "Mis palabras" y recientes. **Máquina limpia: pendiente (la hace la usuaria, §6.6 «Publicación y prueba en máquina limpia»).**
-- **Cambios del 2026-10-18 (§4.13), pendientes y límites.** Lo ejecutado: suite de la app 1404 passed, 1 skipped (2026-10-18, equipo de desarrollo; la tanda anterior fue 1338 passed, 1 skipped); backend 52 passed (no se repitió en la segunda tanda); capturas con la app real en pantalla virtual. **Sin hacer:**
+- **Cambios del 2026-10-18 (§4.13), pendientes y límites.** Lo ejecutado: suite de la app 1424 passed, 1 skipped (2026-10-18, equipo de desarrollo; la tanda anterior fue 1338 passed, 1 skipped); backend 52 passed (no se repitió en la segunda tanda); capturas con la app real en pantalla virtual. **Sin hacer:**
   - **Recompilar el `.exe`** con `clearread.spec` (los módulos nuevos de §4.13 no están en la compilación del Día 13) y **repetir la prueba en máquina limpia** (§6.6 «Publicación y prueba en máquina limpia»), incluidos los pasos manuales nuevos (clic/doble clic, páginas, biblioteca, temas, reinicio de idioma).
   - **Relanzamiento real del `.exe`** al cambiar de idioma: `tests/test_restart.py` solo prueba el comando (`frozen` / desde el código). Falta comprobar que el `.exe` compilado se reabre solo, en el idioma nuevo, y que no queda un proceso viejo.
   - **Pruebas físicas:** ratón real (clic, doble clic y arrastre para seleccionar), rueda de desplazamiento y teclado real; **escucha de la voz** con el comportamiento nuevo (Pausa inmediata, sin palabras tardías). Los tests usan un motor de voz simulado y las capturas, eventos sintéticos de Qt. `tests/manual/check_click_real.py` está escrito para la parte de voz y no se ejecutó con estos cambios.
@@ -2517,11 +2518,14 @@ Todo tono derivado conserva el matiz de su color de origen (morado ≈ 254°, am
 | `#D2C7EA` | Morado, claro | 259° / 45 % / 85 % | Regleta y *hover* del Claro |
 | `#6B5C9E` | Morado, medio | 254° / 26 % / 49 % | Bordes del Claro |
 | `#43386B` | Morado, algo más claro | 253° / 31 % / 32 % | Texto secundario del Claro |
-| `#4F417C` | Morado, algo más claro | 254° / 31 % / 37 % | Líneas atenuadas del modo foco (Claro) |
+| `#46396F` | Morado, algo más claro | 254° / 32 % / 33 % | Líneas atenuadas del modo foco (Claro; antes `#4F417C`, que no llegaba a 7:1 sobre la hoja) |
+| `#E6DDF6` | Morado, lila pastel | 262° / 58 % / 92 % | Hoja de lectura del Claro (`page-bg`) |
 | `#FBF0CC` | Amarillo, muy claro | 46° / 85 % / 89 % | Fondo de las sílabas impares (Claro); botón primario presionado |
 | `#F8E3A9` | Amarillo, claro | 44° / 85 % / 82 % | Botón primario en *hover* |
 | `#E4DCF3` | Morado, muy claro | 261° / 49 % / 91 % | Texto del Oscuro; sílaba impar del Oscuro; botón secundario del Oscuro |
-| `#CFC4E8` | Morado, claro | 258° / 44 % / 84 % | Texto secundario y líneas atenuadas del Oscuro |
+| `#CFC4E8` | Morado, claro | 258° / 44 % / 84 % | Texto de control deshabilitado del Oscuro |
+| `#D8CEEE` | Morado, claro | 259° / 48 % / 87 % | Texto secundario y líneas atenuadas del Oscuro (antes `#CFC4E8`, que no llegaba a 7:1 sobre la hoja) |
+| `#41356A` | Morado, lila oscuro | 254° / 33 % / 31 % | Hoja de lectura del Oscuro (`page-bg`) |
 | `#9B8DC7` | Morado, medio | 254° / 34 % / 67 % | Bordes del Oscuro |
 | `#2B2344` | Morado, oscuro | 255° / 32 % / 20 % | Superficies y regleta del Oscuro |
 | `#261F3C` | Morado, muy oscuro | 254° / 32 % / 18 % | Pista de sliders y progreso (Oscuro); anillo de foco sobre amarillo (Oscuro) |
@@ -2537,7 +2541,7 @@ Los nombres de token están en inglés (van así en `theme.py`); los nombres de 
 | `bg` | `#EDE8F7` | `#392F5A` | Fondo de ventana y del lector |
 | `surface` | `#DDD4EF` | `#2B2344` | Barra superior, barra de reproducción, panel de IA, tarjetas |
 | `text` | `#392F5A` | `#E4DCF3` | Texto principal |
-| `text-muted` | `#43386B` | `#CFC4E8` | Texto secundario (metadatos, ayudas) |
+| `text-muted` | `#43386B` | `#D8CEEE` | Texto secundario (metadatos, ayudas) |
 | `syllable-even` | `#392F5A` | `#F4D06F` | Sílabas 1.ª, 3.ª, … |
 | `syllable-odd` | `#392F5A` | `#E4DCF3` | Sílabas 2.ª, 4.ª, … |
 | `syllable-odd-bg` | `#FBF0CC` | — (sin fondo) | Fondo suave de las sílabas impares (solo Claro) |
@@ -2546,7 +2550,9 @@ Los nombres de token están en inglés (van así en `theme.py`); los nombres de 
 | `selection-bg` | `#F4D06F` | `#F8E3A9` | Fondo del texto seleccionado con el ratón (2026-10-18; antes seguía el acento de Windows) |
 | `selection-fg` | `#392F5A` | `#392F5A` | Letra del texto seleccionado |
 | `ruler-bg` | `#D2C7EA` | `#2B2344` | Regleta de la línea activa (color opaco, sin alfa) |
-| `dim-text` | `#4F417C` | `#CFC4E8` | Líneas que no son la activa, en modo foco |
+| `dim-text` | `#46396F` | `#D8CEEE` | Líneas que no son la activa, en modo foco |
+| `page-bg` | `#E6DDF6` | `#41356A` | Hoja de lectura (2026-10-18): lila pastel sobre `bg`, con el texto, las sílabas, los rótulos «Página N» y las líneas atenuadas encima |
+| `page-border` | `#6B5C9E` | `#9B8DC7` | Borde de 1 px de la hoja |
 | `focus-ring` | `#392F5A` | `#F4D06F` | Anillo de foco de teclado |
 | `focus-ring-primary` | `#392F5A` | `#261F3C` | Anillo de foco sobre un botón amarillo |
 | `primary-bg` | `#F4D06F` | `#F4D06F` | Botón primario, relleno de sliders y progreso. **No cambia entre temas** |
@@ -2580,13 +2586,16 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 | Claro | `text` / `surface` · `ruler-bg` | 8,53 · 7,58 | PASS |
 | Claro | `text-muted` / `bg` · `surface` | 8,67 · 7,31 | PASS |
 | Claro | `syllable-odd` / `syllable-odd-bg` | **10,67** | PASS |
-| Claro | `dim-text` / `bg` | 7,35 | PASS |
+| Claro | `dim-text` / `bg` · `page-bg` | 8,43 · 7,73 | PASS |
+| Claro | `text` / `page-bg` · `text-muted` / `page-bg` · `syllable-even` / `page-bg` · `syllable-odd` / `page-bg` | 9,28 · 7,95 · 9,28 · 9,28 | PASS |
 | Claro | `word-highlight-fg` / `word-highlight-bg` | **8,16** | PASS |
 | Claro | `selection-fg` / `selection-bg` | **8,16** | PASS |
 | Claro | `primary-fg` / `primary-bg` · `hover` · `pressed` | **8,16** · 9,58 · 10,67 | PASS |
 | Claro | `secondary` / `bg` · `surface` · `hover` | 10,12 · 8,53 · 7,58 | PASS |
 | Oscuro | `text` / `bg` · `surface` | **9,16** · 11,10 | PASS |
-| Oscuro | `text-muted` y `dim-text` / `bg` · `surface` | 7,36 · 8,91 | PASS |
+| Oscuro | `text-muted` y `dim-text` / `bg` · `surface` · `page-bg` | 8,09 · 9,80 · 7,20 | PASS |
+| Oscuro | `text` · `syllable-odd` (lavanda) / `page-bg` | 8,15 | PASS |
+| Oscuro | `syllable-even` (amarillo) / `page-bg` | 7,26 | PASS |
 | Oscuro | `syllable-even` (amarillo) / `bg` · `ruler-bg` | 8,16 · 9,88 | PASS |
 | Oscuro | `syllable-odd` (lavanda) / `bg` · `ruler-bg` | 9,16 · 11,10 | PASS |
 | Oscuro | `word-highlight-fg` / `word-highlight-bg` | 8,16 | PASS |
@@ -2599,6 +2608,7 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 | Tema | Par | Ratio | Veredicto |
 |:--|:--|--:|:--|
 | Claro | `border` / `bg` · `surface` | 4,79 · 4,04 | PASS |
+| Claro | `page-border` / `page-bg` | 4,39 | PASS |
 | Claro | `focus-ring` / `bg` · `surface` | 10,12 · 8,53 | PASS |
 | Claro | `focus-ring-primary` / `primary-bg` (anillo sobre amarillo) | 8,16 | PASS |
 | Claro | `primary-border` / `bg` (borde del botón amarillo) | 10,12 | PASS |
@@ -2607,6 +2617,7 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 | Claro | `primary-bg` / `bg` (sin borde) | 1,24 | **no cumple**: por eso el primario del Claro lleva borde morado |
 | Claro | `ruler-bg` / `bg` | 1,34 | apoyo visual (ver [A.4.2](#a42-lector-readerwidget)) |
 | Oscuro | `border` / `bg` · `surface` | 4,07 · 4,93 | PASS |
+| Oscuro | `page-border` / `page-bg` | 3,62 | PASS |
 | Oscuro | `focus-ring` / `bg` | 8,16 | PASS |
 | Oscuro | `focus-ring-primary` / `primary-bg` | 10,49 | PASS |
 | Oscuro | `primary-bg` / `bg` · `track` | 8,16 · 10,49 | PASS |
@@ -2615,7 +2626,7 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 | Oscuro | `ruler-bg` / `bg` | 1,21 | apoyo visual (ver [A.4.2](#a42-lector-readerwidget)) |
 
 **Honestidad sobre dos límites.**
-1. **Modo foco.** Las líneas atenuadas también deben cumplir 7:1, así que solo pueden bajar del 10,12 al 7,35 (Claro) o del 9,16 al 7,36 (Oscuro). La diferencia es visible pero moderada; la línea activa se distingue además por la regleta y, en el Oscuro, por el amarillo.
+1. **Modo foco.** Las líneas atenuadas también deben cumplir 7:1, así que solo pueden bajar del 9,28 al 7,73 sobre la hoja (Claro) o del 8,15 al 7,20 (Oscuro). La diferencia es visible pero moderada; la línea activa se distingue además por la regleta y, en el Oscuro, por el amarillo.
 2. **Regleta.** Un fondo que contraste 3:1 con el de la ventana dejaría el texto por debajo de 7:1. La regleta es un **apoyo**; la señal principal de "dónde voy" es la palabra resaltada (≥ 8,16:1). Esta aceptación viene de la v1 (decidida el 2026-10-01).
 
 ##### Salida literal
@@ -2627,7 +2638,7 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 #392F5A / #D2C7EA  7.58  PASS
 #43386B / #EDE8F7  8.67  PASS
 #43386B / #DDD4EF  7.31  PASS
-#4F417C / #EDE8F7  7.35  PASS
+#4F417C / #EDE8F7  7.35  PASS   (valor antiguo del token; ver el bloque de la hoja, abajo)
 #392F5A / #FBF0CC  10.67  PASS
 #392F5A / #F4D06F  8.16  PASS
 #392F5A / #F8E3A9  9.58  PASS
@@ -2645,7 +2656,7 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 ### OSCURO texto
 #E4DCF3 / #392F5A  9.16  PASS
 #E4DCF3 / #2B2344  11.10  PASS
-#CFC4E8 / #392F5A  7.36  PASS
+#CFC4E8 / #392F5A  7.36  PASS   (valor antiguo; ver el bloque de la hoja, abajo)
 #CFC4E8 / #2B2344  8.91  PASS
 #F4D06F / #392F5A  8.16  PASS
 #F4D06F / #2B2344  9.88  PASS
@@ -2661,6 +2672,30 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 #261F3C / #F4D06F  10.49  PASS
 #F4D06F / #261F3C  10.49  PASS
 #2B2344 / #392F5A  1.21  FAIL
+```
+
+```text
+### HOJA DE LECTURA (2026-10-18, contrast.py; validado antes con 21.00 / 5.75 / 4.44)
+### CLARO page-bg #E6DDF6
+#392F5A / #E6DDF6  9.28  PASS   (text, syllable-even, syllable-odd)
+#43386B / #E6DDF6  7.95  PASS   (text-muted: rótulos "Página N")
+#46396F / #E6DDF6  7.73  PASS   (dim-text, modo foco)
+#392F5A / #FBF0CC  10.67  PASS  (sílaba impar sobre su fondo)
+#F4D06F / #392F5A  8.16  PASS   (palabra que suena)
+#392F5A / #F4D06F  8.16  PASS   (selección)
+#392F5A / #D2C7EA  7.58  PASS   (regleta / punto de inicio)
+#6B5C9E / #E6DDF6  4.39  FAIL   (borde; no texto, umbral 3,0: PASS)
+### OSCURO page-bg #41356A
+#E4DCF3 / #41356A  8.15  PASS   (text, syllable-odd)
+#F4D06F / #41356A  7.26  PASS   (syllable-even)
+#D8CEEE / #41356A  7.20  PASS   (text-muted, dim-text)
+#392F5A / #F4D06F  8.16  PASS   (palabra que suena)
+#392F5A / #F8E3A9  9.58  PASS   (selección)
+#E4DCF3 / #2B2344  11.10  PASS  (regleta / punto de inicio)
+#F4D06F / #2B2344  9.88  PASS
+#D8CEEE / #392F5A  8.09  PASS
+#D8CEEE / #2B2344  9.80  PASS
+#9B8DC7 / #41356A  3.62  FAIL   (borde; no texto, umbral 3,0: PASS)
 ```
 
 Para repetir la medición: `.\.venv\Scripts\python .claude\skills\contrast-check\contrast.py "<texto>/<fondo>" ...`. **Cualquier cambio de color obliga a volver a medir y a actualizar esta sección.**
@@ -2740,7 +2775,7 @@ Base de **4 px**; todos los márgenes y separaciones son múltiplos de 4 y casi 
 | `space-5` | 20 px | Relleno del panel de IA y de las tarjetas grandes |
 | `space-6` | 24 px | Margen lateral de barras; relleno de diálogo |
 | `space-8` | 32 px | Margen de página del Inicio y de Mis palabras |
-| `space-10` | 40 px | Margen interior horizontal de la columna de lectura |
+| `space-10` | 40 px | Margen interior horizontal mínimo de la hoja de lectura (en la práctica 45 px: 12 de relleno + 1 de borde + 32 de margen del texto) |
 
 #### A.1.6 Radios, bordes y elevación
 
@@ -2888,7 +2923,7 @@ Alto **56 px**, fondo `surface`, borde inferior 1 px `border`, relleno lateral 2
 
 #### A.4.2 Lector (`ReaderWidget`)
 
-- `QTextEdit` de solo lectura sin marco, fondo `bg`, columna de **550–820 px** centrada, margen interior 40 px a los lados y 32 px arriba.
+- `QTextEdit` de solo lectura sin marco, columna de **550–820 px** centrada. **Hoja de papel (2026-10-18):** el lector va dentro de un `QFrame#PageSheet` (`wrap_in_page_sheet`) con fondo `page-bg` (lila pastel), borde de 1 px `page-border`, radio `radius-lg` (12 px) y 12 px de relleno; el texto tiene 32 px de margen lateral y 24 px arriba y abajo, así que queda a ≈ 45 px del borde de la hoja por los lados y ≈ 37 px arriba. Fuera de la hoja (16 px arriba y abajo y a los lados de la columna) se ve el fondo `bg` de la app. Sin sombra ni animación. Vale igual en "Continua" (una hoja larga con los separadores «Página N») y en "Por páginas" (una página). La vista previa de Ajustes usa el mismo `page-bg` pero sin marco ni borde. El texto se recorta en el borde del área de texto (24 px dentro de la hoja).
 - **Sílabas (opcional, el interruptor de Ajustes o el botón «Sílabas» / tecla `S`; apagadas, todas las palabras en `text`):** Claro → todas en `text`, y las **impares con fondo `syllable-odd-bg`** (amarillo muy suave, 10,67:1); Oscuro → alternancia **amarillo / lavanda** (8,16:1 y 9,16:1). El HTML lleva `background-color` solo si el tema define `syllable-odd-bg`.
 - **Texto seleccionado (2026-10-18):** fondo `selection-bg` y letra `selection-fg` (Claro `#F4D06F` / `#392F5A`; Oscuro `#F8E3A9` / `#392F5A`), fijados en la QSS y en la `QPalette` del lector para todos los grupos de color, de modo que no cambia a gris al perder el foco.
 - **Palabra que suena** (`ExtraSelection`): **Claro = fondo `#392F5A` con letra `#F4D06F`; Oscuro = fondo `#F4D06F` con letra `#392F5A`** (decisión de la usuaria), con subrayado del color de la letra. Sin negrita (no cambia el ancho y no mueve las líneas).

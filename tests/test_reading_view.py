@@ -5,8 +5,14 @@ from collections.abc import Iterator
 import pytest
 from fakes import EngineSource, FakeEngine
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QKeySequence, QShortcut, QShortcutEvent, QTextCursor
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import (
+    QKeySequence,
+    QPalette,
+    QShortcut,
+    QShortcutEvent,
+    QTextCursor,
+)
+from PySide6.QtWidgets import QApplication, QWidget
 from pytestqt.qtbot import QtBot
 
 from clearread.services.syllabifier import SpanishSyllabifier
@@ -19,8 +25,9 @@ from clearread.services.text_formatter import (
 from clearread.services.tts_controller import TTSController, sapi_rate_for
 from clearread.ui.fonts import READING_FONT_FAMILY, load_reading_font
 from clearread.ui.strings import Language
-from clearread.ui.theme import THEMES, ThemeId, syllable_palette
-from clearread.ui.views.reading_view import PlaybackState, ReadingView
+from clearread.ui.theme import THEMES, ThemeId, build_stylesheet, syllable_palette
+from clearread.ui.views.reader_widget import READER_MARGIN_X
+from clearread.ui.views.reading_view import PlaybackState, ReadingView, ViewMode
 
 TEXT = "El niño leyó una canción.\n\nSegundo párrafo con cinco palabras."
 TIMEOUT_MS = 5000
@@ -503,3 +510,57 @@ def test_resuming_in_the_middle_of_a_sentence_keeps_the_indices_of_the_document(
     qtbot.waitUntil(lambda: view.state is PlaybackState.IDLE, timeout=TIMEOUT_MS)
     assert engines.latest.said[-1].startswith("una canción.\nSegundo")
     assert events == list(range(3, len(view.token_map)))
+
+
+# ---- the page sheet -------------------------------------------------------
+
+
+def pixel(widget: QWidget, point: QPoint) -> str:
+    return widget.grab().toImage().pixelColor(point).name().upper()
+
+
+@pytest.mark.parametrize("theme_id", list(ThemeId))
+def test_the_reader_text_sits_on_the_page_colour(
+    view: ReadingView, theme_id: ThemeId
+) -> None:
+    tokens = THEMES[theme_id]
+    view.editor.apply_theme(tokens)
+    base = view.editor.palette().color(QPalette.ColorRole.Base)
+    assert base.name().upper() == tokens.page_bg.upper()
+    assert tokens.page_bg != tokens.bg
+
+
+@pytest.mark.parametrize("theme_id", list(ThemeId))
+def test_the_sheet_is_paper_on_the_app_background_with_generous_margins(
+    tts: TTSController, qtbot: QtBot, theme_id: ThemeId
+) -> None:
+    tokens = THEMES[theme_id]
+    widget = ReadingView(tts, theme_id)
+    widget.setStyleSheet(build_stylesheet(tokens))  # as MainWindow does
+    qtbot.addWidget(widget)
+    widget.load_document(format_text(theme_id))
+    shown(widget, qtbot)
+    QApplication.processEvents()
+    sheet = widget.page_sheet
+    column = sheet.parentWidget()
+    assert column is not None
+    inside_padding = QPoint(6, sheet.height() // 2)
+    above_sheet = QPoint(sheet.width() // 2, 6)
+    assert pixel(sheet, inside_padding) == tokens.page_bg.upper()
+    assert pixel(column, above_sheet) == tokens.bg.upper()
+    text_left = widget.editor.mapTo(sheet, QPoint(0, 0)).x() + READER_MARGIN_X
+    assert text_left >= 40
+
+
+@pytest.mark.parametrize("mode", list(ViewMode))
+def test_the_sheet_adds_nothing_to_the_minimum_width_and_no_horizontal_bar(
+    tts: TTSController, qtbot: QtBot, mode: ViewMode
+) -> None:
+    widget = ReadingView(tts, view_mode=mode)
+    qtbot.addWidget(widget)
+    widget.load_document(format_text(ThemeId.LIGHT))
+    widget.resize(1024, 700)
+    widget.show()
+    qtbot.waitExposed(widget)
+    assert widget.minimumSizeHint().width() == widget.play_bar.minimumSizeHint().width()
+    assert not widget.editor.horizontalScrollBar().isVisible()

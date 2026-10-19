@@ -31,6 +31,8 @@ class ThemeTokens:
     selection_bg: str  # text the user selects with the mouse
     selection_fg: str
     ruler_bg: str
+    page_bg: str  # the sheet of paper the reader text sits on
+    page_border: str
     dim_text: str  # lines other than the active one in focus mode
     focus_ring: str
     focus_ring_primary: str
@@ -62,7 +64,9 @@ THEMES: dict[ThemeId, ThemeTokens] = {
         selection_bg="#F4D06F",
         selection_fg="#392F5A",
         ruler_bg="#D2C7EA",
-        dim_text="#4F417C",
+        page_bg="#E6DDF6",
+        page_border="#6B5C9E",
+        dim_text="#46396F",
         focus_ring="#392F5A",
         focus_ring_primary="#392F5A",
         primary_bg="#F4D06F",
@@ -82,7 +86,7 @@ THEMES: dict[ThemeId, ThemeTokens] = {
         bg="#392F5A",
         surface="#2B2344",
         text="#E4DCF3",
-        text_muted="#CFC4E8",
+        text_muted="#D8CEEE",
         syllable_even="#F4D06F",
         syllable_odd="#E4DCF3",
         syllable_odd_bg="",
@@ -91,7 +95,9 @@ THEMES: dict[ThemeId, ThemeTokens] = {
         selection_bg="#F8E3A9",
         selection_fg="#392F5A",
         ruler_bg="#2B2344",
-        dim_text="#CFC4E8",
+        page_bg="#41356A",
+        page_border="#9B8DC7",
+        dim_text="#D8CEEE",
         focus_ring="#F4D06F",
         focus_ring_primary="#261F3C",
         primary_bg="#F4D06F",
@@ -115,6 +121,9 @@ _STYLESHEET = Template(
     """
 QWidget { background: $bg; color: $text; font-family: "Segoe UI"; font-size: 15px;
           selection-background-color: $selection_bg; selection-color: $selection_fg; }
+QTextEdit { background: $page_bg; }
+QFrame#PageSheet { background: $page_bg; border: 1px solid $page_border;
+                   border-radius: 12px; }
 QFrame#PlayBar { background: $surface; border: none; border-top: 1px solid $border; }
 QLabel, QWidget#PlayBarContent { background: transparent; }
 QLabel[role="muted"] { color: $text_muted; }
