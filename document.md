@@ -61,6 +61,7 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
 | **Backend API** *(solo `backend/`)* | FastAPI (incluye pydantic, MIT) | ≥ 0.115.0 | MIT | Proyecto aparte con su propio `pyproject.toml`; nunca entra en el `.exe`. Genera `/docs` (OpenAPI) automáticamente. |
 | **Servidor ASGI** *(solo `backend/`)* | uvicorn | ≥ 0.30.0 | BSD-3 | Arranque en Render con `uvicorn ... --host 0.0.0.0 --port $PORT`. |
+| **Instalador** *(solo build)* | Inno Setup | 6.7.3 | Inno Setup License (gratuita, también uso comercial) | Herramienta de compilación, no entra en el `pyproject.toml` ni en el `.exe`. Plan B: entregar solo el `.zip` portable de `dist\ClearRead`. |
 | **Hosting del backend** | Render — Web Service, plan **Free** | — | Servicio (no es dependencia) | **Condiciones consultadas el 2026-10-01** en https://render.com/docs/free: se duerme tras 15 min sin tráfico y tarda ~1 min en despertar; 750 h de instancia/mes; sin disco persistente; una sola instancia. **Plan B: Hugging Face Spaces** — a la misma fecha (https://huggingface.co/docs/hub/spaces-overview), los Spaces Docker/Gradio requieren plan de pago para crearse (los gratuitos solo admiten Static o hasta 2 Gradio sobre ZeroGPU), así que el Plan B **no es gratuito** para FastAPI; ver §8. |
 
 > [!NOTE]
@@ -2414,6 +2415,35 @@ gh release create <versión> dist\ClearRead-<versión>-win64.zip --title "ClearR
 ```
 
 Si `gh auth status` falla, ejecuta `gh auth login` primero.
+
+#### Instalador (Inno Setup)
+
+Además del `.zip` portable, el repo incluye `installer/clearread.iss`, que empaqueta la carpeta `dist\ClearRead` completa en un único `ClearRead-Setup-1.5.0.exe`. Inno Setup es solo una herramienta de compilación (instalada aparte, no está en el venv). El instalador no descarga nada ni necesita internet.
+
+**Cómo compilarlo** (después de compilar el `.exe` con `clearread.spec`, que necesita `resources/client_token.local.json`):
+
+```powershell
+.\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\clearread.iss
+(Get-FileHash dist\installer\ClearRead-Setup-1.5.0.exe -Algorithm SHA256).Hash
+```
+
+Salida: `dist\installer\ClearRead-Setup-1.5.0.exe` (`dist/` está ignorado por git).
+
+**Qué ofrece al instalar:**
+- Elegir la **carpeta de instalación** (por defecto la carpeta `Programas` del usuario, sin permisos de administrador). Al empezar, Windows permite elegir entre instalar solo para el usuario o para todos (en ese caso pide administrador).
+- **Acceso directo en el Escritorio** (casilla marcada por defecto) y entrada en el **menú Inicio**.
+- Casilla final "Ejecutar ClearRead".
+- Idioma del asistente: español (por defecto) o inglés.
+- **Desinstalador** en "Aplicaciones" de Windows: borra los archivos del programa y los accesos directos. **No borra** `%APPDATA%\ClearRead` (biblioteca, glosario y ajustes del usuario); quien quiera borrarlo del todo lo hace a mano.
+
+**Publicar en GitHub Releases:** etiqueta `v1.5.0`, sube `ClearRead-Setup-1.5.0.exe` (y, opcionalmente, el `.zip` portable de la sección anterior) y pega el SHA256 en las notas. Con `gh`:
+
+```powershell
+gh release create v1.5.0 dist\installer\ClearRead-Setup-1.5.0.exe --title "ClearRead 1.5.0" --notes "Instalador para Windows 10/11 x64. SHA256: <hash>. Si SmartScreen avisa: Más información, Ejecutar de todas formas (el instalador no está firmado)."
+```
+
+**Avisos:** el instalador **no está firmado**, así que SmartScreen puede mostrar "Windows protegió su PC" (mismo procedimiento que en el punto 2 de arriba). El instalador incluye el token del cliente igual que el `.exe` (ver «Token del cliente en el `.exe`»). Las páginas interactivas del asistente (carpeta, casilla del escritorio) se prueban a mano; la instalación y desinstalación en silencio (`/VERYSILENT /CURRENTUSER /DIR=... /TASKS=desktopicon`) se probaron en el equipo de desarrollo, y la **prueba en máquina limpia sigue pendiente**.
 
 ---
 

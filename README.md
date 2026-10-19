@@ -58,9 +58,12 @@ Leer una guía fotocopiada, un examen o unos apuntes escaneados exige un esfuerz
 
 ## Descarga e instalación
 
-1. Ve a [**Releases**](https://github.com/SoFzzz/ClearRead/releases) y descarga `ClearRead-v1.0.0-win64.zip`.
-2. Descomprímelo y abre `ClearRead\ClearRead.exe`.
-3. Si Windows muestra *"Windows protegió su PC"*: **Más información → Ejecutar de todas formas**. Aparece porque el programa no está firmado digitalmente.
+1. Ve a [**Releases**](https://github.com/SoFzzz/ClearRead/releases) y descarga `ClearRead-Setup-1.5.0.exe`.
+2. Ábrelo y sigue el asistente: elige la carpeta de instalación y deja marcada la casilla del **icono en el Escritorio** si lo quieres.
+3. Si Windows muestra *"Windows protegió su PC"*: **Más información → Ejecutar de todas formas**. Aparece porque el instalador no está firmado digitalmente.
+4. Abre ClearRead desde el Escritorio o el menú Inicio. Para quitarlo: *Configuración → Aplicaciones*. Tus documentos y palabras (`%APPDATA%\ClearRead`) no se borran.
+
+Alternativa sin instalar: si el Release incluye el `.zip` portable, descomprímelo y abre `ClearRead\ClearRead.exe`.
 
 No necesita Python ni internet. El asistente de IA es la única función que requiere conexión; sin ella, el resto de la app funciona igual.
 
@@ -94,7 +97,7 @@ ClearRead.exe (escritorio, núcleo offline)  ──HTTPS──►  Backend FastA
 | Sílabas | silabeador |
 | Backend | FastAPI, uvicorn, httpx |
 | IA | DeepSeek |
-| Empaquetado | PyInstaller (`--onedir`) |
+| Empaquetado | PyInstaller (`--onedir`) + instalador Inno Setup |
 
 ## Para desarrolladores
 
@@ -114,6 +117,9 @@ py -3.11 -m venv backend\.venv
 
 # Compilar el .exe (requiere resources/client_token.local.json, no versionado)
 .\.venv\Scripts\python -m PyInstaller clearread.spec --clean --noconfirm
+
+# Instalador (requiere Inno Setup 6)
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\clearread.iss
 ```
 
 Guías (en [`document.md`](document.md) §6.6): despliegue del backend en Render y publicación de una versión con la prueba en máquina limpia.
