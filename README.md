@@ -13,6 +13,10 @@
   Windows 10/11 · 100% offline · Asistente de IA opcional
 </p>
 
+<p align="center">
+  <a href="https://github.com/SoFzzz/ClearRead/releases/latest"><b>⬇ Descargar ClearRead 1.5.0 para Windows</b></a>
+</p>
+
 ---
 
 ## El problema
@@ -58,12 +62,12 @@ Leer una guía fotocopiada, un examen o unos apuntes escaneados exige un esfuerz
 
 ## Descarga e instalación
 
-1. Ve a [**Releases**](https://github.com/SoFzzz/ClearRead/releases) y descarga `ClearRead-Setup-1.5.0.exe`.
+1. Descarga el instalador desde el [**release v1.5.0**](https://github.com/SoFzzz/ClearRead/releases/tag/v1.5.0) ([descarga directa de `ClearRead-Setup-1.5.0.exe`](https://github.com/SoFzzz/ClearRead/releases/download/v1.5.0/ClearRead-Setup-1.5.0.exe)). Las versiones nuevas aparecerán siempre en [**Releases**](https://github.com/SoFzzz/ClearRead/releases/latest).
 2. Ábrelo y sigue el asistente: elige la carpeta de instalación y deja marcada la casilla del **icono en el Escritorio** si lo quieres.
 3. Si Windows muestra *"Windows protegió su PC"*: **Más información → Ejecutar de todas formas**. Aparece porque el instalador no está firmado digitalmente.
 4. Abre ClearRead desde el Escritorio o el menú Inicio. Para quitarlo: *Configuración → Aplicaciones*. Tus documentos y palabras (`%APPDATA%\ClearRead`) no se borran.
 
-Alternativa sin instalar: si el Release incluye el `.zip` portable, descomprímelo y abre `ClearRead\ClearRead.exe`.
+SHA256 del instalador (para comprobar la descarga): `c7ef0b95d5217a4fea8d4a9e5db739e6d9cf5aac102e78f844138f2dc2919ae4`.
 
 No necesita Python ni internet. El asistente de IA es la única función que requiere conexión; sin ella, el resto de la app funciona igual.
 
