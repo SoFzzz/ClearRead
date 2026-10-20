@@ -306,3 +306,111 @@ def test_failed_answers_are_not_cached(tmp_path: Path) -> None:
 
     assert client.simplify_paragraph("x").text == "Ya."
     assert len(backend.requests) == 2
+
+
+class FakeBearer:
+    def __init__(self, tokens: list[str | None], renews: bool = True) -> None:
+        self.tokens = tokens
+        self.renews = renews
+        self.renew_calls = 0
+
+    def bearer(self) -> str | None:
+        return self.tokens[min(self.renew_calls, len(self.tokens) - 1)]
+
+    def renew(self) -> bool:
+        self.renew_calls += 1
+        return self.renews
+
+
+def make_authorized_client(
+    tmp_path: Path,
+    handler: Callable[[httpx.Request], httpx.Response],
+    bearer: FakeBearer,
+) -> tuple[BackendAIClient, FakeBackend]:
+    backend = FakeBackend(handler)
+    client = BackendAIClient(
+        BASE,
+        TOKEN,
+        DiskResponseCache(tmp_path / "cache.json"),
+        "es",
+        transport=httpx.MockTransport(backend),
+        bearer_source=bearer,
+    )
+    return client, backend
+
+
+def test_calls_send_the_current_id_token(tmp_path: Path) -> None:
+    client, backend = make_authorized_client(
+        tmp_path, lambda r: ok(), FakeBearer(["id-1"])
+    )
+
+    client.simplify_paragraph("texto")
+
+    assert backend.requests[0].headers["Authorization"] == "Bearer id-1"
+    assert backend.requests[0].headers["X-Client-Token"] == TOKEN
+
+
+def test_invalid_session_renews_once_and_retries_with_the_new_token(
+    tmp_path: Path,
+) -> None:
+    answers = iter([httpx.Response(401, json={"error": "invalid_session"}), ok("Ya.")])
+    bearer = FakeBearer(["old", "new"])
+    client, backend = make_authorized_client(tmp_path, lambda r: next(answers), bearer)
+
+    assert client.simplify_paragraph("x").text == "Ya."
+
+    assert bearer.renew_calls == 1
+    sent = [r.headers["Authorization"] for r in backend.requests]
+    assert sent == ["Bearer old", "Bearer new"]
+    assert client.session_calls_used == 1
+
+
+def test_failed_renewal_asks_to_sign_in_again(tmp_path: Path) -> None:
+    bearer = FakeBearer(["old"], renews=False)
+    client, backend = make_authorized_client(
+        tmp_path,
+        lambda r: httpx.Response(401, json={"error": "invalid_session"}),
+        bearer,
+    )
+
+    with pytest.raises(AIUnavailableError) as raised:
+        client.simplify_paragraph("x")
+
+    assert raised.value.kind is AIErrorKind.SIGN_IN_REQUIRED
+    assert len(backend.requests) == 1
+
+
+def test_second_invalid_session_does_not_loop(tmp_path: Path) -> None:
+    bearer = FakeBearer(["old", "new"])
+    client, backend = make_authorized_client(
+        tmp_path,
+        lambda r: httpx.Response(401, json={"error": "invalid_session"}),
+        bearer,
+    )
+
+    with pytest.raises(AIUnavailableError) as raised:
+        client.simplify_paragraph("x")
+
+    assert raised.value.kind is AIErrorKind.SIGN_IN_REQUIRED
+    assert len(backend.requests) == 2
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "kind"),
+    [
+        (429, "user_daily_limit_reached", AIErrorKind.USER_DAILY_LIMIT),
+        (429, "daily_limit_reached", AIErrorKind.DAILY_LIMIT),
+        (401, "session_revoked", AIErrorKind.SIGN_IN_REQUIRED),
+    ],
+)
+def test_account_codes_map_to_their_own_kinds(
+    tmp_path: Path, status: int, code: str, kind: AIErrorKind
+) -> None:
+    client, _ = make_client(
+        tmp_path, lambda r: httpx.Response(status, json={"error": code})
+    )
+
+    with pytest.raises(AIUnavailableError) as raised:
+        client.simplify_paragraph("texto")
+
+    assert raised.value.kind is kind

@@ -21,6 +21,8 @@ NON_TEXT_MIN = 3.0
 SRC = Path(__file__).resolve().parents[1] / "src" / "clearread"
 ICONS = Path(__file__).resolve().parents[1] / "resources" / "icons"
 HEX = re.compile(r"#[0-9A-Fa-f]{6}\b")
+GOOGLE_ICON = "google_g.svg"  # the one icon that keeps Google's own colours
+GOOGLE_COLOURS = {"#4285F4", "#34A853", "#FBBC05", "#EA4335"}
 HUE_TOLERANCE_DEG = 10.0
 
 # Every colour the app may use, with the brand colour it is a tone of (design system 1.1).
@@ -180,9 +182,17 @@ def test_no_hex_colour_outside_theme_py_or_in_the_icons() -> None:
         if path.name != "theme.py" and HEX.search(path.read_text("utf-8"))
     ]
     offenders += [
-        p.name for p in ICONS.glob("*.svg") if HEX.search(p.read_text("utf-8"))
+        p.name
+        for p in ICONS.glob("*.svg")
+        if p.name != GOOGLE_ICON and HEX.search(p.read_text("utf-8"))
     ]
     assert offenders == []
+
+
+def test_google_icon_is_the_only_icon_with_colours_and_they_are_googles() -> None:
+    used = {m.upper() for m in HEX.findall((ICONS / GOOGLE_ICON).read_text("utf-8"))}
+    assert used == GOOGLE_COLOURS
+    assert "currentColor" not in (ICONS / GOOGLE_ICON).read_text("utf-8")
 
 
 def test_every_theme_defines_every_token() -> None:

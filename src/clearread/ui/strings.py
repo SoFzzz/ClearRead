@@ -704,6 +704,388 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "It is removed from My words. You can save it again by asking for "
         "another explanation.",
     },
+    # --- Accounts and synced profile (v1.6, §4.14.10) ---
+    "auth.sign_in_title": {
+        "es": "Entra a tu cuenta",
+        "en": "Sign in to your account",
+    },
+    "auth.sign_in_intro": {
+        "es": "Tu perfil guarda tus ajustes y tus palabras. Después de entrar, la app funciona también sin internet.",
+        "en": "Your profile keeps your settings and your words. After you sign in, the app also works without internet.",
+    },
+    "auth.email_label": {
+        "es": "Correo",
+        "en": "Email",
+    },
+    "auth.password_label": {
+        "es": "Contraseña",
+        "en": "Password",
+    },
+    "auth.show_password": {
+        "es": "Mostrar",
+        "en": "Show",
+    },
+    "auth.hide_password": {
+        "es": "Ocultar",
+        "en": "Hide",
+    },
+    "auth.show_password_a11y": {
+        "es": "Mostrar la contraseña",
+        "en": "Show the password",
+    },
+    "auth.hide_password_a11y": {
+        "es": "Ocultar la contraseña",
+        "en": "Hide the password",
+    },
+    "auth.forgot_link": {
+        "es": "¿Olvidaste tu contraseña?",
+        "en": "Forgot your password?",
+    },
+    "auth.sign_in_button": {
+        "es": "Entrar",
+        "en": "Sign in",
+    },
+    "auth.signing_in": {
+        "es": "Entrando…",
+        "en": "Signing you in…",
+    },
+    "auth.no_account": {
+        "es": "¿Todavía no tienes cuenta?",
+        "en": "Don't have an account yet?",
+    },
+    "auth.create_account_link": {
+        "es": "Crear cuenta",
+        "en": "Create account",
+    },
+    "auth.need_internet": {
+        "es": "Para entrar por primera vez en este equipo necesitas internet.",
+        "en": "To sign in for the first time on this computer you need internet.",
+    },
+    "auth.waking": {
+        "es": "Despertando el servidor. Puede tardar cerca de un minuto.",
+        "en": "Waking up the server. It can take about a minute.",
+    },
+    "auth.register_title": {
+        "es": "Crear cuenta",
+        "en": "Create account",
+    },
+    "auth.name_label": {
+        "es": "Nombre",
+        "en": "Name",
+    },
+    "auth.password_count": {
+        "es": "Usa al menos 8 caracteres. Llevas {count}.",
+        "en": "Use at least 8 characters. You have {count}.",
+    },
+    "auth.privacy_consent": {
+        "es": "He leído el aviso de privacidad: ClearRead guarda mi nombre, mi correo, mis ajustes y mis palabras. Mis documentos se quedan en este equipo.",
+        "en": "I have read the privacy notice: ClearRead saves my name, my email, my settings and my words. My documents stay on this computer.",
+    },
+    "auth.privacy_link": {
+        "es": "Leer el aviso de privacidad",
+        "en": "Read the privacy notice",
+    },
+    "auth.register_button": {
+        "es": "Crear cuenta",
+        "en": "Create account",
+    },
+    "auth.creating": {
+        "es": "Creando tu cuenta…",
+        "en": "Creating your account…",
+    },
+    "auth.register_disabled_tip": {
+        "es": "Acepta el aviso de privacidad para continuar",
+        "en": "Accept the privacy notice to continue",
+    },
+    "auth.verify_note": {
+        "es": "Te enviaremos un correo para confirmar que es tuyo. No hace falta confirmarlo para empezar.",
+        "en": "We will send you an email to confirm it is yours. You do not need to confirm it to start.",
+    },
+    "auth.privacy_title": {
+        "es": "Aviso de privacidad",
+        "en": "Privacy notice",
+    },
+    "auth.privacy_body": {
+        "es": "**Borrador, pendiente de revisión legal (§8).** ClearRead guarda en tu cuenta tu nombre, tu correo, tus ajustes y tus palabras guardadas, para que las tengas en cualquier equipo. Estos datos se guardan en servicios de Google (Firebase). Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Si usas el asistente, el texto que seleccionas se envía a nuestro servidor y a DeepSeek. Puedes borrar tu cuenta cuando quieras desde Ajustes.",
+        "en": "**Draft, pending legal review (§8).** ClearRead saves your name, your email, your settings and your saved words in your account, so you have them on any computer. This data is stored in Google services (Firebase). Your documents, your library and your statistics stay only on this computer. If you use the assistant, the text you select is sent to our server and to DeepSeek. You can delete your account at any time from Settings.",
+    },
+    "auth.reset_title": {
+        "es": "Recuperar contraseña",
+        "en": "Reset password",
+    },
+    "auth.reset_step": {
+        "es": "Paso {current} de {total}",
+        "en": "Step {current} of {total}",
+    },
+    "auth.reset_heading": {
+        "es": "¿Olvidaste tu contraseña?",
+        "en": "Forgot your password?",
+    },
+    "auth.reset_intro": {
+        "es": "Escribe tu correo. Te enviaremos un enlace para crear una contraseña nueva.",
+        "en": "Type your email. We will send you a link to create a new password.",
+    },
+    "auth.reset_send": {
+        "es": "Enviar enlace",
+        "en": "Send link",
+    },
+    "auth.sending": {
+        "es": "Enviando…",
+        "en": "Sending…",
+    },
+    "auth.reset_done_title": {
+        "es": "Revisa tu correo",
+        "en": "Check your email",
+    },
+    "auth.reset_done_body": {
+        "es": "Si {email} tiene una cuenta, te llegará un enlace en unos minutos.",
+        "en": "If {email} has an account, a link will arrive in a few minutes.",
+    },
+    "auth.reset_step_1": {
+        "es": "Abre el correo de ClearRead.",
+        "en": "Open the email from ClearRead.",
+    },
+    "auth.reset_step_2": {
+        "es": "Pulsa el enlace y escribe tu contraseña nueva.",
+        "en": "Click the link and type your new password.",
+    },
+    "auth.reset_step_3": {
+        "es": "Vuelve aquí y entra.",
+        "en": "Come back here and sign in.",
+    },
+    "auth.reset_spam": {
+        "es": "¿No llega? Mira en la carpeta de correo no deseado.",
+        "en": "Not arriving? Check your spam folder.",
+    },
+    "auth.reset_resend": {
+        "es": "Enviar otra vez",
+        "en": "Send again",
+    },
+    "auth.reset_back": {
+        "es": "Volver a entrar",
+        "en": "Back to sign in",
+    },
+    "auth.validation.email_invalid": {
+        "es": "Escribe un correo válido, por ejemplo nombre@correo.com.",
+        "en": "Type a valid email, for example name@mail.com.",
+    },
+    "auth.validation.name_required": {
+        "es": "Escribe tu nombre (hasta 40 caracteres).",
+        "en": "Type your name (up to 40 characters).",
+    },
+    "auth.validation.password_too_long": {
+        "es": "La contraseña puede tener hasta 128 caracteres.",
+        "en": "The password can have up to 128 characters.",
+    },
+    "auth.error.no_network": {
+        "es": "No pudimos conectar. Revisa tu internet e inténtalo otra vez.",
+        "en": "We couldn't connect. Check your internet and try again.",
+    },
+    "auth.error.server_waking": {
+        "es": "El servidor está tardando en despertar. Inténtalo de nuevo en un minuto.",
+        "en": "The server is taking a while to wake up. Try again in a minute.",
+    },
+    "auth.error.timeout": {
+        "es": "La respuesta tardó demasiado. Inténtalo de nuevo.",
+        "en": "The reply took too long. Try again.",
+    },
+    "auth.error.invalid_credentials": {
+        "es": "El correo o la contraseña no coinciden. Revísalos e inténtalo otra vez.",
+        "en": "The email or the password does not match. Check them and try again.",
+    },
+    "auth.error.email_exists": {
+        "es": "Ese correo ya tiene una cuenta. Prueba a entrar o recupera tu contraseña.",
+        "en": "That email already has an account. Try signing in or reset your password.",
+    },
+    "auth.error.password_too_short": {
+        "es": "La contraseña necesita al menos 8 caracteres.",
+        "en": "The password needs at least 8 characters.",
+    },
+    "auth.error.invalid_request": {
+        "es": "Revisa lo que escribiste e inténtalo otra vez.",
+        "en": "Check what you typed and try again.",
+    },
+    "auth.error.too_many_attempts": {
+        "es": "Hubo demasiados intentos. Espera unos minutos e inténtalo otra vez.",
+        "en": "There were too many attempts. Wait a few minutes and try again.",
+    },
+    "auth.error.session_revoked": {
+        "es": "Tu sesión terminó. Entra otra vez.",
+        "en": "Your session ended. Please sign in again.",
+    },
+    "auth.error.profile_too_large": {
+        "es": "Tu perfil es demasiado grande para guardarse en la cuenta. Borra algunas palabras guardadas.",
+        "en": "Your profile is too big to be saved in your account. Delete some saved words.",
+    },
+    "auth.error.service_unavailable": {
+        "es": "El servicio de cuentas no está disponible ahora. Inténtalo más tarde.",
+        "en": "The accounts service is not available right now. Try again later.",
+    },
+    "auth.error.unexpected": {
+        "es": "No pudimos entender la respuesta. Inténtalo de nuevo.",
+        "en": "We couldn't understand the reply. Try again.",
+    },
+    "ai.error.sign_in_required": {
+        "es": "Tu sesión terminó. Entra otra vez para usar el asistente.",
+        "en": "Your session ended. Sign in again to use the assistant.",
+    },
+    "ai.error.user_daily_limit": {
+        "es": "Llegaste a tu límite de consultas de hoy. Vuelve mañana.",
+        "en": "You reached your limit of questions for today. Come back tomorrow.",
+    },
+    "account.title": {
+        "es": "Cuenta",
+        "en": "Account",
+    },
+    "account.verified": {
+        "es": "Correo confirmado",
+        "en": "Email confirmed",
+    },
+    "account.not_verified": {
+        "es": "Correo sin confirmar",
+        "en": "Email not confirmed",
+    },
+    "account.sync_ok": {
+        "es": "Guardado en tu cuenta",
+        "en": "Saved to your account",
+    },
+    "account.sync_pending": {
+        "es": "Se guardará en tu cuenta cuando haya internet",
+        "en": "Will be saved to your account when you are online",
+    },
+    "account.sync_failed": {
+        "es": "No pudimos guardar en tu cuenta. Lo intentaremos otra vez.",
+        "en": "We couldn't save to your account. We will try again.",
+    },
+    "account.offline_note": {
+        "es": "Sin internet, tu sesión sigue abierta. Tus cambios se guardan en tu cuenta cuando vuelva la conexión.",
+        "en": "Without internet, your session stays open. Your changes are saved to your account when the connection comes back.",
+    },
+    "account.local_note": {
+        "es": "Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Tus ajustes y tus palabras se guardan en tu cuenta.",
+        "en": "Your documents, your library and your statistics stay only on this computer. Your settings and your words are saved in your account.",
+    },
+    "account.sign_out": {
+        "es": "Cerrar sesión",
+        "en": "Sign out",
+    },
+    "account.delete": {
+        "es": "Borrar mi cuenta",
+        "en": "Delete my account",
+    },
+    "account.sign_out_title": {
+        "es": "¿Cerrar sesión?",
+        "en": "Sign out?",
+    },
+    "account.sign_out_body": {
+        "es": "Tus documentos de este equipo se quedan guardados. Para volver a leer tendrás que entrar otra vez, con internet.",
+        "en": "Your documents on this computer stay saved. To read again you will need to sign in again, with internet.",
+    },
+    "account.sign_out_pending": {
+        "es": "Tienes cambios que aún no se guardaron en tu cuenta. Se guardarán cuando entres otra vez con internet.",
+        "en": "You have changes that are not saved to your account yet. They will be saved when you sign in again with internet.",
+    },
+    "account.delete_title": {
+        "es": "¿Borrar tu cuenta?",
+        "en": "Delete your account?",
+    },
+    "account.delete_body": {
+        "es": "Se borran tu cuenta y tus datos en línea (ajustes y palabras) y también los datos de este perfil en este equipo. Tus archivos originales no se tocan. Esto no se puede deshacer.",
+        "en": "Your account and your online data (settings and words) are deleted, and so is the data of this profile on this computer. Your original files are not touched. This cannot be undone.",
+    },
+    "account.delete_confirm": {
+        "es": "Borrar mi cuenta",
+        "en": "Delete my account",
+    },
+    "account.deleting": {
+        "es": "Borrando tu cuenta…",
+        "en": "Deleting your account…",
+    },
+    "account.deleted": {
+        "es": "Tu cuenta se borró.",
+        "en": "Your account was deleted.",
+    },
+    "profile.migrated": {
+        "es": "Tus documentos y ajustes de antes ahora son de tu perfil.",
+        "en": "Your earlier documents and settings now belong to your profile.",
+    },
+    "profile.language_pending": {
+        "es": "El idioma de tu cuenta se aplicará la próxima vez que abras ClearRead.",
+        "en": "The language of your account will apply the next time you open ClearRead.",
+    },
+    "auth.error.invalid_session": {
+        "es": "Tu sesión terminó. Entra otra vez.",
+        "en": "Your session ended. Please sign in again.",
+    },
+    "account.avatar_a11y": {
+        "es": "Cuenta de {name}",
+        "en": "Account of {name}",
+    },
+    "auth.google_sign_in": {"es": "Entrar con Google", "en": "Sign in with Google"},
+    "auth.or_with_email": {"es": "o con tu correo", "en": "or with your email"},
+    "account.google_link": {"es": "Vincular con Google", "en": "Link with Google"},
+    "account.google_linked": {"es": "Google vinculado", "en": "Google linked"},
+    "google.waiting_title": {
+        "es": "Esperando a Google…",
+        "en": "Waiting for Google…",
+    },
+    "google.waiting_body": {
+        "es": (
+            "Se abrió tu navegador. Elige tu cuenta de Google y, cuando termines, "
+            "vuelve aquí."
+        ),
+        "en": (
+            "Your browser opened. Choose your Google account and, when you finish, "
+            "come back here."
+        ),
+    },
+    "google.waiting_cancel": {"es": "Cancelar", "en": "Cancel"},
+    "auth.error.google_cancelled": {
+        "es": "Cancelaste el acceso con Google. Puedes intentarlo otra vez cuando quieras.",
+        "en": "You cancelled Google. You can try again whenever you want.",
+    },
+    "auth.error.google_already_linked": {
+        "es": (
+            "Esa cuenta de Google ya está vinculada a otro perfil de ClearRead. "
+            "Prueba con otra cuenta de Google."
+        ),
+        "en": (
+            "That Google account is already linked to another ClearRead profile. "
+            "Try another Google account."
+        ),
+    },
+    "auth.error.google_not_linked": {
+        "es": (
+            "Esa cuenta de Google todavía no está vinculada. Primero crea tu cuenta "
+            "con tu correo y después vincula Google en Ajustes."
+        ),
+        "en": (
+            "That Google account is not linked yet. First create your account with "
+            "your email, then link Google in Settings."
+        ),
+    },
+    "auth.error.google_attempt_not_found": {
+        "es": "Se perdió el intento con Google. Inténtalo otra vez.",
+        "en": "The Google attempt was lost. Try again.",
+    },
+    "auth.error.google_attempt_expired": {
+        "es": "Pasó demasiado tiempo esperando a Google. Inténtalo otra vez.",
+        "en": "It took too long to hear from Google. Try again.",
+    },
+    "auth.error.google_not_configured": {
+        "es": (
+            "Entrar con Google no está disponible ahora. Usa tu correo o inténtalo "
+            "más tarde."
+        ),
+        "en": (
+            "Google sign-in is not available right now. Use your email or try again "
+            "later."
+        ),
+    },
+    "auth.error.browser_unavailable": {
+        "es": "No pudimos abrir tu navegador. Ábrelo tú y vuelve a intentarlo.",
+        "en": "We couldn't open your browser. Open it yourself and try again.",
+    },
 }
 
 

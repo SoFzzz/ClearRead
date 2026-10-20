@@ -51,6 +51,7 @@ class LibraryController:
         glossary: GlossaryStore,
         words_view: WordsView,
         refresh_home: Callable[[], None],
+        words_changed: Callable[[], None] = lambda: None,
     ) -> None:
         self._parent = parent
         self._language = language
@@ -60,6 +61,7 @@ class LibraryController:
         self._glossary = glossary
         self._words_view = words_view
         self._refresh_home = refresh_home
+        self._words_changed = words_changed
         self.confirm_box: QMessageBox | None = None
         self.prompt_dialog: NamePromptDialog | None = None
 
@@ -77,13 +79,18 @@ class LibraryController:
             lambda: self.delete_word(word),
         )
 
+    def refresh_after_change(self) -> None:
+        """Words or topics changed on this computer: show them and tell the profile."""
+        self.refresh_words()
+        self._words_changed()
+
     def delete_word(self, word: str) -> None:
         self._glossary.remove(word)
-        self.refresh_words()
+        self.refresh_after_change()
 
     def set_word_topic(self, word: str, topic_id: str) -> None:
         self._glossary.set_topic(word, topic_id)
-        self.refresh_words()
+        self.refresh_after_change()
 
     def create_topic(self) -> None:
         self._prompt_name(
@@ -92,11 +99,11 @@ class LibraryController:
             "",
             "common.create",
             self._topics.create,
-            self.refresh_words,
+            self.refresh_after_change,
         )
 
     def rename_topic(self, topic_id: str) -> None:
-        self._rename(self._topics, topic_id, TOPIC_KEYS, self.refresh_words)
+        self._rename(self._topics, topic_id, TOPIC_KEYS, self.refresh_after_change)
 
     def ask_delete_topic(self, topic_id: str) -> None:
         self._ask_delete(self._topics, topic_id, TOPIC_KEYS, self.delete_topic)
@@ -104,7 +111,7 @@ class LibraryController:
     def delete_topic(self, topic_id: str) -> None:
         self._glossary.clear_topic(topic_id)
         self._topics.delete(topic_id)
-        self.refresh_words()
+        self.refresh_after_change()
 
     def ask_remove_document(self, key: str) -> None:
         recent = self._library.recent(key)

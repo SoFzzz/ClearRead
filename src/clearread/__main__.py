@@ -5,32 +5,70 @@ import sys
 from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QApplication
 
-from clearread.core.config import AppConfig, load_client_token
-from clearread.core.paths import get_user_data_dir
+from clearread.core.config import (
+    AppConfig,
+    load_client_token,
+    resolve_backend_url,
+)
+from clearread.core.device_settings import (
+    DEVICE_FILE,
+    DeviceSettingsStore,
+    seed_from_legacy_config,
+)
+from clearread.core.paths import get_profile_dir, get_user_data_dir
 from clearread.core.restart import current_relaunch_command
+from clearread.services.account_client import AccountClient
 from clearread.services.ai_client import BackendAIClient, DiskResponseCache
-from clearread.services.document_library import DocumentLibrary
-from clearread.services.glossary import GlossaryStore
-from clearread.services.groups import GroupStore
+from clearread.services.backend_transport import BackendTransport, BearerSource
+from clearread.services.browser_launcher import BrowserLauncher
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import LazyOCREngine
-from clearread.services.reading_stats import StatsStore
+from clearread.services.session_manager import SessionManager
+from clearread.services.session_store import SESSION_FILE, SessionStore
 from clearread.services.tts_controller import TTSController
+from clearread.ui.app_controller import AppController, AppServices
 from clearread.ui.app_icon import load_app_icon, set_windows_app_id
 from clearread.ui.fonts import load_reading_font
-from clearread.ui.main_window import MainWindow
-
-CACHE_DIR_NAME = "cache"
-AI_CACHE_FILE = "ai_cache.json"
-GLOSSARY_FILE = "glossary.json"
-STATS_FILE = "stats.json"
-FOLDERS_FILE = "folders.json"
-TOPICS_FILE = "topics.json"
+from clearread.workers.account_tasks import AccountTaskRunner
+from clearread.workers.account_worker import create_account_thread_pool
 
 
 def relaunch() -> None:
     command = current_relaunch_command()
     QProcess.startDetached(command.program, command.arguments)
+
+
+def make_ai_client(
+    config: AppConfig, cache: DiskResponseCache, bearer: BearerSource
+) -> BackendAIClient:
+    return BackendAIClient(
+        resolve_backend_url(config.backend_url),
+        load_client_token(),
+        cache,
+        config.ui_language,
+        bearer_source=bearer,
+    )
+
+
+def build_services() -> AppServices:
+    data_dir = get_user_data_dir()
+    backend_url = resolve_backend_url()
+    client = AccountClient(BackendTransport(backend_url, load_client_token()))
+    device = DeviceSettingsStore(data_dir / DEVICE_FILE)
+    seed_from_legacy_config(device, data_dir)
+    return AppServices(
+        data_dir=data_dir,
+        profile_dir_for=get_profile_dir,
+        client=client,
+        session=SessionManager(client, SessionStore(data_dir / SESSION_FILE)),
+        runner=AccountTaskRunner(create_account_thread_pool()),
+        device=device,
+        network=NetworkMonitor.from_system(),
+        ocr_engine=LazyOCREngine(),
+        make_tts=TTSController,
+        make_ai_client=make_ai_client,
+        open_page=BrowserLauncher(backend_url).open_backend_page,
+    )
 
 
 def main() -> int:
@@ -40,30 +78,10 @@ def main() -> int:
     app.setApplicationName("ClearRead")
     app.setWindowIcon(load_app_icon())
     load_reading_font()
-    config = AppConfig.load()
-    ai_client = BackendAIClient(
-        config.backend_url,
-        load_client_token(),
-        DiskResponseCache(get_user_data_dir() / AI_CACHE_FILE),
-        config.ui_language,
-    )
-    window = MainWindow(
-        config=config,
-        ocr_engine=LazyOCREngine(),
-        tts=TTSController(),
-        library=DocumentLibrary(get_user_data_dir() / CACHE_DIR_NAME),
-        ai_client=ai_client,
-        network=NetworkMonitor.from_system(),
-        glossary=GlossaryStore(get_user_data_dir() / GLOSSARY_FILE),
-        stats=StatsStore(get_user_data_dir() / STATS_FILE),
-        folders=GroupStore(get_user_data_dir() / FOLDERS_FILE),
-        topics=GroupStore(get_user_data_dir() / TOPICS_FILE),
-    )
-    window.follow_language_voice()
-    window.resize(1280, 800)
-    window.show()
+    controller = AppController(build_services())
+    controller.start()
     exit_code = app.exec()
-    if window.restart_requested:
+    if controller.restart_requested:
         relaunch()
     return exit_code
 

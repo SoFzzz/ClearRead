@@ -374,3 +374,24 @@ def test_word_query_strips_punctuation_and_keeps_the_sentence() -> None:
     assert query.word == "casa"
     assert query.context_sentence.endswith("dime?")
     assert query.fits
+
+
+def test_a_sign_in_required_answer_tells_the_app_to_check_the_session(
+    qtbot: QtBot, tts: TTSController
+) -> None:
+    client = FakeAIClient(error=AIErrorKind.SIGN_IN_REQUIRED)
+    view, assistant = build(qtbot, tts, client)
+    with qtbot.waitSignal(assistant.sign_in_required, timeout=TIMEOUT_MS):
+        assistant.request_explain("casa", "Mi casa.")
+    wait_state(qtbot, view, PanelState.ERROR)
+
+
+def test_other_errors_do_not_ask_for_a_new_sign_in(
+    qtbot: QtBot, tts: TTSController
+) -> None:
+    view, assistant = build(qtbot, tts, FakeAIClient(error=AIErrorKind.TIMEOUT))
+    asked: list[bool] = []
+    assistant.sign_in_required.connect(lambda: asked.append(True))
+    assistant.request_explain("casa", "Mi casa.")
+    wait_state(qtbot, view, PanelState.ERROR)
+    assert asked == []

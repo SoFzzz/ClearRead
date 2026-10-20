@@ -1,10 +1,10 @@
 """Main window: Home -> Processing -> Reading, plus Settings and My words (design system 7)."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from enum import Enum
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from clearread.core.config import FONT_SIZE_RANGE_PT, AppConfig
 from clearread.core.paths import get_resource_path
+from clearread.services.account_client import AccountErrorKind
 from clearread.services.ai_client import AIClient
 from clearread.services.document_library import (
     CachedDocument,
@@ -37,6 +38,7 @@ from clearread.services.ingestor import DocumentIngestor
 from clearread.services.network_monitor import NetworkMonitor
 from clearread.services.ocr_engine import OCREngine
 from clearread.services.preprocessor import OCRPreprocessor
+from clearread.services.profile_sync import MACHINE_SPECIFIC_FIELDS
 from clearread.services.reading_stats import StatsStore
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import (
@@ -45,10 +47,12 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import TTSController, VoiceInfo, choose_voice
+from clearread.ui.account_state import AccountInfo, SyncStatus
 from clearread.ui.ai_assistant import AIAssistant
 from clearread.ui.dialogs import (
     AccessibleErrorDialog,
     NamePromptDialog,
+    make_info_box,
 )
 from clearread.ui.focus_ring import KeyboardFocusRing
 from clearread.ui.icons import load_icon
@@ -82,6 +86,14 @@ TITLE_MAX_CHARS = 60
 SAMPLE_RESOURCE = Path("resources") / "samples" / "ejemplo_es.txt"
 
 
+def _synced_part(config: AppConfig) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in asdict(config).items()
+        if key not in MACHINE_SPECIFIC_FIELDS
+    }
+
+
 class Screen(Enum):
     HOME = 0
     PROCESSING = 1
@@ -91,6 +103,15 @@ class Screen(Enum):
 
 
 class MainWindow(QMainWindow):
+    # A local change of the synced profile: settings, words or topics.
+    profile_changed = Signal()
+    device_preferences_changed = Signal(str, str)  # theme, interface language
+    sign_out_requested = Signal()
+    delete_account_requested = Signal()
+    google_link_requested = Signal()
+    google_cancel_requested = Signal()
+    session_check_requested = Signal()  # the assistant was told to sign in again
+
     def __init__(
         self,
         config: AppConfig,
@@ -104,9 +125,11 @@ class MainWindow(QMainWindow):
         stats: StatsStore | None = None,
         folders: GroupStore | None = None,
         topics: GroupStore | None = None,
+        account: AccountInfo | None = None,
     ) -> None:
         super().__init__()
         self._config = config
+        self._account = account
         self._config_dir = config_dir
         self._language = Language(config.ui_language)
         self._theme = ThemeId(config.theme)
@@ -128,10 +151,14 @@ class MainWindow(QMainWindow):
         self._online = network.is_online if network else True
         self.assistant: AIAssistant | None = None
         self.error_dialog: AccessibleErrorDialog | None = None
+        self.notice_box: QMessageBox | None = None
         self.restart_requested = False  # read by main() once the event loop ends
         self._focus_ring = KeyboardFocusRing(self)
         self._build_ui()
-        self._build_assistant(ai_client, network)
+        self._build_assistant(ai_client)
+        if network is not None:
+            network.online_changed.connect(self._on_online_changed)
+        self.settings_view.set_online(self._online)
         self.setStyleSheet(build_stylesheet(self.tokens))
         self._apply_speech_settings()
         self._refresh_reading()
@@ -182,7 +209,7 @@ class MainWindow(QMainWindow):
             view_mode=ViewMode(self._config.reading_view_mode),
         )
         self.settings_view = SettingsView(
-            replace(self._config), self._language, self._syllabifier
+            replace(self._config), self._language, self._syllabifier, self._account
         )
         self.words_view = WordsView(self.tokens, self._language)
         self._library_controller = LibraryController(
@@ -194,6 +221,7 @@ class MainWindow(QMainWindow):
             self._glossary,
             self.words_view,
             self._refresh_home,
+            self.profile_changed.emit,
         )
         self._library_controller.refresh_words()
         self._runner = ProcessingRunner(
@@ -240,6 +268,12 @@ class MainWindow(QMainWindow):
         self.settings_view.clear_recents_requested.connect(self.clear_recents)
         self.settings_view.back_requested.connect(self.go_back)
         self.settings_view.restart_requested.connect(self._restart)
+        self.settings_view.sign_out_requested.connect(self.sign_out_requested)
+        self.settings_view.delete_account_requested.connect(
+            self.delete_account_requested
+        )
+        self.settings_view.google_link_requested.connect(self.google_link_requested)
+        self.settings_view.google_cancel_requested.connect(self.google_cancel_requested)
         self.settings_view.set_voices(self._tts.voices)
         self._tts.voices_listed.connect(self.settings_view.set_voices)
         self.words_view.listen_requested.connect(self.reading_view.speak_aside)
@@ -263,9 +297,7 @@ class MainWindow(QMainWindow):
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.activated.connect(slot)
 
-    def _build_assistant(
-        self, client: AIClient | None, network: NetworkMonitor | None
-    ) -> None:
+    def _build_assistant(self, client: AIClient | None) -> None:
         if client is None:
             return
         self.assistant = AIAssistant(
@@ -277,12 +309,11 @@ class MainWindow(QMainWindow):
         )
         self.assistant.privacy_accepted.connect(self._on_privacy_accepted)
         self.assistant.word_explained.connect(self._on_word_explained)
+        self.assistant.sign_in_required.connect(self.session_check_requested)
         self.assistant_button.clicked.connect(self.toggle_assistant)
         self.reading_view.assistant_open_changed.connect(
             self.assistant_button.setChecked
         )
-        if network is not None:
-            network.online_changed.connect(self._on_online_changed)
         self.assistant.set_online(self._online)
         self._refresh_assistant_button()
 
@@ -292,6 +323,7 @@ class MainWindow(QMainWindow):
 
     def _on_online_changed(self, online: bool) -> None:
         self._online = online
+        self.settings_view.set_online(online)
         if self.assistant is not None:
             self.assistant.set_online(online)
         self._refresh_assistant_button()
@@ -320,6 +352,7 @@ class MainWindow(QMainWindow):
             )
         )
         self._library_controller.refresh_words()
+        self.profile_changed.emit()
 
     def _default_topic(self) -> str:
         """The topic named like the folder of the open document, if there is one."""
@@ -610,6 +643,14 @@ class MainWindow(QMainWindow):
             ai_privacy_accepted=old.ai_privacy_accepted,
             reading_view_mode=old.reading_view_mode,
         )
+        self._apply_config(new)
+        if _synced_part(old) == _synced_part(new):
+            self._persist_config()  # only this computer's own settings changed
+        else:
+            self._save_config()
+
+    def _apply_config(self, new: AppConfig) -> None:
+        old = self._config
         self._config = new
         if new.theme != old.theme:
             self._theme = ThemeId(new.theme)
@@ -629,7 +670,51 @@ class MainWindow(QMainWindow):
             self.reading_view.set_speed(new.reading_speed_wpm)
         if new.voice_id != old.voice_id:
             self._tts.set_voice(new.voice_id)
-        self._save_config()
+
+    def apply_remote_config(self, config: AppConfig) -> None:
+        """The account's profile won a sync: show it, without sending it back."""
+        self._apply_config(config)
+        self.settings_view.set_config(replace(config))
+        self._library_controller.refresh_words()
+        self._persist_config()
+        if config.ui_language != self._language.value:
+            self.show_notice("profile.language_pending")
+
+    def show_notice(self, key: str) -> None:
+        box = make_info_box(self, self._t(key), self._language)
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        box.finished.connect(lambda: self._forget_notice(box))
+        self.notice_box = box
+        box.open()
+
+    def _forget_notice(self, box: QMessageBox) -> None:
+        if self.notice_box is box:
+            self.notice_box = None
+
+    @property
+    def config(self) -> AppConfig:
+        return replace(self._config)
+
+    def set_account(self, account: AccountInfo) -> None:
+        self.settings_view.set_account(account)
+
+    def set_sync_status(self, status: SyncStatus) -> None:
+        self.settings_view.set_sync_status(status)
+
+    def set_account_busy(self, busy: bool) -> None:
+        self.settings_view.set_account_busy(busy)
+
+    def show_account_error(self, kind: AccountErrorKind) -> None:
+        self.settings_view.show_account_error(kind)
+
+    def set_google_starting(self, starting: bool) -> None:
+        self.settings_view.set_google_starting(starting)
+
+    def show_google_waiting(self) -> None:
+        self.settings_view.show_google_waiting()
+
+    def close_google_waiting(self) -> None:
+        self.settings_view.close_google_waiting()
 
     def follow_language_voice(self) -> None:
         """Keep the reading voice in the interface language, now and once voices are listed."""
@@ -644,7 +729,7 @@ class MainWindow(QMainWindow):
         self._config.voice_id = chosen
         self._tts.set_voice(chosen)
         self.settings_view.set_config(replace(self._config))
-        self._save_config()
+        self._persist_config()  # the voice belongs to this computer, not to the profile
 
     def _on_reading_speed_changed(self, wpm: int) -> None:
         if wpm == self._config.reading_speed_wpm:
@@ -683,6 +768,13 @@ class MainWindow(QMainWindow):
         self.close()
 
     def _save_config(self) -> None:
+        self._persist_config()
+        self.profile_changed.emit()
+
+    def _persist_config(self) -> None:
+        self.device_preferences_changed.emit(
+            self._config.theme, self._config.ui_language
+        )
         try:
             self._config.save(self._config_dir)
         except OSError:

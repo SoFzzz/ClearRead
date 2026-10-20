@@ -140,6 +140,8 @@ QPushButton[variant="primary"] { background: $primary_bg; color: $primary_fg;
 QPushButton[variant="primary"]:hover { background: $primary_bg_hover; }
 QPushButton[variant="primary"]:pressed { background: $primary_bg_pressed; }
 QPushButton[variant="primary"][keyFocus="true"] { border: 3px solid $focus_ring_primary; }
+QPushButton[variant="primary"]:disabled { background: $disabled_bg; color: $disabled_fg;
+                                          border: 2px dashed $border; }
 QPushButton[variant="ghost"] { border-color: transparent; }
 QPushButton[variant="ghost"][keyFocus="true"] { border: 3px solid $focus_ring; }
 QPushButton:checked { background: $secondary_bg_hover; }
@@ -152,6 +154,11 @@ QPushButton[variant="chip"][keyFocus="true"] { border: 3px solid $focus_ring;
                                                padding: 0 13px; }
 QPushButton[variant="chip"]:checked[keyFocus="true"] { border: 3px solid
                                                        $focus_ring_primary; }
+
+QPushButton[variant="link"] { min-height: 32px; padding: 0 10px; border-color: transparent;
+                              color: $text; }
+QPushButton[variant="link"][keyFocus="true"] { border: 3px solid $focus_ring;
+                                               padding: 0 9px; }
 
 QSpinBox { min-height: 40px; min-width: 64px; padding: 0 8px; border-radius: 8px;
            border: 2px solid $secondary; background: $bg; color: $text;
@@ -202,6 +209,8 @@ QComboBox, QLineEdit { min-height: 40px; padding: 0 12px; border: 2px solid $bor
                        border-radius: 8px; background: $bg; color: $text; }
 QComboBox[keyFocus="true"], QLineEdit[keyFocus="true"] { border: 3px solid $focus_ring;
                                                          padding: 0 11px; }
+QLineEdit:disabled { border: 2px dashed $border; background: $disabled_bg;
+                     color: $disabled_fg; }
 QComboBox::drop-down { border: none; width: 32px; }
 QComboBox QAbstractItemView { background: $bg; color: $text; border: 2px solid $border;
                               selection-background-color: $secondary_bg_hover;
@@ -237,6 +246,31 @@ QLabel#WordChip { background: $word_highlight_bg; color: $word_highlight_fg;
 QLabel#OfflineBadge { border: 1px solid $border; border-radius: 12px; padding: 2px 10px;
                       font-size: 13px; font-weight: 600; }
 QPushButton#AssistantToggle:checked { background: $secondary_bg_hover; }
+
+QWidget[role="plain"] { background: transparent; }
+QLabel[role="name"] { font-size: 16px; font-weight: 700; }
+QLabel[role="field-label"] { font-size: 15px; font-weight: 600; }
+QLabel[role="note"] { color: $text_muted; font-size: 13px; }
+QLabel[role="step"] { color: $text_muted; font-size: 13px; font-weight: 600; }
+QProgressBar[compact="true"] { min-height: 8px; max-height: 8px; border-radius: 4px; }
+QProgressBar[compact="true"]::chunk { border-radius: 3px; }
+QFrame#LoginCard { background: $surface; border: 1px solid $border; border-radius: 12px; }
+QFrame#LoginCard QLabel, QFrame#LoginCard QCheckBox { border: none; background: transparent; }
+QFrame#LoginCard QLabel#InlineMark { border: 2px solid $text; border-radius: 10px;
+                                     font-size: 12px; font-weight: 700; }
+QFrame#LoginCard QLabel#DoneDisc, QFrame#Card QLabel#Avatar {
+    background: $primary_bg; color: $primary_fg; border: 2px solid $primary_border;
+    border-radius: 16px; font-weight: 700; }
+QFrame#Card QLabel#Avatar { border-radius: 28px; font-size: 24px; }
+QFrame#Card QLabel#AccountBadge { border: 1px solid $border; border-radius: 12px;
+                                  padding: 2px 10px; font-size: 13px; font-weight: 600; }
+QFrame#Separator { background: $border; border: none; min-height: 1px; max-height: 1px; }
+QFrame#PasswordBox { background: $bg; border: 2px solid $border; border-radius: 8px; }
+QFrame#PasswordBox[keyFocus="true"] { border: 3px solid $focus_ring; }
+QFrame#PasswordBox[blocked="true"] { background: $disabled_bg; border: 2px dashed $border; }
+QFrame#PasswordBox QLineEdit, QFrame#PasswordBox QLineEdit[keyFocus="true"],
+QFrame#PasswordBox QLineEdit:disabled { border: none; background: transparent;
+                                        min-height: 36px; padding: 0 12px; }
 
 QToolTip { background: $text; color: $bg; border: none; padding: 8px 12px; font-size: 13px; }
 """

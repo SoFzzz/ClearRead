@@ -1,8 +1,8 @@
 """Optional generative-AI assistant client (§4.10).
 
-Talks only to the ClearRead backend (§4.11), never to DeepSeek. The only app module
-allowed to import httpx (NFR-OFF01). Calls block, so they must run inside a worker,
-never on the UI thread (AI-F04).
+Talks only to the ClearRead backend (§4.11), never to DeepSeek, through
+backend_transport. Calls block, so they must run inside a worker, never on the UI
+thread (AI-F04).
 """
 
 import json
@@ -14,9 +14,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from clearread.services.atomic_json import write_json_atomic
+from clearread.services.backend_transport import (
+    BackendReply,
+    BackendTransport,
+    BearerSource,
+    HttpTransport,
+    TransportError,
+    TransportErrorKind,
+)
 
 
 class AIErrorKind(Enum):
@@ -30,6 +36,8 @@ class AIErrorKind(Enum):
     INPUT_TOO_LONG = "input_too_long"
     SERVICE_UNAVAILABLE = "service_unavailable"
     BAD_RESPONSE = "bad_response"
+    SIGN_IN_REQUIRED = "sign_in_required"
+    USER_DAILY_LIMIT = "user_daily_limit"
 
 
 class AIUnavailableError(Exception):
@@ -71,6 +79,9 @@ _CODE_TO_KIND: dict[str, AIErrorKind] = {
     "input_too_long": AIErrorKind.INPUT_TOO_LONG,
     "invalid_request": AIErrorKind.BAD_RESPONSE,
     "daily_limit_reached": AIErrorKind.DAILY_LIMIT,
+    "user_daily_limit_reached": AIErrorKind.USER_DAILY_LIMIT,
+    "invalid_session": AIErrorKind.SIGN_IN_REQUIRED,
+    "session_revoked": AIErrorKind.SIGN_IN_REQUIRED,
     "upstream_auth_failed": AIErrorKind.SERVICE_UNAVAILABLE,
     "upstream_no_balance": AIErrorKind.SERVICE_UNAVAILABLE,
     "upstream_bad_response": AIErrorKind.SERVICE_UNAVAILABLE,
@@ -148,17 +159,17 @@ class BackendAIClient(AIClient):
         client_token: str,
         cache: DiskResponseCache,
         lang: str,
-        transport: httpx.BaseTransport | None = None,
+        transport: HttpTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
         monotonic: Callable[[], float] = time.monotonic,
+        bearer_source: BearerSource | None = None,
     ) -> None:
-        self._base_url = base_url.rstrip("/")
+        self._backend = BackendTransport(
+            base_url, client_token, transport, sleep, monotonic
+        )
         self._lang = lang
-        self._headers = {"X-Client-Token": client_token}
         self._cache = cache
-        self._transport = transport
-        self._sleep = sleep
-        self._monotonic = monotonic
+        self._bearer_source = bearer_source
         self._calls_this_session = 0
 
     @property
@@ -170,15 +181,14 @@ class BackendAIClient(AIClient):
         return self.MAX_CALLS_PER_SESSION
 
     def ensure_awake(self, on_waking: Callable[[], None]) -> None:
-        if self._health_ok():
-            return
-        on_waking()
-        deadline = self._monotonic() + self.WAKE_TIMEOUT_SECONDS
-        while self._monotonic() < deadline:
-            self._sleep(self.WAKE_POLL_SECONDS)
-            if self._health_ok():
-                return
-        raise AIUnavailableError(AIErrorKind.SERVER_WAKING)
+        try:
+            awake = self._backend.wait_until_awake(
+                on_waking, self.WAKE_TIMEOUT_SECONDS, self.WAKE_POLL_SECONDS
+            )
+        except TransportError as exc:
+            raise _unavailable(exc) from exc
+        if not awake:
+            raise AIUnavailableError(AIErrorKind.SERVER_WAKING)
 
     def explain_word(self, word: str, context_sentence: str) -> AIResponse:
         payload = {
@@ -190,18 +200,6 @@ class BackendAIClient(AIClient):
 
     def simplify_paragraph(self, text: str) -> AIResponse:
         return self._call_or_cache("/v1/simplify", {"text": text, "lang": self._lang})
-
-    def _health_ok(self) -> bool:
-        try:
-            with httpx.Client(transport=self._transport) as client:
-                response = client.get(
-                    f"{self._base_url}/health", timeout=self.HEALTH_PROBE_SECONDS
-                )
-        except httpx.TimeoutException:
-            return False  # A sleeping Render service holds the request open.
-        except httpx.RequestError as exc:
-            raise AIUnavailableError(AIErrorKind.NO_NETWORK) from exc
-        return response.status_code == 200
 
     def _call_or_cache(self, path: str, payload: dict[str, str]) -> AIResponse:
         cache_key = (path, *(" ".join(v.lower().split()) for v in payload.values()))
@@ -215,31 +213,40 @@ class BackendAIClient(AIClient):
         return AIResponse(text=text)
 
     def _post(self, path: str, payload: dict[str, str]) -> str:
-        try:
-            with httpx.Client(transport=self._transport) as client:
-                response = client.post(
-                    f"{self._base_url}{path}",
-                    json=payload,
-                    headers=self._headers,
-                    timeout=self.REQUEST_TIMEOUT_SECONDS,
-                )
-        except httpx.TimeoutException as exc:
-            raise AIUnavailableError(AIErrorKind.TIMEOUT) from exc
-        except httpx.RequestError as exc:
-            raise AIUnavailableError(AIErrorKind.NO_NETWORK) from exc
-
+        reply = self._send(path, payload)
         self._calls_this_session += 1
-        body = self._json_or_none(response)
-        if response.status_code != 200:
-            raise AIUnavailableError(kind_for_error(response.status_code, body))
-        text = body.get("text") if isinstance(body, dict) else None
+        if reply.status != 200:
+            raise AIUnavailableError(kind_for_error(reply.status, reply.body))
+        text = reply.body.get("text") if isinstance(reply.body, dict) else None
         if not isinstance(text, str) or not text.strip():
             raise AIUnavailableError(AIErrorKind.BAD_RESPONSE)
         return text.strip()
 
-    @staticmethod
-    def _json_or_none(response: httpx.Response) -> Any:
+    def _send(self, path: str, payload: dict[str, str]) -> BackendReply:
+        reply = self._request(path, payload)
+        if (
+            reply.error_code == "invalid_session"
+            and self._bearer_source is not None
+            and self._bearer_source.renew()
+        ):
+            return self._request(path, payload)
+        return reply
+
+    def _request(self, path: str, payload: dict[str, str]) -> BackendReply:
+        bearer = self._bearer_source.bearer() if self._bearer_source else None
         try:
-            return response.json()
-        except ValueError:
-            return None
+            return self._backend.request(
+                "POST",
+                path,
+                json_body=payload,
+                bearer=bearer,
+                timeout=self.REQUEST_TIMEOUT_SECONDS,
+            )
+        except TransportError as exc:
+            raise _unavailable(exc) from exc
+
+
+def _unavailable(error: TransportError) -> AIUnavailableError:
+    if error.kind is TransportErrorKind.TIMEOUT:
+        return AIUnavailableError(AIErrorKind.TIMEOUT)
+    return AIUnavailableError(AIErrorKind.NO_NETWORK)

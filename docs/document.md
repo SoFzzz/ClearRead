@@ -1,12 +1,14 @@
 # ClearRead Desktop — Documentación Técnica de Arquitectura, Requisitos y Diseño
 
-> **Versión:** 1.5.0 (Núcleo Offline + Asistente IA vía Backend Propio Desplegado — Entrega Académica / Portafolio)  
-> **Fecha de Actualización:** 2026-10-18 (la versión sigue siendo 1.5.0; los cambios de esa fecha están en §4.13)  
+> **Versión:** 1.7.0 "Entrar y vincular con Google" (sobre la 1.6.0 "Cuentas y perfil sincronizado" y el Núcleo Offline + Asistente IA vía Backend Propio Desplegado de la 1.5.0 — Entrega Académica / Portafolio)  
+> **Fecha de Actualización:** 2026-10-19 (v1.7.0, especificada en §4.14.11 antes de escribir código; v1.6.0, especificada en §4.14; los cambios del 2026-10-18 de §4.13 se hicieron sobre la 1.5.0)  
 > **Estado:** Aprobado para Implementación con Spikes Técnicos  
 > **Contexto:** 1 de 5 proyectos en paralelo | Plazo disponible: ~14 días calendario (2026-10-02 → 2026-10-15) | Distribución: `.exe` standalone Windows (`.zip` en GitHub Releases) + backend FastAPI desplegado en Render  
 > **Cambios v1.5.0:** la materia exige el proyecto **desplegado**, por lo que el asistente de IA pasa a llamar a un backend propio (§4.11) en lugar de a DeepSeek directamente; la API key sale de la app.  
 > **Rediseño del Día 12 (2026-10-07), pedido por la usuaria:** solo dos colores de marca (morado `#392F5A` y amarillo `#F4D06F`) y sus tonos; solo temas Claro y Oscuro (se elimina Alto Contraste); tipografía Lexend por defecto con espaciado moderado; Inicio como panel; ejemplo incluido; posición de lectura, modo foco y "Mis palabras". Requisitos nuevos: HOME-F02, HOME-F03, READ-F01, READ-F02, AI-F05, UI-F04 y UI-F05 (§5.1, §4.12). Detalle visual en el Anexo A (v2.0).  
 > **Cambios del 2026-10-18, pedidos por la usuaria (§4.13):** (1) **voz con control estricto**: un clic en una palabra solo mueve el punto de inicio y la voz suena únicamente con Reproducir o `Espacio` (**sustituye UI-F02**); (2) cambiar el idioma pide confirmación y la app **se reinicia sola** (cambia I18N-F01); (3) **páginas** del documento, barra de páginas y modos de vista "Continua" / "Por páginas", con atajos de página y zoom (UI-F06, UI-F07; amplía UI-F03); (4) **biblioteca** con carpetas, búsqueda y hasta 200 documentos (HOME-F04, cambia HOME-F01 y HOME-F02) y **temas** en "Mis palabras" (AI-F06, cambia AI-F05); (5) revisión y refactor del código. **Segunda tanda del mismo día:** (6) **color de la selección de texto** amarillo/morado (antes seguía el color de acento de Windows, que se veía rojo; UI-F05); (7) **la voz sigue el idioma de la interfaz** (modifica I18N-F01, que decía que la voz seguía siendo española); (8) botón **«Sílabas»** (atajo `S`) en la barra de reproducción (UI-F08; amplía UI-F03); (9) selector **«Guardar en:»** en la zona de arrastre de Inicio (actualiza HOME-F04). **Tercera tanda:** (10) **hoja de lectura**: el texto se ve sobre una hoja lila pastel con margen, borde y esquinas redondeadas en ambos temas (tokens `page_bg`, `page_border`; Anexo A, A.4.2). Requisitos nuevos: UI-F06, UI-F07, UI-F08, HOME-F04, AI-F06. **Comprobado:** suite de tests (app: 1424 passed, 1 skipped, ejecutada el 2026-10-18 en el equipo de desarrollo) y capturas con la app real en pantalla virtual (`offscreen`; por decisión de la usuaria las capturas se retiraron del repositorio). **No comprobado:** pruebas físicas con ratón y arrastre (incluido arrastrar desde el Explorador), escucha de la voz, el amarillo de la selección, el cambio de voz y el botón «Sílabas» en el `.exe` compilado, el reinicio en el `.exe` y la recompilación del `.exe` con los módulos nuevos (§8).  
+> **Cambios v1.6.0 "Cuentas y perfil sincronizado" (2026-10-19), autorizados por la usuaria (§4.14):** (1) **el inicio de sesión es obligatorio**: al abrir la app hay que entrar con correo y contraseña (registro, entrar, cerrar sesión, recuperar contraseña y borrar la cuenta); no existe «seguir sin cuenta»; (2) **perfil sincronizado**: los ajustes (menos los propios de cada equipo: `backend_url` y `voice_id`), «Mis palabras» y los temas viajan con la cuenta; documentos, biblioteca, carpetas, estadísticas y caché de la IA se quedan **solo en el equipo**, ahora en una carpeta por perfil; (3) **nueva pieza externa: Firebase** (Authentication + Cloud Firestore, plan gratuito Spark), que **solo toca el backend** por sus APIs REST, sin SDK y sin dependencias nuevas; (4) el **módulo `services/backend_transport.py` pasa a ser el único que importa `httpx`** en la app (antes `ai_client.py`), y la app nunca llama a Firebase ni a URLs de Google; (5) `/v1/explain` y `/v1/simplify` exigen además `Authorization: Bearer <idToken>` y hay un **tope diario por usuario** (`429 user_daily_limit_reached`); (6) el **núcleo sigue funcionando sin red tras el primer inicio de sesión** (sesión guardada y cifrada con DPAPI); (7) requisitos nuevos AUTH-F01–AUTH-F07, PROF-F01–PROF-F04, BE-F04–BE-F06 y NFR-SEC02, y NFR-OFF01 reescrito (§5); (8) pantallas nuevas en el Anexo A (entrar, crear cuenta, recuperar contraseña en 2 pasos y sección «Cuenta» de Ajustes) y catálogo de textos nuevos en §4.14.10; (9) guía para crear el proyecto de Firebase (§6.6) y pendientes nuevos (§8). **La segunda fase (Google) se especificó después, en la v1.7.0 (nota siguiente).** **Estado (2026-10-19):** la fase 1 está implementada en código y sin probar contra un Firebase real ni contra Render; lo pendiente está en §8.  
+> **Cambios v1.7.0 "Entrar y vincular con Google" (2026-10-19), pedidos y autorizados por la usuaria (§4.14.11):** (1) **fase 2 de las cuentas, implementado en código, sin prueba real (§8)**: vincular una cuenta de Google al perfil de correo (Ajustes → Cuenta, AUTH-F07) y entrar con una cuenta de Google ya vinculada (pantalla de acceso, AUTH-F08); (2) decisión de la usuaria **«Vía backend»**: la app **nunca habla con Google**; abre el navegador del sistema en una página de nuestro backend y después consulta a nuestro backend (flujo OAuth 2.0 con PKCE `S256` y `accounts:signInWithIdp` de Firebase, hechos por el backend); (3) **única excepción a la regla de red de la app**, aprobada por la usuaria: `QDesktopServices.openUrl` solo en `services/browser_launcher.py` y solo para URLs que cuelguen de la URL del backend (NFR-OFF01, `CLAUDE.md` §f, skill `offline-audit`); sin puertos locales ni sockets; (4) entrar con Google **nunca crea perfiles**: si la cuenta no estaba vinculada, el backend borra la cuenta recién creada y la app pide crear antes la cuenta con el correo; (5) 4 endpoints nuevos, 6 códigos de error nuevos, 3 variables de entorno nuevas (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `PUBLIC_BASE_URL`) y `google_linked` en `Session`; (6) textos nuevos en §4.14.10, pasos de configuración en §6.6 y Anexo A (la «G» multicolor como única excepción de color, A.11). **Estado (2026-10-19):** implementado en código, sin prueba real (§8); **no se ha probado nada** contra Google, Firebase ni Render. Las fuentes oficiales se consultaron el 2026-10-19 y lo que no se pudo confirmar está marcado «por verificar».  
 > **Idioma UI:** Español | **Idioma de Código y Nombres Técnicos:** Inglés  
 
 ---
@@ -21,13 +23,16 @@ Los estudiantes con dislexia o dificultades específicas de decodificación fono
 - **Falta de Refuerzo Bimodal:** Ausencia de sincronización audiovisual estricta que ancle el estímulo fonético con el estímulo grafémico simultáneamente.
 
 ### 1.2 Propuesta de Solución: ClearRead Desktop
-**ClearRead Desktop** es un sistema de tres piezas:
+**ClearRead Desktop** es un sistema de cuatro piezas (las tres de la 1.5.0 más Firebase, desde la v1.6.0):
 
 | Pieza | Qué es | Red |
 |:---|:---|:---|
-| **`ClearRead.exe`** | Aplicación de escritorio Windows (frontend). Ingesta, OCR, silabeo, lectura en voz alta e interfaz. | **Núcleo 100% offline**: los modelos ONNX y las fuentes viajan dentro del `.exe`. |
-| **Backend propio** | API FastAPI (`backend/`, §4.11) desplegada en Render (plan gratuito). Guarda la API key, aplica límites de costo y habla con DeepSeek. | Recibe solo el texto que el usuario selecciona, por HTTPS. |
+| **`ClearRead.exe`** | Aplicación de escritorio Windows (frontend). Ingesta, OCR, silabeo, lectura en voz alta e interfaz. | **Núcleo 100% offline** una vez iniciada la sesión por primera vez: los modelos ONNX y las fuentes viajan dentro del `.exe`. Solo habla con nuestro backend (nunca con Firebase ni con Google). Desde la v1.7.0 puede abrir el **navegador del sistema** en una página de nuestro backend (única excepción, §4.14.11); aun así, no contacta a Google. |
+| **Backend propio** | API FastAPI (`backend/`, §4.11) desplegada en Render (plan gratuito). Guarda la API key, aplica límites de costo, habla con DeepSeek y, desde la v1.6.0, con Firebase (cuentas y perfil, §4.14). | Recibe el texto que el usuario selecciona, las credenciales de la cuenta y el perfil, siempre por HTTPS. |
 | **DeepSeek** | Modelo de IA generativa externo. | Solo lo llama el backend. |
+| **Firebase** *(v1.6.0)* | Authentication (cuentas con correo y contraseña) y Cloud Firestore (un documento de perfil por usuario), plan gratuito Spark. Es un servicio, no una dependencia. | Solo lo llama el backend, por sus APIs REST con `httpx` (sin SDK). |
+
+**El inicio de sesión es obligatorio (v1.6.0).** Al abrir la app hay que entrar con una cuenta; no existe «seguir sin cuenta». Solo el **primer** inicio de sesión en un equipo necesita internet: después la app abre con la sesión guardada (cifrada con Windows DPAPI) y funciona completa sin conexión, y el perfil se sincroniza cuando vuelve la red. Detalle en §4.14.
 
 Sobre el núcleo offline se ofrece un **asistente de IA generativa opcional con conexión** (explicación de palabras y simplificación de párrafos): `ClearRead.exe` → HTTPS → backend propio → DeepSeek. Sin red, el asistente se deshabilita de forma transparente y el resto de la app funciona igual. El sistema transforma documentos escaneados en una superficie de lectura de alta ergonomía cognitiva con:
 1. **OCR con Inteligencia Artificial de Visión:** Núcleo de Deep Learning no negociable para extraer texto legible desde imágenes y PDFs sin intervención de servicios de nube.
@@ -58,11 +63,19 @@ Para un equipo de desarrollo con restricciones severas de tiempo (ver plazo en l
 | **Motor TTS** | pyttsx3 + pythoncom (SAPI5) | **== 2.98** | MPL 2.0 / PSF | **Versión fijada:** en el spike del Día 1, pyttsx3 2.99 solo habla en el primer `runAndWait()` de cada motor (la 2.ª frase vuelve en 0.10 s con 1 evento); con 2.98 la 2.ª frase habla completa (9.05 s, 38 eventos). **Plan B Audio:** Si los eventos `started-word` de SAPI5 resultan inestables en ciertas voces de Windows, degradar el resaltado bimodal a nivel de oración completa con temporizador `QTimer` proporcional a las PPM. |
 | **Segmentación Fonética** | silabeador | ≥ 1.1.0 | MIT | Algoritmo determinista RAE. Plan B: módulo interno de reglas regex fonológicas. |
 | **Tipografía Accesible** | Lexend (por defecto), Atkinson Hyperlegible y OpenDyslexic | Regular (las tres; OpenDyslexic `compiled/opendyslexic.otf`) | SIL OFL 1.1 | Empaquetadas localmente en `resources/fonts` con su licencia y origen (`resources/fonts/README.md`); se elige una en Ajustes. Lexend y Atkinson se descargaron el 2026-10-07 de sus repositorios oficiales (tarea de desarrollo, nunca en tiempo de ejecución). La elección y su evidencia (y lo que **no** está demostrado) están en el Anexo A, A.1.4. |
-| **Cliente HTTP IA** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/ai_client.py`; ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek. |
+| **Cliente HTTP** | httpx | ≥ 0.27.0 | BSD-3 | En la app, solo importable en `services/backend_transport.py` (desde la v1.6.0; antes `services/ai_client.py`, que ahora usa ese módulo); ningún otro módulo del núcleo offline depende de librerías de red. El backend también lo usa para llamar a DeepSeek y a Firebase. |
 | **Backend API** *(solo `backend/`)* | FastAPI (incluye pydantic, MIT) | ≥ 0.115.0 | MIT | Proyecto aparte con su propio `pyproject.toml`; nunca entra en el `.exe`. Genera `/docs` (OpenAPI) automáticamente. |
 | **Servidor ASGI** *(solo `backend/`)* | uvicorn | ≥ 0.30.0 | BSD-3 | Arranque en Render con `uvicorn ... --host 0.0.0.0 --port $PORT`. |
 | **Instalador** *(solo build)* | Inno Setup | 6.7.3 | Inno Setup License (gratuita, también uso comercial) | Herramienta de compilación, no entra en el `pyproject.toml` ni en el `.exe`. Plan B: entregar solo el `.zip` portable de `dist\ClearRead`. |
 | **Hosting del backend** | Render — Web Service, plan **Free** | — | Servicio (no es dependencia) | **Condiciones consultadas el 2026-10-01** en https://render.com/docs/free: se duerme tras 15 min sin tráfico y tarda ~1 min en despertar; 750 h de instancia/mes; sin disco persistente; una sola instancia. **Plan B: Hugging Face Spaces** — a la misma fecha (https://huggingface.co/docs/hub/spaces-overview), los Spaces Docker/Gradio requieren plan de pago para crearse (los gratuitos solo admiten Static o hasta 2 Gradio sobre ZeroGPU), así que el Plan B **no es gratuito** para FastAPI; ver §8. |
+| **Cuentas (v1.6.0)** | **Firebase Authentication** (correo y contraseña), plan **Spark** | — (API REST `identitytoolkit.googleapis.com/v1` y `securetoken.googleapis.com/v1`) | Servicio (no es dependencia; sin SDK) | **Condiciones consultadas el 2026-10-19** en https://firebase.google.com/docs/auth/limits (plan Spark): 150 correos de restablecimiento de contraseña al día, 1 000 correos de verificación al día, 100 cuentas nuevas por hora **por IP** y 3 000 usuarios activos diarios. Como todas las peticiones a Firebase salen de la IP de Render, ese límite de 100 cuentas por hora es **compartido por todos los usuarios** (basta para este proyecto; ver §8). **Plan B:** ninguno implementado; la alternativa evaluada (Supabase) quedó descartada, abajo. |
+| **Perfil (v1.6.0)** | **Cloud Firestore**, plan **Spark**, base de datos `(default)` | — (API REST `firestore.googleapis.com/v1`) | Servicio (no es dependencia; sin SDK) | **Condiciones consultadas el 2026-10-19** en https://firebase.google.com/docs/firestore/quotas (nivel gratuito): 1 GiB almacenado, 50 000 lecturas al día, 20 000 escrituras al día y 20 000 borrados al día. Un documento por usuario (`profiles/{uid}`), con tope propio de 900 KB por cuerpo (§4.14.3). |
+
+> [!NOTE]
+> **Por qué los usuarios no se guardan en Render (v1.6.0).** La base de datos Postgres gratuita de Render **expira a los 30 días** (https://render.com/docs/free, consultado el 2026-10-19) y el servicio web gratuito no tiene disco persistente (fila «Hosting del backend»). Guardar usuarios allí los perdería; Firebase conserva las cuentas y los perfiles fuera de Render.
+
+> [!NOTE]
+> **Alternativa evaluada y descartada (v1.6.0): Supabase.** Se descartó porque los proyectos gratuitos **se pausan tras 1 semana de inactividad** (https://supabase.com/pricing, consultado el 2026-10-19) y el correo integrado **solo llega a miembros del equipo del proyecto, con un máximo de 2 por hora** (https://supabase.com/docs/guides/auth/auth-smtp, consultado el 2026-10-19), lo que impide enviar correos de recuperación a usuarios reales sin configurar un SMTP propio.
 
 > [!NOTE]
 > **Alternativa Evaluada y Descartada:** Se evaluó formalmente **PaddleOCR / PPStructure** y se resolvió **descartarlo definitivamente** del proyecto debido al alto riesgo comprobado de empaquetado en Windows mediante PyInstaller (conflictos de DLLs de PaddlePaddle, dependencias de MKL/OneDNN y tamaño de bundle > 1.5 GB). Su sustitución por **RapidOCR sobre ONNX Runtime** erradica el principal punto de falla de despliegue preservando al 100% el núcleo de visión artificial por Deep Learning.
@@ -97,15 +110,23 @@ graph TB
 
     subgraph AI_Worker["Capa de IA Opcional (QThreadPool dedicado, maxThreadCount=1)"]
         AIW["ExplainWordWorker / SimplifyParagraphWorker"]
-        AIC["BackendAIClient (httpx + caché local)"]
+        AIC["BackendAIClient (caché local)"]
     end
 
+    subgraph Account_Worker["Cuentas y perfil (v1.6.0, QThreadPool dedicado, maxThreadCount=1)"]
+        ACW["Workers de cuenta y sincronización"]
+        ACC["AccountClient + SessionStore (DPAPI) + ProfileSync"]
+    end
+
+    BT["BackendTransport (único módulo de la app con httpx)"]
+
     subgraph Backend["Backend propio (FastAPI en Render, backend/)"]
-        API["POST /v1/explain · POST /v1/simplify · GET /health"]
-        GUARD["Token de cliente + límites de tamaño + tope diario + caché en memoria"]
+        API["POST /v1/explain · POST /v1/simplify · /v1/auth/* · /v1/account · /v1/profile · GET /health"]
+        GUARD["Token de cliente + Bearer (idToken) + límites de tamaño + tope diario global y por usuario + caché en memoria"]
     end
 
     DS["DeepSeek API"]
+    FB["Firebase (Authentication + Firestore, solo por REST desde el backend)"]
 
     HV -->|Solicitar Procesamiento| Processing_Worker
     Processing_Worker -->|Error de Archivo / OCR| MSG
@@ -116,13 +137,20 @@ graph TB
     RV -->|highlight_token()| RW
     RV -->|clic derecho: explicar / simplificar| AIW
     AIW --> AIC
-    AIC -->|HTTPS + X-Client-Token| API
+    AIC --> BT
+    ACC --> BT
+    HV -->|Entrar / registrar / sincronizar| ACW
+    ACW --> ACC
+    BT -->|HTTPS + X-Client-Token (+ Bearer idToken)| API
     API --> GUARD
     GUARD -->|HTTPS + API key (variable de entorno)| DS
+    GUARD -->|HTTPS REST + clave web de Firebase| FB
     AIW -->|finished / failed / waking| RV
 ```
 
-> La flecha `BackendAIClient → backend` es la **única** salida de red de `ClearRead.exe`, y solo ocurre cuando el usuario pide ayuda de IA. Todo el resto del diagrama funciona sin conexión.
+> La flecha `BackendTransport → backend` es la **única** salida de red de `ClearRead.exe`. Ocurre cuando el usuario pide ayuda de IA y, desde la v1.6.0, al iniciar sesión, al registrarse, al recuperar la contraseña, al borrar la cuenta y al sincronizar el perfil. La app **nunca** habla con Firebase ni con otra URL de Google: eso lo hace solo el backend. Desde la v1.7.0, para vincular o entrar con Google, la app **abre el navegador del sistema** en una página de nuestro backend (`BrowserLauncher`, §4.14.11) y después sondea a nuestro backend; el navegador, no la app, es quien habla con Google. Con la sesión ya guardada, todo el resto del diagrama funciona sin conexión.
+>
+> *(El diagrama conserva los nombres de la v1.5.0 para el flujo de lectura; los nodos nuevos de la v1.6.0 son `Account_Worker`, `BT` y `FB`.)*
 
 ### 3.2 Diagrama de Secuencia y Calibración con Datos Reales
 
@@ -906,7 +934,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from clearread.core.paths import get_user_data_dir
 
-# The only URL allowed outside services/ai_client.py (NFR-OFF01 audit).
+# The only URL allowed outside services/backend_transport.py (NFR-OFF01 audit).
 # Real Render URL (backend deployed on Day 10).
 DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 
@@ -961,7 +989,7 @@ class AppConfig:
 ```
 
 > [!NOTE]
-> **Cambios del 2026-10-18.** (1) `AppConfig.reading_view_mode` (`VIEW_MODES = ("continuous", "paged")`, por defecto `"continuous"`): un valor desconocido o un `config.json` antiguo sin el campo cargan como `continuous` (UI-F07). (2) La escritura atómica salió a `services/atomic_json.py` (`write_json_atomic(target, payload, indent, durable)`), compartida por `config.json` (con `durable=True`: `flush` + `fsync` antes del `os.replace`), el índice y la caché de la biblioteca, `glossary.json`, `stats.json`, `folders.json`, `topics.json` y la caché de respuestas de la IA. El fragmento de arriba es el de referencia; el real usa esa función. (3) `ui_language` ahora pide confirmación y **reinicia la app sola** (I18N-F01, §4.13).
+> **Cambios del 2026-10-18.** (1) `AppConfig.reading_view_mode` (`VIEW_MODES = ("continuous", "paged")`, por defecto `"continuous"`): un valor desconocido o un `config.json` antiguo sin el campo cargan como `continuous` (UI-F07). (2) La escritura atómica salió a `services/atomic_json.py` (`write_json_atomic(target, payload, indent, durable)`), compartida por `config.json` (con `durable=True`: `flush` + `fsync` antes del `os.replace`), el índice y la caché de la biblioteca, `glossary.json`, `stats.json`, `folders.json`, `topics.json` y la caché de respuestas de la IA. El fragmento de arriba es el de referencia; el real usa esa función. (3) `ui_language` ahora pide confirmación y **reinicia la app sola** (I18N-F01, §4.13). (4) **v1.6.0 (§4.14):** `config.json` deja de vivir en la raíz de `%APPDATA%\ClearRead` y pasa a `%APPDATA%\ClearRead\profiles\<uid>\`; `AppConfig` se sincroniza con la cuenta salvo `backend_url` y `voice_id`, que son propios de cada equipo. El fragmento de arriba no cambia; lo que cambia es la ruta que le da `get_profile_dir(uid)`.
 
 ---
 
@@ -1388,6 +1416,9 @@ class HomeView(QWidget):
 ### 4.10 Asistente IA en la App (`services/ai_client.py`)
 **Propósito:** Ofrecer dos capacidades de asistencia con IA generativa (explicar una palabra en contexto y simplificar un párrafo) como capa **opcional** sobre el núcleo 100% offline (§1.2, NFR-OFF01). Desde v1.5.0 la app **no habla con DeepSeek**: llama a **nuestro backend** (§4.11), que guarda la API key, aplica los límites de costo y reenvía la petición a DeepSeek. Las llamadas de red se ejecutan fuera del hilo de UI (AI-F04) y todo el código de este módulo está en inglés; los textos en español al usuario viven en `ui/strings.py`.
 
+> [!NOTE]
+> **Cambios de la v1.6.0 (§4.14), resumen.** (1) `ai_client.py` **ya no importa `httpx`**: usa `services/backend_transport.py`, que pasa a ser el único módulo de la app con red; la API pública de `AIClient` y su comportamiento no cambian. (2) `/v1/explain` y `/v1/simplify` exigen ahora `Authorization: Bearer <idToken>` además de `X-Client-Token`; el transporte lo adjunta con el `idToken` de la sesión en memoria. (3) Respuestas nuevas del backend: `401 invalid_session` (la app refresca el `idToken` una vez y repite la llamada; si no puede, `AIErrorKind.SIGN_IN_REQUIRED`) y `429 user_daily_limit_reached` (`AIErrorKind.USER_DAILY_LIMIT`). Los valores nuevos del enum y sus textos (`ai.error.sign_in_required`, `ai.error.user_daily_limit`) están en la tabla de §4.14.10. (4) Con la sesión obligatoria, `AIErrorKind.NO_NETWORK` y el resto de la tabla de abajo no cambian.
+
 **Qué cambia respecto a v1.4.0:**
 - `DeepSeekClient` se reemplaza por `BackendAIClient(AIClient)`, que llama a `POST /v1/explain` y `POST /v1/simplify` del backend.
 - La app ya no contiene API key, `model_id` ni `base_url` de DeepSeek, ni los *system prompts* (pasan al backend).
@@ -1425,6 +1456,8 @@ class HomeView(QWidget):
 | `429 daily_limit_reached` | `DAILY_LIMIT` | "El asistente alcanzó su límite de hoy. Vuelve a intentarlo mañana." |
 | `413 input_too_long` | `INPUT_TOO_LONG` | "El texto seleccionado es demasiado largo. Selecciona un fragmento más corto." |
 | `401 invalid_client_token`, `502 upstream_*` | `SERVICE_UNAVAILABLE` | "El asistente no está disponible en este momento." |
+| `401 invalid_session` que persiste tras refrescar el `idToken` una vez, o `401 session_revoked` *(v1.6.0)* | `SIGN_IN_REQUIRED` | "Tu sesión terminó. Entra otra vez para usar el asistente." |
+| `429 user_daily_limit_reached` *(v1.6.0)* | `USER_DAILY_LIMIT` | "Llegaste a tu límite de consultas de hoy. Vuelve mañana." |
 | `504 upstream_timeout` | `TIMEOUT` | (mismo mensaje que `TIMEOUT`) |
 | Cualquier otra respuesta o JSON inesperado | `BAD_RESPONSE` | "No pudimos entender la respuesta del asistente." |
 
@@ -1433,7 +1466,8 @@ El mapeo `AIErrorKind → texto en español` vive **únicamente** en `ui/strings
 #### Contrato de Interfaz y Código
 ```python
 """Optional generative-AI assistant client. Talks only to the ClearRead
-backend (§4.11), never to DeepSeek. The only app module allowed to import
+backend (§4.11), never to DeepSeek. Since v1.6.0 it reaches the network only
+through services/backend_transport.py, the only app module allowed to import
 httpx (NFR-OFF01). Must run inside a worker, never on the UI thread (AI-F04)."""
 
 from abc import ABC, abstractmethod
@@ -1674,6 +1708,9 @@ Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos
 | 502 | `upstream_bad_response` | Otro error de DeepSeek, JSON inesperado o respuesta vacía |
 | 504 | `upstream_timeout` | DeepSeek no respondió en 20 s |
 
+> [!NOTE]
+> **Cambios de la v1.6.0 en estos dos endpoints (§4.14).** `POST /v1/explain` y `POST /v1/simplify` exigen ahora la cabecera `Authorization: Bearer <idToken>` (un `idToken` válido de Firebase) **además** de `X-Client-Token`. Sin ella, o con un `idToken` malo o vencido, responden `401 invalid_session`. Hay un código nuevo, `429 user_daily_limit_reached` (tope diario **por usuario**, `USER_DAILY_CALL_LIMIT`, 15 por defecto), además del `429 daily_limit_reached` global, que no cambia. El backend ganó además los endpoints `/v1/auth/*`, `/v1/account` y `/v1/profile` y los códigos de error de §4.14.4. Las filas de arriba describen la 1.5.0 y se conservan como historial.
+
 #### Configuración (variables de entorno)
 | Variable | Contenido | Dónde vive |
 |:---|:---|:---|
@@ -1720,6 +1757,7 @@ Todas las respuestas de error tienen la forma `{"error": "<código>"}` con estos
 - El backend **nunca registra** los textos recibidos ni las respuestas de DeepSeek: no hay `print` ni `logger` con el cuerpo de las peticiones o respuestas.
 - El *access log* de uvicorn solo registra método, ruta y código HTTP. Los errores se registran por su código propio (`upstream_timeout`), nunca con el texto.
 - La API key nunca aparece en logs, respuestas de error ni en `/docs`.
+- **v1.6.0 (extiende BE-F03):** tampoco se registran correos, contraseñas, tokens, IP de los usuarios, contenido del perfil ni palabras guardadas (§4.14.6).
 
 #### Código de Referencia (breve)
 ```python
@@ -1904,6 +1942,517 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 
 **Lo que NO se comprobó** (§8): el amarillo de la selección, el cambio de voz y el botón «Sílabas» en el `.exe` compilado; arrastrar un archivo real desde el Explorador; ratón físico y arrastre (los tests y las capturas usan eventos sintéticos de Qt), escucha de la voz real con el comportamiento nuevo (`tests/manual/check_click_real.py` existe y habla en voz alta, pero no se ejecutó con estos cambios), relanzamiento del `.exe` compilado y recompilación del `.exe` con los módulos nuevos.
 
+### 4.14 Cuentas y perfil sincronizado (v1.6.0)
+**Propósito:** que cada estudiante tenga su cuenta y su perfil (ajustes y «Mis palabras») disponibles en cualquier equipo, sin romper la regla de que el núcleo funcione sin red. Esta sección es la **especificación** pedida por la usuaria el 2026-10-19 para la fase 1 (correo y contraseña); al escribirla no se había probado nada contra un Firebase real (§8). **Estado (2026-10-19):** la fase 1 está implementada en código (app y backend; los tests del backend usan Firebase simulado) y **no se ha probado** contra un Firebase real ni contra Render. Las decisiones de implementación de esa fecha están en §4.14.9. Los textos en español están en el catálogo de §4.14.10 y los identificadores van en inglés (regla §b de `CLAUDE.md`).
+
+> [!IMPORTANT]
+> **Fase 2 (vincular y entrar con una cuenta de Google, v1.7.0) está implementado en código, sin prueba real (§8)** (§4.14.11). La fase 1 (v1.6.0) no tiene botón de Google ni «seguir sin cuenta»; el botón de Google forma parte de la fase 2.
+
+#### 4.14.1 Decisiones de la usuaria (2026-10-19)
+| # | Decisión |
+|:---:|:---|
+| 1 | El inicio de sesión es **obligatorio** al abrir la app. No hay «continuar sin cuenta». |
+| 2 | Proveedor: **Firebase Authentication + Cloud Firestore**, plan Spark (§2.2), usados **solo por REST desde el backend** con `httpx`. Sin SDK de Firebase y **sin dependencias nuevas** en la app ni en el backend. |
+| 3 | Fase 1 = correo y contraseña: registrarse, entrar, cerrar sesión, recuperar la contraseña y perfil sincronizado. Fase 2 = vincular una cuenta de Google a un perfil existente y entrar con ella; **implementada en código en la v1.7.0 (§4.14.11), sin prueba real (§8)**. |
+| 4 | El botón de Google es la **única excepción** a la regla de los dos colores de marca (la «G» oficial multicolor) y solo en la fase 2 (Anexo A, A.11; aplicada en la v1.7.0, implementado en código, sin prueba real (§8)). |
+| 5 | Offline: hace falta internet **solo para el primer inicio de sesión** en un equipo. Después la app abre con la sesión guardada (token de refresco cifrado con Windows DPAPI) y funciona completa sin conexión; el perfil se sincroniza al volver la red. NFR-OFF01 sigue valiendo para el núcleo. |
+| 6 | Perfil sincronizado = ajustes (`AppConfig`, salvo los campos propios del equipo `backend_url` y `voice_id`) + «Mis palabras» (entradas del glosario con su explicación) + temas. Documentos, biblioteca, carpetas, estadísticas y caché de la IA se quedan **solo en el equipo**. |
+| 7 | Un solo módulo de la app es dueño de `httpx`: `services/backend_transport.py`. |
+| 8 | *(2026-10-19, v1.7.0)* Google **«vía backend»**: la app no habla con Google; solo abre el navegador en una página de nuestro backend y consulta a nuestro backend. Única excepción: `QDesktopServices.openUrl` en `services/browser_launcher.py` (§4.14.11). Entrar con Google nunca crea perfiles. |
+
+*Decisiones del supervisor sobre los puntos abiertos de §8 (2026-10-19; **decisión del supervisor, pendiente de confirmación por la usuaria**):*
+
+| # | Decisión |
+|:---:|:---|
+| (a) | Archivo `%APPDATA%\ClearRead\device.json` con `{theme, ui_language}`, **no sincronizado**. Lo usan las pantallas de entrada antes de cargar ningún perfil. Se actualiza cada vez que cambia el tema o el idioma, también cuando llega uno del perfil sincronizado. |
+| (b) | Borrar la cuenta borra también la carpeta local `profiles\<uid>\` (los archivos originales de los documentos no se tocan). |
+| (c) | Un idioma remoto distinto del local se aplica en el **próximo inicio**; no hay reinicio automático. |
+| (d) | Cerrar sesión vuelve a la pantalla de entrada **sin relanzar la app**. |
+
+#### 4.14.2 Cómo se llega a Firebase
+La app **nunca** llama a Firebase ni a URLs de Google. Todo pasa por nuestro backend, que traduce los errores de Firebase a códigos propios (el texto de Firebase no llega a la app).
+
+| Llamada del backend | Para qué | Notas |
+|:---|:---|:---|
+| `POST https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=<FIREBASE_API_KEY>` | Crear la cuenta | Cuerpo `{email, password, returnSecureToken: true}` |
+| `…/accounts:signInWithPassword` | Entrar | Cuerpo `{email, password, returnSecureToken: true}` |
+| `…/accounts:sendOobCode` | Correo de recuperación (`requestType: "PASSWORD_RESET"`, con `email` y `userIp`) y correo de confirmación (`requestType: "VERIFY_EMAIL"`, con `idToken`) | `PASSWORD_RESET` necesita `userIp`: es la IP del cliente que llegó al backend (§4.14.3) |
+| `…/accounts:update` | Guardar el `displayName` justo después de registrar | Es lo único que la fase 1 usa de `update`; la contraseña nueva se pone con el enlace del correo |
+| `…/accounts:lookup` | Verificar un `idToken` y leer `email`, `displayName` y `emailVerified` | Ver §4.14.6 |
+| `…/accounts:delete` | Borrar el usuario | Después de borrar su perfil |
+| `POST https://securetoken.googleapis.com/v1/token?key=<FIREBASE_API_KEY>` | Refrescar la sesión | **Formulario codificado** (`application/x-www-form-urlencoded`) con `grant_type=refresh_token&refresh_token=<token>`, no JSON |
+| `GET / PATCH / DELETE https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/profiles/{uid}` | Leer, guardar y borrar el perfil | Cabecera `Authorization: Bearer <idToken del usuario>`: Firestore aplica así las reglas de §4.14.7 con la identidad del propio usuario. En el `PATCH`, el backend envía `updateMask.fieldPaths` para `settings`, `words`, `topics` y `updated_at`, de modo que lo que se guarda es exactamente el cuerpo recibido *(comportamiento de `updateMask` sin máscara y de creación del documento: **por verificar** con una prueba real)* |
+
+- **Valores tipados de Firestore.** El documento viaja como JSON con valores tipados (`stringValue`, `integerValue` —que va como cadena—, `doubleValue`, `booleanValue`, `timestampValue`, `nullValue`, `mapValue`, `arrayValue`). `FirestoreGateway` codifica y decodifica; `updated_at` se guarda como `timestampValue`.
+- **Protección contra la enumeración de correos.** Con esa protección activada en Firebase (§6.6), los fallos de inicio de sesión pueden llegar como `INVALID_LOGIN_CREDENTIALS` en lugar de `EMAIL_NOT_FOUND` / `INVALID_PASSWORD`. El backend los une **siempre** en `invalid_credentials`. El restablecimiento de contraseña **nunca revela si el correo existe** (`204` siempre, §4.14.3). **Límite honesto:** el registro con un correo ya usado sí responde `409 email_exists`, porque la persona necesita saberlo; eso permite averiguar si un correo tiene cuenta, y solo lo frenan los límites de Firebase (§2.2).
+- **Cadenas de error de Firebase** (`EMAIL_EXISTS`, `INVALID_LOGIN_CREDENTIALS`, `INVALID_PASSWORD`, `EMAIL_NOT_FOUND`, `USER_DISABLED`, `WEAK_PASSWORD`, `TOO_MANY_ATTEMPTS_TRY_LATER`, `INVALID_ID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_REFRESH_TOKEN`, `USER_NOT_FOUND`, `INVALID_EMAIL`): salen de mi conocimiento de la referencia REST de Firebase y están **por verificar** contra respuestas reales (§4.14.12).
+
+#### 4.14.3 Backend: endpoints nuevos
+Todos los errores tienen la forma `{"error": "<código>"}` (estilo de §4.11). La app envía `X-Client-Token` en todas sus llamadas, pero el backend solo lo exige en `/v1/explain` y `/v1/simplify`. Los marcados «Bearer» exigen además `Authorization: Bearer <idToken>`.
+
+`Session` = `{uid, email, display_name, email_verified, id_token, refresh_token, expires_in}`. `Profile` = `{settings, words, topics, updated_at}`.
+
+| Método y ruta | Cuerpo | Respuesta | Errores propios |
+|:---|:---|:---|:---|
+| `POST /v1/auth/register` | `{email, password (8 a 128 caracteres), display_name (1 a 40)}` | `201` `Session`. Pone el nombre (`accounts:update`) y envía el correo `VERIFY_EMAIL`, **ambos sin bloquear** (ver la nota de abajo): si fallan, el registro sigue valiendo y la confirmación no se exige para entrar | 409 `email_exists`, 422 `password_too_short` / `invalid_request`, 429 `too_many_attempts`, 502 `auth_upstream_error`, 504 `auth_upstream_timeout` |
+| `POST /v1/auth/login` | `{email, password}` | `200` `Session` | 401 `invalid_credentials`, 422, 429 `too_many_attempts`, 502, 504 |
+| `POST /v1/auth/refresh` | `{refresh_token}` | `200` `Session` (con `email`, `display_name` y `email_verified` leídos con `accounts:lookup`) | 401 `session_revoked`, 422, 502, 504 |
+| `POST /v1/auth/password-reset` | `{email}` | `204` **siempre** para cualquier correo, exista o no (sin enumeración). Reenvía la IP del cliente como `userIp`: el primer valor de `X-Forwarded-For` en Render y, si no hay, `request.client.host` | 422, 429 `too_many_attempts`, 502, 504 (los fallos de infraestructura no revelan si el correo existe) |
+| `DELETE /v1/account` (Bearer) | — | `204`. Borra primero el perfil de Firestore y después el usuario de Firebase; si falla el segundo paso, un reintento repite ambos (borrar un perfil ya borrado no falla) | 401 `invalid_session`, 502, 504 |
+| `GET /v1/profile` (Bearer) | — | `200` `Profile` | 401 `invalid_session`, 404 `profile_not_found`, 502, 504 |
+| `PUT /v1/profile` (Bearer) | `{settings: objeto, words: lista, topics: lista, updated_at: RFC 3339}` | `200` `Profile`. El backend guarda el contenido tal cual (`settings`, `words` y `topics` son opacos); la comparación de fechas la hace la app (§4.14.9) | 401 `invalid_session`, 413 `profile_too_large` (cuerpo > **900 KB** o más de **2 000** palabras), 422 `invalid_request`, 502, 504 |
+| `POST /v1/explain`, `POST /v1/simplify` | Sin cambios (§4.11) | Sin cambios | Siguen exigiendo `X-Client-Token` (401 `invalid_client_token`). Ahora exigen además Bearer: 401 `invalid_session`; y 429 `user_daily_limit_reached` |
+
+- El límite de 900 KB queda por debajo del tope de un documento de Firestore (1 MiB según su página de cuotas, https://firebase.google.com/docs/firestore/quotas; **por verificar** el valor exacto). El glosario local guarda hasta 500 palabras (AI-F05); el tope de 2 000 del backend es más holgado a propósito.
+- `X-Forwarded-For` lo puede falsificar el cliente: la IP solo sirve para que Firebase atribuya el correo, nunca para una decisión de seguridad del backend.
+- **Poner el nombre es *best-effort*.** Si `accounts:update` falla justo después de registrar, el backend registra solo el código del error (nunca el texto, ni el nombre, ni el correo), **no deshace el registro** y responde `201`. La sesión devuelve el `display_name` que Firebase tenga en ese momento, que puede venir vacío; en ese caso la app debe mostrar el correo en su lugar.
+
+#### 4.14.4 Backend: códigos de error nuevos
+La app depende de estos códigos, no de textos de Firebase. Se suman a los de §4.11.
+
+| HTTP | Código | Causa | `AccountErrorKind` en la app |
+|:---:|:---|:---|:---|
+| 409 | `email_exists` | Ya existe una cuenta con ese correo | `EMAIL_EXISTS` |
+| 401 | `invalid_credentials` | Correo o contraseña incorrectos (también cuando el correo no existe o la cuenta está deshabilitada) | `INVALID_CREDENTIALS` |
+| 422 | `password_too_short` | Contraseña de menos de 8 caracteres | `PASSWORD_TOO_SHORT` |
+| 422 | `invalid_request` | Cuerpo mal formado, correo inválido, contraseña de más de 128 caracteres, nombre vacío o de más de 40 | `INVALID_REQUEST` |
+| 429 | `too_many_attempts` | Firebase pide esperar (`TOO_MANY_ATTEMPTS_TRY_LATER`) o se superó una cuota | `TOO_MANY_ATTEMPTS` |
+| 401 | `invalid_session` | `idToken` ausente, malo o vencido | (la app refresca una vez, §4.14.9) |
+| 401 | `session_revoked` | El token de refresco ya no vale (usuario borrado o deshabilitado, token revocado) | `SESSION_REVOKED` |
+| 404 | `profile_not_found` | Aún no hay perfil guardado para ese usuario | (no se muestra: la app sube el suyo) |
+| 413 | `profile_too_large` | Perfil de más de 900 KB o con más de 2 000 palabras | `PROFILE_TOO_LARGE` |
+| 429 | `user_daily_limit_reached` | El usuario agotó su tope diario de IA (§4.14.6) | `AIErrorKind.USER_DAILY_LIMIT` |
+| 502 | `auth_upstream_error` | Firebase respondió con un error inesperado o rechazó la clave o el proyecto | `SERVICE_UNAVAILABLE` |
+| 503 | `auth_not_configured` | Faltan `FIREBASE_API_KEY` o `FIREBASE_PROJECT_ID` en el servidor | `SERVICE_UNAVAILABLE` (la app trata cualquier 503 así) |
+| 504 | `auth_upstream_timeout` | Firebase no respondió a tiempo | `TIMEOUT` |
+| 409 | `google_cancelled` | *(v1.7.0)* La persona canceló en Google (`error=access_denied`) | `GOOGLE_CANCELLED` |
+| 409 | `google_already_linked` | *(v1.7.0)* Esa cuenta de Google ya está vinculada a otro perfil (`FEDERATED_USER_ID_ALREADY_LINKED` / `EMAIL_EXISTS`) | `GOOGLE_ALREADY_LINKED` |
+| 403 | `google_not_linked` | *(v1.7.0)* Entrar con una cuenta de Google que no estaba vinculada (se borra la cuenta que Firebase creó) | `GOOGLE_NOT_LINKED` |
+| 404 | `google_attempt_not_found` | *(v1.7.0)* Intento desconocido, ya leído o con `poll_token` incorrecto | `GOOGLE_ATTEMPT_NOT_FOUND` |
+| 410 | `google_attempt_expired` | *(v1.7.0)* Pasaron los 10 minutos del intento | `GOOGLE_ATTEMPT_EXPIRED` |
+| 503 | `google_not_configured` | *(v1.7.0)* Faltan `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` o la URL pública | `GOOGLE_NOT_CONFIGURED` |
+
+Además de estos, la app define `BROWSER_UNAVAILABLE` (v1.7.0: no se pudo abrir el navegador), `NO_NETWORK`, `SERVER_WAKING`, `TIMEOUT` y `UNEXPECTED` (respuesta que no se puede interpretar o código desconocido; igual que `AIErrorKind`, §4.10). La traducción `AccountErrorKind → texto` vive solo en `ui/strings.py` con la clave `auth.error.<nombre en minúsculas>` (§4.14.10); nunca se elige un mensaje buscando texto en una excepción.
+
+#### 4.14.5 Backend: variables de entorno nuevas
+| Variable | Contenido | Dónde vive |
+|:---|:---|:---|
+| `FIREBASE_API_KEY` | «Clave de API web» del proyecto de Firebase (§6.6) | Panel de Render y `backend/.env` (ignorado por git). Nunca en el repositorio, la app, los tests ni la salida. No es un secreto fuerte (Firebase la considera pública), pero se trata igual |
+| `FIREBASE_PROJECT_ID` | Identificador del proyecto de Firebase | Render / `.env` |
+| `USER_DAILY_CALL_LIMIT` | Tope diario de llamadas de IA **por usuario**; por defecto **15**; un valor ausente o inválido usa el 15 | Render / `.env` |
+| `GOOGLE_OAUTH_CLIENT_ID` | *(v1.7.0)* ID del cliente web de OAuth de Google (§6.6) | Render (`sync: false`) y `backend/.env` con la clave vacía en la plantilla; nunca en el repositorio, la app, los tests ni la salida |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | *(v1.7.0)* Secreto de ese cliente. **Secreto** | Igual que la anterior |
+| `PUBLIC_BASE_URL` | *(v1.7.0)* URL `https` propia del backend; el `redirect_uri` de Google es esa URL + `/v1/auth/google/callback`. Si falta, se usa `RENDER_EXTERNAL_URL` (la define Render) | Render / `.env` |
+
+Mismo patrón de lectura que las variables de §4.11 (`settings.py`). Si falta `FIREBASE_API_KEY` o `FIREBASE_PROJECT_ID`, los endpoints de cuentas y también `/v1/explain` y `/v1/simplify` (que exigen sesión, §4.14.6) responden `503 auth_not_configured` (§4.14.4). Si falta cualquiera de las tres variables de Google (o la URL pública), solo los endpoints de Google responden `503 google_not_configured` y lo demás sigue igual (§4.14.11).
+
+#### 4.14.6 Verificación de tokens, tope por usuario, privacidad y logs
+- **Verificar el `idToken` sin dependencias nuevas.** El backend llama a `accounts:lookup` con el `idToken` y guarda el resultado (`uid`, `email`, `display_name`, `email_verified`) en una caché **en memoria**, con clave `sha256(idToken)`, hasta que el token venza (la fecha `exp` del propio token, solo para acotar la caché) y como máximo **1 hora**, con un máximo de **1 000 entradas** (descarta la más antigua). Es el mismo estilo de caché acotada de §4.11. **Límite honesto:** un usuario borrado o deshabilitado sigue aceptándose hasta que expire su entrada de caché (≤ 1 h). Cada petición con un token que no está en caché cuesta una llamada a Firebase (la cuota exacta de `lookup` no figura en las páginas consultadas: **por verificar**).
+- **Tope diario por usuario.** `USER_DAILY_CALL_LIMIT` (15 por defecto) llamadas a DeepSeek por usuario (`uid`) y por día UTC, contadas en memoria igual que el tope global (`DailyQuota`, §4.11). Solo cuentan las llamadas que de verdad llegan a DeepSeek: un acierto de caché no consume. Si el tope global rechaza la llamada, no se descuenta del usuario. Al alcanzarlo: `429 user_daily_limit_reached`. El tope global (`DAILY_CALL_LIMIT = 45`) no cambia. **Límites honestos:** (a) el contador vive en memoria y se reinicia cuando Render duerme el servicio, así que no es una garantía; el tope duro sigue siendo el saldo prepagado de DeepSeek (§4.11); (b) con 45 llamadas globales y 15 por usuario, **tres usuarios activos agotan el tope global** (§8).
+- **Orden de comprobaciones** en `/v1/explain` y `/v1/simplify`: `X-Client-Token` → Bearer válido → tamaño → caché → tope del usuario → tope global → DeepSeek.
+- **Privacidad (extiende BE-F03).** El backend **nunca registra** correos, contraseñas, tokens (`idToken`, `refresh_token`), el contenido del perfil, las palabras guardadas ni las IP. Reglas concretas: (1) ningún `print` ni `logger` con cuerpos de petición o de respuesta; (2) las rutas no llevan datos personales (se usa `/v1/profile` con Bearer, nunca `/profiles/<uid>`); (3) los errores se registran solo por su código propio; (4) las excepciones de `httpx` **no se registran con su texto**, porque incluyen la URL con `?key=<FIREBASE_API_KEY>`; se traducen a un código y se descartan; (5) el manejador de `RequestValidationError` devuelve solo `{"error": "invalid_request"}`, porque la respuesta por defecto de FastAPI repite el valor recibido (incluida una contraseña).
+
+#### 4.14.7 Reglas de seguridad de Firestore
+Se pegan en la consola de Firebase al crear la base de datos (§6.6). Solo el dueño del documento puede leerlo o escribirlo; el resto, incluido cualquier otro usuario, queda denegado por defecto.
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
+
+#### 4.14.8 App: módulos nuevos o cambiados
+Todos en inglés y con las reglas de §c de `CLAUDE.md` (tipos, funciones cortas, inyección por constructor, sin estado global).
+
+| Pieza | Módulo | Qué hace |
+|:---|:---|:---|
+| Transporte | `services/backend_transport.py` | **El único módulo de la app que importa `httpx`.** Es dueño de la URL base, el `X-Client-Token`, los *timeouts*, la sonda `GET /health` que detecta el arranque en frío (hasta 60 s, igual que AI-F03), la decodificación de JSON y la traducción de los errores de transporte (`TransportError`). **Envía el Bearer que se le pasa y nada más**: no refresca ni reintenta sesiones. Quien lo hace es `SessionManager` (§4.14.9). |
+| Sesión activa | `services/session_manager.py` | `SessionManager`: dueño de la identidad guardada y del `idToken`, que vive **solo en memoria**. Implementa el protocolo `BearerSource` (`bearer()` y `renew()`); refresca el token **60 s antes** de que venza, bajo un `RLock` para que dos hilos no gasten dos veces el mismo refresh token; y expone `run_authorized(call)`, que refresca y reintenta **una vez** ante `invalid_session`. Lo comparten el pool de cuentas y el de IA: `BackendAIClient` lo recibe como `bearer_source`. |
+| IA | `services/ai_client.py` | Se refactoriza para usar el transporte **sin cambiar la API pública de `AIClient` ni su comportamiento**; los tests existentes siguen pasando (solo se adapta cómo parchean `httpx`, nunca los valores esperados). `BackendAIClient` pide `renew()` y repite **una vez** ante `invalid_session` (§4.14.9). |
+| Cuentas | `services/account_client.py` | `AccountClient`: `register`, `sign_in`, `refresh`, `request_password_reset`, `delete_account`, `fetch_profile` (devuelve `None` ante 404) y `push_profile`. **No guarda sesión**: devuelve `Session`, que guarda `SessionManager`. `AccountErrorKind` (enum) y `AccountError` (excepción con el `kind`). **Bloqueante: solo se llama desde workers.** |
+| Sesión | `services/session_store.py` | `Session` (`@dataclass(frozen=True)`: `uid`, `email`, `display_name`, `email_verified`, `id_token`, `refresh_token`, `expires_at` en segundos epoch, calculado al recibir la respuesta) y `StoredSession` (`uid`, `email`, `display_name`, `refresh_token`). `SessionStore` guarda solo `StoredSession` en `%APPDATA%\ClearRead\session.bin`, cifrado con DPAPI (`win32crypt`, pywin32, que ya es dependencia y usa una entropía propia de la app); `save()`, `load()` (`None` si el archivo falta, está dañado o no lo descifra este usuario de Windows) y `clear()`. El `idToken` **nunca se escribe**. |
+| Perfil | `services/profile_sync.py` | Funciones puras o con los stores como argumento: `build_profile` (arma el perfil desde `AppConfig`, `GlossaryStore` y `GroupStore`, sin `backend_url` ni `voice_id`); `apply_profile` (escribe las palabras y los temas remotos y devuelve el `AppConfig` con los ajustes remotos validados); `decide_sync` y `run_sync` (red y decisión; devuelve un `SyncResult`); `apply_sync_result` (lo aplica en el hilo principal) y `SyncStateStore`, que guarda el `updated_at` local en `sync_state.json` dentro de la carpeta del perfil y ofrece `touch()`. Reglas en §4.14.9. |
+| Workers | `workers/account_worker.py` | `QRunnable` para registrar, entrar, recuperar contraseña, refrescar, sincronizar y borrar la cuenta, en un `QThreadPool` **dedicado con `maxThreadCount=1`**, mismo patrón que `ai_worker` (§4.10). Emiten `waking`, `finished` (`Session`, `SyncResult` o `None`) y `failed` (`AccountErrorKind`). La UI solo recibe señales. |
+| Rutas | `core/paths.py` | `get_profile_dir(uid)` → `%APPDATA%\ClearRead\profiles\<uid>\`. Ahí viven `config.json`, `glossary.json`, `topics.json`, `folders.json`, `stats.json`, `cache\` (biblioteca), `ai_cache.json` y `sync_state.json`. En la raíz de `%APPDATA%\ClearRead` quedan `session.bin`, `device.json` (decisión (a) de §4.14.1) y `legacy_adopted.json` (fila «Migración»). |
+| Migración | `services/profile_migration.py` | `adopt_legacy_data(data_dir, profile_dir, uid)`. **Una sola vez**: el **primer** perfil que inicia sesión en un equipo adopta los archivos que hoy están en la raíz de `%APPDATA%\ClearRead` (`config.json`, `glossary.json`, `topics.json`, `folders.json`, `stats.json`, `ai_cache.json` y `cache\`): se **mueven**, no se copian. Revisa cada elemento: si el destino ya existe o el origen no está, lo salta. Si un movimiento falla con `OSError`, sigue con los demás y **no escribe la marca** `legacy_adopted.json` (en la raíz, con `{"uid": …}`), así que el siguiente inicio de sesión reintenta lo que falte. Con la marca presente no hace nada: el segundo perfil del mismo equipo empieza vacío. |
+| Pantallas de entrada | `core/device_settings.py` | `DeviceSettingsStore` lee y escribe `device.json` (`{theme, ui_language}`), el archivo **no sincronizado** de la decisión (a) de §4.14.1. Las pantallas de entrada lo leen antes de cargar ningún perfil; si falta o está dañado, usa `light` y `es`. Al arrancar, `seed_from_legacy_config` lo crea a partir del `config.json` de la raíz (la configuración anterior a las cuentas), solo la primera vez. Se actualiza en cada cambio de tema o idioma, también cuando llega uno del perfil sincronizado. |
+| UI | `ui/views/login_view.py` | `LoginView` con tres páginas: Entrar, Crear cuenta y Recuperar contraseña (Anexo A, A.4.11). |
+| Ajustes | `ui/views/settings_view.py` | Sección «Cuenta» (Anexo A, A.4.12) con cerrar sesión y borrar la cuenta. |
+| Arranque | `__main__.py` | Punto de entrada: construye los servicios (cuentas, sesión, cola de cuentas, `device.json`, red, OCR, voz e IA) y arranca `AppController`. |
+| Controlador de ventanas | `ui/app_controller.py` | `AppController`: decide qué ventana está abierta. Abre el perfil de la sesión guardada o de una nueva, mantiene la sincronización y vuelve a la pantalla de entrada al cerrar sesión, borrar la cuenta o terminar la sesión. Es el único que conoce las dos ventanas. |
+| Sincronización | `ui/sync_controller.py` | `SyncController`: programa la subida del perfil (*debounce* de 3 s, reintento a los 60 s, espera máxima de 5 s al cerrar sesión), aplica el resultado en el hilo principal y avisa si la cuenta ya no acepta la sesión. |
+| Ventana de acceso | `ui/login_window.py` | `LoginWindow`: ventana de la pantalla de entrada (barra de marca de 56 px y `LoginView` debajo), con el tema y el idioma de `device.json`. Sigue la red para mostrar «Sin internet». |
+| Pantalla de acceso | `ui/views/login_view.py` | `LoginView`: cambia entre Entrar, Crear cuenta y Recuperar contraseña, envía las peticiones con los workers de cuenta y emite `signed_in` con la sesión. |
+| Páginas de acceso | `ui/views/login_pages.py` | `SignInPage`, `RegisterPage` y `ResetPage` (sobre la base `CardPage`/`FormPage`): validan los campos al enviar y muestran los errores en línea. |
+| Piezas de acceso | `ui/views/login_widgets.py` | Piezas comunes de las pantallas de acceso: campos con etiqueta, campo de contraseña con Mostrar/Ocultar, mensaje en línea, barra de progreso, casilla con aviso y pila de páginas. |
+| Tarjeta «Cuenta» | `ui/views/account_card.py` | `AccountCard`: la sección «Cuenta» de Ajustes (A.4.12): identidad, estado de la sincronización, «Cerrar sesión» y «Borrar mi cuenta», con sus confirmaciones. |
+| Estado de la cuenta | `ui/account_state.py` | `SyncStatus` (al día, pendiente, fallido) y `AccountInfo` (nombre, correo y si está confirmado). Sin Qt. Da la clave de texto de cada `AccountErrorKind`. |
+| Almacenes del perfil | `services/profile_stores.py` | `open_profile_stores(carpeta)`: abre dentro de la carpeta de un perfil todos sus almacenes (configuración, glosario, temas, carpetas, estadísticas, biblioteca y caché de la IA). |
+| Tareas de cuenta | `workers/account_tasks.py` | `AccountTaskRunner`: ejecuta los workers de cuenta en su pool dedicado y entrega sus resultados (terminado, fallo, arranque del servidor) al hilo principal mediante señales. |
+| Textos | `ui/strings.py` | Claves nuevas en `es` y `en`, incluido el mapeo `AccountErrorKind → texto` (§4.14.10). |
+| Navegador *(v1.7.0, implementado en código, sin prueba real (§8))* | `services/browser_launcher.py` | Único módulo con `QDesktopServices`; solo URLs del backend (§4.14.11). |
+| Google en el backend *(v1.7.0, implementado en código, sin prueba real (§8))* | `backend/src/clearread_backend/google_auth.py` | Cuatro endpoints, `GoogleAttemptStore`, página estática y llamadas a Google y a `accounts:signInWithIdp` (§4.14.11). |
+
+```python
+class AccountErrorKind(Enum):
+    """Machine-readable error kind; the visible messages live in ui/strings.py."""
+
+    NO_NETWORK = "no_network"
+    SERVER_WAKING = "server_waking"
+    TIMEOUT = "timeout"
+    EMAIL_EXISTS = "email_exists"
+    INVALID_CREDENTIALS = "invalid_credentials"
+    PASSWORD_TOO_SHORT = "password_too_short"
+    INVALID_REQUEST = "invalid_request"
+    TOO_MANY_ATTEMPTS = "too_many_attempts"
+    INVALID_SESSION = "invalid_session"
+    SESSION_REVOKED = "session_revoked"
+    PROFILE_TOO_LARGE = "profile_too_large"
+    SERVICE_UNAVAILABLE = "service_unavailable"
+    UNEXPECTED = "unexpected"
+    # v1.7.0 (Google, §4.14.11); the code is not written yet
+    GOOGLE_CANCELLED = "google_cancelled"
+    GOOGLE_ALREADY_LINKED = "google_already_linked"
+    GOOGLE_NOT_LINKED = "google_not_linked"
+    GOOGLE_ATTEMPT_NOT_FOUND = "google_attempt_not_found"
+    GOOGLE_ATTEMPT_EXPIRED = "google_attempt_expired"
+    GOOGLE_NOT_CONFIGURED = "google_not_configured"
+    BROWSER_UNAVAILABLE = "browser_unavailable"
+```
+
+**Cifrado de la sesión (NFR-SEC02).** DPAPI ata el archivo al usuario de Windows que lo creó: copiado a otro equipo u otro usuario no se puede descifrar. **Límite honesto:** cualquier proceso que corra con el mismo usuario de Windows puede descifrarlo; DPAPI no protege contra malware de ese usuario.
+
+#### 4.14.9 Flujos y reglas
+**Arranque.**
+1. La pantalla de entrada toma el tema y el idioma de `device.json` (`%APPDATA%\ClearRead\device.json`, no sincronizado, decisión (a) de §4.14.1); si no existe, usa los valores por defecto. Las llamadas de cuenta usan `DEFAULT_BACKEND_URL`, porque el inicio de sesión ocurre antes de tener perfil (decisión (c) de la lista de implementación, más abajo). Luego la app carga `SessionStore`. **Sin sesión** (o si el archivo no se puede descifrar): muestra `LoginView`. El primer inicio de sesión en un equipo necesita internet; sin red el botón responde con `NO_NETWORK`.
+2. **Con sesión:** abre la ventana principal **de inmediato** con los datos de `profiles\<uid>\`, sin esperar a la red. En segundo plano, `SessionManager` refresca el token (`POST /v1/auth/refresh`: `idToken` nuevo solo en memoria y `refresh_token` nuevo guardado) → `GET /v1/profile` → reconciliar (abajo). Sin red, la app sigue y lo reintenta cuando `QNetworkInformation` (AI-F03) deje de informar `Disconnected`.
+3. Si el refresco da `session_revoked`: se borra `session.bin` y se muestra `LoginView` con el mensaje de sesión terminada. **Los datos locales del perfil no se borran.**
+
+**Iniciar sesión o registrarse con éxito.** Se guarda la sesión; se hace la migración única si corresponde (`adopt_legacy_data`); se abre la ventana principal y se reconcilia con el perfil remoto. Si el backend responde `404 profile_not_found` (`fetch_profile` devuelve `None`), la app sube el perfil local, incluido lo migrado.
+
+**Cerrar sesión (decisión (d) de §4.14.1).** La confirmación avisa si hay cambios sin subir. Después `SyncController.flush` intenta subirlos **durante 5 s como máximo**; sin red no espera, y se subirán cuando esa persona vuelva a entrar con internet. Luego `SessionManager.sign_out()` borra `session.bin` y el `idToken` de la memoria, y la app vuelve a `LoginView` **sin relanzarse**: los servicios se reconstruyen con el perfil nuevo, sin dejar en pantalla ningún dato del perfil anterior. La carpeta del perfil **se conserva** en el equipo. *(Decidido el 2026-10-19: decisión del supervisor, pendiente de confirmación por la usuaria.)*
+
+**Borrar la cuenta (decisión (b) de §4.14.1).** Pide confirmación; `DeleteAccountWorker` llama a `DELETE /v1/account` (con `run_authorized`) y, si funciona, cierra la sesión. Después, la capa de UI borra la carpeta local `profiles\<uid>\` (los archivos originales de los documentos no se tocan) y vuelve a `LoginView`. *Estado del código:* `AppController` pausa la sincronización antes de pedir el borrado y, cuando el worker responde con éxito, borra la carpeta `profiles\<uid>\` y vuelve a la pantalla de entrada. Si el borrado falla, la ventana vuelve a estar disponible y muestra el error. Si Firebase exigiera un inicio de sesión reciente para borrar, se pide entrar de nuevo *(**por verificar** con una prueba real)*.
+
+**Regla del `401` (refresco y reintento).** La decide `SessionManager`, no el transporte: `BackendTransport` solo envía el Bearer que se le da.
+- `SessionManager` implementa `BearerSource` (`bearer()` y `renew()`). `bearer()` devuelve un `idToken` válido y lo refresca **60 s antes** de que venza. Todo va bajo un `RLock`, así que dos hilos nunca gastan dos veces el mismo `refresh_token`.
+- `run_authorized(call)` ejecuta `call(idToken)`. Si la llamada da `invalid_session`, refresca **una vez** y repite **una vez** la llamada con el token nuevo. Lo usan los workers de sincronización y de borrado.
+- `BackendAIClient` recibe el mismo objeto como `bearer_source`. Ante `invalid_session` pide `renew()` y repite **una vez**; si el renovado falla, la IA ve `AIErrorKind.SIGN_IN_REQUIRED`.
+- Si el refresco da `session_revoked`, `SessionManager` ya ha cerrado la sesión y la app pasa a `LoginView`. Si la repetición vuelve a dar 401, el error se propaga y la capa de UI lo trata como sesión terminada. Si el refresco falla por red, se informa el error de red y la sesión se conserva.
+
+**Conflictos: gana el último que escribió.** El perfil entero lleva `updated_at` (UTC, RFC 3339). La sincronización tiene dos pasos:
+1. `SyncProfileWorker` hace la red y la decisión en segundo plano (`run_sync`) y emite un `SyncResult` (la acción y el perfil que quedó compartido).
+2. El hilo principal lo aplica con `apply_sync_result`: guarda la marca nueva con `SyncStateStore` y, si la acción es bajar, escribe los datos remotos en local (`apply_profile`).
+
+La decisión (`decide_sync`): sin perfil remoto (404), se sube el local; si el local nunca se guardó (`updated_at` vacío), se baja el remoto; si el remoto es **más nuevo**, se baja; si el local es más nuevo, se sube; si son iguales, no se hace nada. Una `updated_at` remota que no se puede leer cuenta como la época 0, es decir, la más antigua posible.
+
+**Regla de escritura local.** Cualquier cambio de los datos sincronizados (ajustes sincronizables, palabras o temas) debe llamar a `SyncStateStore.touch()`, que escribe la hora actual en `sync_state.json` de la carpeta del perfil. Sin esa llamada, el cambio no sube en el siguiente sync. La subida se programa tras el último cambio (*debounce* de **3 s**, `DEBOUNCE_MS` en `ui/sync_controller.py`) o al recuperar la red. Si el servidor falla por una causa que no es la red, el arranque en frío ni el tiempo de espera, se reintenta a los **60 s** (`RETRY_MS`). *(Lo dispara `SyncController`, en la capa de UI.)*
+
+**Límite honesto:** si dos equipos editan el perfil sin conexión a la vez, **gana el guardado más reciente y se pierden los cambios del otro, sin aviso**. Tampoco se corrige el reloj de los equipos: uno con la hora mal puede hacer ganar una versión vieja. Mejorarlo (por ejemplo, unir las palabras por fecha e identificador) queda fuera de esta fase (§8).
+
+**Qué se sincroniza y qué no**
+| Dato | ¿Sincroniza? | Dónde vive en local |
+|:---|:---:|:---|
+| Ajustes de `AppConfig` (tema, fuente, tamaño, espaciados, sílabas, velocidad, privacidad de IA aceptada, idioma, modo de vista, etc.) | Sí | `config.json` |
+| `backend_url`, `voice_id` | **No** (propios del equipo) | `config.json` |
+| «Mis palabras» (entradas del glosario con su explicación) | Sí | `glossary.json` |
+| Temas del glosario | Sí | `topics.json` |
+| Documentos, biblioteca (índice y caché), posiciones de lectura | **No** | `cache\` |
+| Carpetas de la biblioteca | **No** | `folders.json` |
+| Estadísticas | **No** | `stats.json` |
+| Caché de respuestas de la IA | **No** | `ai_cache.json` |
+| Sesión (token de refresco) | **No** | `session.bin` (DPAPI) |
+| Copia de tema e idioma para las pantallas de entrada | **No** (es una copia del equipo) | `device.json` (decisión (a) de §4.14.1) |
+
+Si el idioma remoto es distinto del local, se guarda pero **no reinicia la app sola**: se aplica en el **próximo inicio** (decisión (c) de §4.14.1, pendiente de confirmación por la usuaria). Al aplicar un perfil remoto con otro idioma o tema, `device.json` se actualiza igual que con un cambio local.
+
+**Regla de la contraseña.** De 8 a 128 caracteres, **sin reglas de composición** (sin exigir mayúsculas, números ni símbolos; criterio de NIST SP 800-63B), con botón **Mostrar / Ocultar**. No se recorta ni se normaliza, y se permite pegar. La app avisa mientras se escribe, pero la fuente de verdad es el backend. No se comprueba contra listas de contraseñas filtradas.
+
+**Decisiones de implementación (2026-10-19).** Las letras de esta lista son independientes de las de §4.14.1. Son decisiones del supervisor, **pendientes de confirmación por la usuaria**, y ya están en el código:
+- **(a) Botón «Crear cuenta».** Solo espera a que se marque la casilla del aviso de privacidad. Nombre, correo y contraseña se validan al enviar, y cada error aparece junto a su campo.
+- **(b) `SIGN_IN_REQUIRED` desde el asistente.** La app pide primero un refresco de la sesión (`RefreshSessionWorker`). Solo una sesión revocada o inválida (`session_revoked`, `invalid_session`) lleva a la pantalla de entrada; un fallo de red mantiene la sesión.
+- **(c) Servidor de las llamadas.** Las llamadas de cuenta (entrar, crear, recuperar, perfil y borrado) usan `DEFAULT_BACKEND_URL`, porque se hacen antes de tener un perfil con configuración. El cliente de IA usa el `backend_url` del perfil.
+
+Para probar la app contra un backend local (solo desarrollo), define la variable de entorno `CLEARREAD_BACKEND_URL` (por ejemplo `http://localhost:8000`) antes de abrir ClearRead. Si está definida y es una dirección `http` o `https` válida, `resolve_backend_url()` (en `core/config.py`) la usa, sin la barra final, para las llamadas de cuenta (`AccountClient`), para la página de Google que abre `BrowserLauncher` y para el asistente de IA, y tiene prioridad sobre la `backend_url` del perfil. Si no está definida o no es válida, todo funciona como siempre: la cuenta y el navegador usan `DEFAULT_BACKEND_URL` (Render) y la IA usa la `backend_url` del perfil. La URL local nunca aparece escrita en `src/`, así que `offline-audit` sigue limpio, y el `.exe` distribuido, que no define la variable, sigue usando Render.
+
+- **(d) Cambio solo del equipo.** Cambiar `backend_url` o `voice_id` no programa ninguna subida: solo se compara lo sincronizable.
+- **(e) Cerrar sesión.** Intenta subir lo pendiente durante 5 s como máximo; sin red no espera.
+- **(f) Cerrar la ventana con la X.** No sube nada. Los cambios pendientes quedan marcados en `sync_state.json` y se suben al siguiente inicio con sesión.
+
+#### 4.14.10 Textos nuevos (para `ui/strings.py`)
+Los copia quien implemente en `ui/strings.py`; **toda clave lleva `es` y `en` con los mismos `{parámetros}`**. Las claves ya existentes se reutilizan: `nav.back` («← Volver»), `common.cancel`, `common.understood` y `ai.offline_badge` («Sin internet»). El español sigue A.9 (tú, frases cortas, qué pasó y qué hacer); el inglés es sencillo y sin tecnicismos.
+
+*Pantalla «Entrar»*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.sign_in_title` | Entra a tu cuenta | Sign in to your account |
+| `auth.sign_in_intro` | Tu perfil guarda tus ajustes y tus palabras. Después de entrar, la app funciona también sin internet. | Your profile keeps your settings and your words. After you sign in, the app also works without internet. |
+| `auth.email_label` | Correo | Email |
+| `auth.password_label` | Contraseña | Password |
+| `auth.show_password` | Mostrar | Show |
+| `auth.hide_password` | Ocultar | Hide |
+| `auth.show_password_a11y` | Mostrar la contraseña | Show the password |
+| `auth.hide_password_a11y` | Ocultar la contraseña | Hide the password |
+| `auth.forgot_link` | ¿Olvidaste tu contraseña? | Forgot your password? |
+| `auth.sign_in_button` | Entrar | Sign in |
+| `auth.signing_in` | Entrando… | Signing you in… |
+| `auth.no_account` | ¿Todavía no tienes cuenta? | Don't have an account yet? |
+| `auth.create_account_link` | Crear cuenta | Create account |
+| `auth.need_internet` | Para entrar por primera vez en este equipo necesitas internet. | To sign in for the first time on this computer you need internet. |
+| `auth.waking` | Despertando el servidor. Puede tardar cerca de un minuto. | Waking up the server. It can take about a minute. |
+
+*Pantalla «Crear cuenta» y aviso de privacidad*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.register_title` | Crear cuenta | Create account |
+| `auth.name_label` | Nombre | Name |
+| `auth.password_count` | Usa al menos 8 caracteres. Llevas {count}. | Use at least 8 characters. You have {count}. |
+| `auth.privacy_consent` | He leído el aviso de privacidad: ClearRead guarda mi nombre, mi correo, mis ajustes y mis palabras. Mis documentos se quedan en este equipo. | I have read the privacy notice: ClearRead saves my name, my email, my settings and my words. My documents stay on this computer. |
+| `auth.privacy_link` | Leer el aviso de privacidad | Read the privacy notice |
+| `auth.register_button` | Crear cuenta | Create account |
+| `auth.creating` | Creando tu cuenta… | Creating your account… |
+| `auth.register_disabled_tip` | Acepta el aviso de privacidad para continuar | Accept the privacy notice to continue |
+| `auth.verify_note` | Te enviaremos un correo para confirmar que es tuyo. No hace falta confirmarlo para empezar. | We will send you an email to confirm it is yours. You do not need to confirm it to start. |
+| `auth.privacy_title` | Aviso de privacidad | Privacy notice |
+| `auth.privacy_body` | **Borrador, pendiente de revisión legal (§8).** ClearRead guarda en tu cuenta tu nombre, tu correo, tus ajustes y tus palabras guardadas, para que las tengas en cualquier equipo. Estos datos se guardan en servicios de Google (Firebase). Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Si usas el asistente, el texto que seleccionas se envía a nuestro servidor y a DeepSeek. Puedes borrar tu cuenta cuando quieras desde Ajustes. | **Draft, pending legal review (§8).** ClearRead saves your name, your email, your settings and your saved words in your account, so you have them on any computer. This data is stored in Google services (Firebase). Your documents, your library and your statistics stay only on this computer. If you use the assistant, the text you select is sent to our server and to DeepSeek. You can delete your account at any time from Settings. |
+
+*Pantalla «Recuperar contraseña» (2 pasos)*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.reset_title` | Recuperar contraseña | Reset password |
+| `auth.reset_step` | Paso {current} de {total} | Step {current} of {total} |
+| `auth.reset_heading` | ¿Olvidaste tu contraseña? | Forgot your password? |
+| `auth.reset_intro` | Escribe tu correo. Te enviaremos un enlace para crear una contraseña nueva. | Type your email. We will send you a link to create a new password. |
+| `auth.reset_send` | Enviar enlace | Send link |
+| `auth.sending` | Enviando… | Sending… |
+| `auth.reset_done_title` | Revisa tu correo | Check your email |
+| `auth.reset_done_body` | Si {email} tiene una cuenta, te llegará un enlace en unos minutos. | If {email} has an account, a link will arrive in a few minutes. |
+| `auth.reset_step_1` | Abre el correo de ClearRead. | Open the email from ClearRead. |
+| `auth.reset_step_2` | Pulsa el enlace y escribe tu contraseña nueva. | Click the link and type your new password. |
+| `auth.reset_step_3` | Vuelve aquí y entra. | Come back here and sign in. |
+| `auth.reset_spam` | ¿No llega? Mira en la carpeta de correo no deseado. | Not arriving? Check your spam folder. |
+| `auth.reset_resend` | Enviar otra vez | Send again |
+| `auth.reset_back` | Volver a entrar | Back to sign in |
+
+*Validación al escribir (en la app, antes de enviar)*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.validation.email_invalid` | Escribe un correo válido, por ejemplo nombre@correo.com. | Type a valid email, for example name@mail.com. |
+| `auth.validation.name_required` | Escribe tu nombre (hasta 40 caracteres). | Type your name (up to 40 characters). |
+| `auth.validation.password_too_long` | La contraseña puede tener hasta 128 caracteres. | The password can have up to 128 characters. |
+
+*Errores: `AccountErrorKind → texto` (clave `auth.error.<nombre en minúsculas>`)*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.error.no_network` | No pudimos conectar. Revisa tu internet e inténtalo otra vez. | We couldn't connect. Check your internet and try again. |
+| `auth.error.server_waking` | El servidor está tardando en despertar. Inténtalo de nuevo en un minuto. | The server is taking a while to wake up. Try again in a minute. |
+| `auth.error.timeout` | La respuesta tardó demasiado. Inténtalo de nuevo. | The reply took too long. Try again. |
+| `auth.error.invalid_credentials` | El correo o la contraseña no coinciden. Revísalos e inténtalo otra vez. | The email or the password does not match. Check them and try again. |
+| `auth.error.email_exists` | Ese correo ya tiene una cuenta. Prueba a entrar o recupera tu contraseña. | That email already has an account. Try signing in or reset your password. |
+| `auth.error.password_too_short` | La contraseña necesita al menos 8 caracteres. | The password needs at least 8 characters. |
+| `auth.error.invalid_request` | Revisa lo que escribiste e inténtalo otra vez. | Check what you typed and try again. |
+| `auth.error.too_many_attempts` | Hubo demasiados intentos. Espera unos minutos e inténtalo otra vez. | There were too many attempts. Wait a few minutes and try again. |
+| `auth.error.session_revoked` | Tu sesión terminó. Entra otra vez. | Your session ended. Please sign in again. |
+| `auth.error.profile_too_large` | Tu perfil es demasiado grande para guardarse en la cuenta. Borra algunas palabras guardadas. | Your profile is too big to be saved in your account. Delete some saved words. |
+| `auth.error.service_unavailable` | El servicio de cuentas no está disponible ahora. Inténtalo más tarde. | The accounts service is not available right now. Try again later. |
+| `auth.error.unexpected` | No pudimos entender la respuesta. Inténtalo de nuevo. | We couldn't understand the reply. Try again. |
+| `ai.error.sign_in_required` | Tu sesión terminó. Entra otra vez para usar el asistente. | Your session ended. Sign in again to use the assistant. |
+| `ai.error.user_daily_limit` | Llegaste a tu límite de consultas de hoy. Vuelve mañana. | You reached your limit of questions for today. Come back tomorrow. |
+
+*Ajustes → Cuenta*
+| Clave | es | en |
+|:---|:---|:---|
+| `account.title` | Cuenta | Account |
+| `account.verified` | Correo confirmado | Email confirmed |
+| `account.not_verified` | Correo sin confirmar | Email not confirmed |
+| `account.sync_ok` | Guardado en tu cuenta | Saved to your account |
+| `account.sync_pending` | Se guardará en tu cuenta cuando haya internet | Will be saved to your account when you are online |
+| `account.sync_failed` | No pudimos guardar en tu cuenta. Lo intentaremos otra vez. | We couldn't save to your account. We will try again. |
+| `account.offline_note` | Sin internet, tu sesión sigue abierta. Tus cambios se guardan en tu cuenta cuando vuelva la conexión. | Without internet, your session stays open. Your changes are saved to your account when the connection comes back. |
+| `account.local_note` | Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Tus ajustes y tus palabras se guardan en tu cuenta. | Your documents, your library and your statistics stay only on this computer. Your settings and your words are saved in your account. |
+| `account.sign_out` | Cerrar sesión | Sign out |
+| `account.delete` | Borrar mi cuenta | Delete my account |
+| `account.sign_out_title` | ¿Cerrar sesión? | Sign out? |
+| `account.sign_out_body` | Tus documentos de este equipo se quedan guardados. Para volver a leer tendrás que entrar otra vez, con internet. | Your documents on this computer stay saved. To read again you will need to sign in again, with internet. |
+| `account.sign_out_pending` | Tienes cambios que aún no se guardaron en tu cuenta. Se guardarán cuando entres otra vez con internet. | You have changes that are not saved to your account yet. They will be saved when you sign in again with internet. |
+| `account.delete_title` | ¿Borrar tu cuenta? | Delete your account? |
+| `account.delete_body` | Se borran tu cuenta y tus datos en línea (ajustes y palabras) y también los datos de este perfil en este equipo. Tus archivos originales no se tocan. Esto no se puede deshacer. | Your account and your online data (settings and words) are deleted, and so is the data of this profile on this computer. Your original files are not touched. This cannot be undone. |
+| `account.delete_confirm` | Borrar mi cuenta | Delete my account |
+| `account.deleting` | Borrando tu cuenta… | Deleting your account… |
+| `account.deleted` | Tu cuenta se borró. | Your account was deleted. |
+
+*Google (v1.7.0; implementado en código, sin prueba real (§8)). Los errores siguen la regla `auth.error.<nombre en minúsculas>` de `AccountErrorKind`. Ningún texto lleva parámetros.*
+| Clave | es | en |
+|:---|:---|:---|
+| `auth.google_sign_in` | Entrar con Google | Sign in with Google |
+| `auth.or_with_email` | o con tu correo | or with your email |
+| `account.google_link` | Vincular con Google | Link with Google |
+| `account.google_linked` | Google vinculado | Google linked |
+| `google.waiting_title` | Esperando a Google… | Waiting for Google… |
+| `google.waiting_body` | Se abrió tu navegador. Elige tu cuenta de Google y, cuando termines, vuelve aquí. | Your browser opened. Choose your Google account and, when you finish, come back here. |
+| `google.waiting_cancel` | Cancelar | Cancel |
+| `auth.error.google_cancelled` | Cancelaste el acceso con Google. Puedes intentarlo otra vez cuando quieras. | You cancelled Google. You can try again whenever you want. |
+| `auth.error.google_already_linked` | Esa cuenta de Google ya está vinculada a otro perfil de ClearRead. Prueba con otra cuenta de Google. | That Google account is already linked to another ClearRead profile. Try another Google account. |
+| `auth.error.google_not_linked` | Esa cuenta de Google todavía no está vinculada. Primero crea tu cuenta con tu correo y después vincula Google en Ajustes. | That Google account is not linked yet. First create your account with your email, then link Google in Settings. |
+| `auth.error.google_attempt_not_found` | Se perdió el intento con Google. Inténtalo otra vez. | The Google attempt was lost. Try again. |
+| `auth.error.google_attempt_expired` | Pasó demasiado tiempo esperando a Google. Inténtalo otra vez. | It took too long to hear from Google. Try again. |
+| `auth.error.google_not_configured` | Entrar con Google no está disponible ahora. Usa tu correo o inténtalo más tarde. | Google sign-in is not available right now. Use your email or try again later. |
+| `auth.error.browser_unavailable` | No pudimos abrir tu navegador. Ábrelo tú y vuelve a intentarlo. | We couldn't open your browser. Open it yourself and try again. |
+
+*Migración y sincronización*
+| Clave | es | en |
+|:---|:---|:---|
+| `profile.migrated` | Tus documentos y ajustes de antes ahora son de tu perfil. | Your earlier documents and settings now belong to your profile. |
+| `profile.language_pending` | El idioma de tu cuenta se aplicará la próxima vez que abras ClearRead. | The language of your account will apply the next time you open ClearRead. |
+
+#### 4.14.11 Fase 2 (v1.7.0): vincular y entrar con una cuenta de Google, por el backend
+**Estado: implementado en código, sin prueba real (§8).** Se especificó aquí antes de escribir código ("doc primero", pedido de la usuaria). Nada de esta sección se ha probado contra Google, Firebase ni Render. Decisión de la usuaria (2026-10-19): **«Vía backend»**. La app **no habla nunca con Google**: solo abre el navegador del sistema en una página de **nuestro** backend y después consulta **a nuestro backend**.
+
+**Objetivo.** (a) *Vincular* (`link`): una persona con perfil de correo y contraseña añade su cuenta de Google **al mismo perfil** de Firebase (no se crea un perfil aparte). (b) *Entrar* (`sign_in`): una persona que **ya vinculó** Google entra con ese botón. **Entrar con Google nunca crea un perfil nuevo**: si Firebase dice que la cuenta de Google no estaba vinculada a nadie, el backend borra la cuenta recién creada y la app dice que primero hay que crear la cuenta con el correo y vincular Google en Ajustes.
+
+**Excepción única a la regla de red (aprobada por la usuaria el 2026-10-19; también en `CLAUDE.md` §f y en `offline-audit`).** `QDesktopServices.openUrl` solo se permite en `src/clearread/services/browser_launcher.py`, y solo para URLs que empiecen por la URL del backend configurada (se comprueba en el código antes de llamar a Qt). Sigue prohibido: `webbrowser`, `QTcpSocket`, `QTcpServer`, cualquier puerto local, y cualquier URL de Google o de Firebase en `src/`. La app solo necesita QtGui para esto (no QtNetwork).
+
+##### Fuentes oficiales consultadas (2026-10-19)
+| Tema | Fuente | Qué se confirmó |
+|:---|:---|:---|
+| OAuth 2.0 para aplicaciones web de servidor | https://developers.google.com/identity/protocols/oauth2/web-server | **Confirmado:** endpoint de autorización `https://accounts.google.com/o/oauth2/v2/auth` (solo HTTPS); endpoint de token `https://oauth2.googleapis.com/token`; `state` recomendado y devuelto sin cambios; `prompt=select_account` («pide al usuario elegir cuenta»); si el usuario no aprueba, la redirección trae `error=access_denied` en lugar de `code`; el intercambio lleva `code`, `grant_type=authorization_code`, `redirect_uri` (debe coincidir con uno registrado) y `client_id`; reglas del URI de redirección (HTTPS salvo `localhost`; sin IP; sin comodines; sin fragmento). **No confirmado en esa página:** PKCE (la parte leída no menciona `code_challenge`) y que `client_secret` sea obligatorio para clientes web (la tabla lo marca como opcional) |
+| PKCE | https://developers.google.com/identity/protocols/oauth2/native-app y https://developers.google.com/identity/openid-connect/openid-connect | **Confirmado:** para apps de escritorio, `code_challenge` = Base64URL sin relleno del SHA-256 del `code_verifier`, método `S256` recomendado, `code_verifier` en la petición de token («Always use PKCE»); el documento de descubrimiento (`https://accounts.google.com/.well-known/openid-configuration`) anuncia `code_challenge_methods_supported: ["plain","S256"]`. **Por verificar:** que el flujo de cliente *web* con `client_secret` acepte PKCE junto al secreto (prueba real, §8) |
+| Token ID en la respuesta | https://developers.google.com/identity/openid-connect/openid-connect | **Confirmado:** con `scope` que empieza por `openid`, la respuesta del endpoint de token incluye `id_token` (JWT firmado por Google). El texto leído usa `openid email` y `openid profile email` como ejemplos |
+| Firebase / Identity Platform `accounts:signInWithIdp` | https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signInWithIdp (la dirección antigua de `cloud.google.com` redirige aquí) | **Confirmado:** petición con `postBody` (para una credencial manual: formulario `id_token=[GOOGLE_ID_TOKEN]&providerId=google.com`), `requestUri` (obligatorio; «puede ser `http://localhost` para credenciales manuales»), `returnSecureToken` («siempre true»), `returnIdpCredential` (devuelve las credenciales del IdP en los errores `FEDERATED_USER_ID_ALREADY_LINKED` y `EMAIL_EXISTS`) e `idToken` («si se envía, la cuenta del IdP se vincula a la cuenta que representa este token»). Respuesta con `isNewUser` («se creó una cuenta nueva»), `needConfirmation` (solo con «una cuenta por correo» activada: hay una cuenta con el mismo correo y ese correo no está verificado en el IdP), `idToken`, `refreshToken`, `localId`, `email`, `emailVerified`, `expiresIn`, `federatedId`, `providerId` |
+| Firebase REST de Auth (página general) | https://firebase.google.com/docs/reference/rest/auth | **No confirmado:** la página es muy larga (≈ 424 000 caracteres) y la herramienta de lectura no localizó las secciones de vinculación, `lookup` ni `delete`. Todo lo que dependa de ella queda **por verificar** |
+| `accounts:lookup` y `providerUserInfo` | https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/lookup, `…/GetAccountInfoResponse` y `…/UserInfo` | **Confirmado:** `lookup` recibe `idToken`; la respuesta trae `users[]` de `UserInfo`, y `UserInfo` tiene `providerUserInfo[]` («información del usuario según cada proveedor»). **Por verificar:** que cada elemento use `providerId` = `"google.com"` (los campos de `ProviderUserInfo` no se leyeron) |
+| `accounts:delete` | https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/delete | **Confirmado:** `POST https://identitytoolkit.googleapis.com/v1/accounts:delete` con `idToken` del usuario |
+| Dónde van el ID y el secreto del cliente web en el proveedor Google | https://docs.cloud.google.com/identity-platform/docs/web/google | **Confirmado** (Identity Platform): en «Identity Providers» → *Add a provider* → Google se escribe el **Web Client ID** y el **Web Secret**, que salen de «APIs & Services» → Credenciales. **Por verificar:** dónde los muestra la consola de **Firebase** (la página de Firebase https://firebase.google.com/docs/auth/web/google-signin no los nombra; de memoria, el proveedor Google tiene un apartado de configuración del SDK web con esos valores) |
+| Crear un cliente web y registrar el URI de redirección | https://support.google.com/cloud/answer/6158849 | **Confirmado:** «Google Auth Platform → Clientes → *Crear cliente* → tipo *Aplicación web*»; el secreto solo se muestra al crearlo; los clientes de servidor «deben indicar URI de redirección autorizados»; el `redirect_uri` de la petición debe coincidir exactamente o Google responde `redirect_uri_mismatch`; los cambios tardan de 5 minutos a unas horas. **Por verificar:** el nombre exacto del campo del URI dentro del formulario |
+| `RENDER_EXTERNAL_URL` | https://render.com/docs/environment-variables | **Confirmado:** en servicios web es la URL completa de `onrender.com` (ejemplo `https://myapp.onrender.com`), con esquema `https` y sin barra final en el ejemplo (que nunca lleve barra no está dicho: el backend le quita la barra final) |
+
+##### Idea central: un «intento» (*attempt*)
+Un **intento** es un registro en memoria del backend que representa un clic en «Entrar con Google» o «Vincular con Google». Tiene un `attempt_id` (público: aparece en la URL del navegador) y un `poll_token` (secreto: solo lo conoce la app). Los dos flujos usan el mismo mecanismo; solo cambia `mode`.
+
+```
+App                      Backend                          Navegador               Google          Firebase
+ | POST /start {mode}      |                                   |                     |                |
+ |------------------------>| crea intento (TTL 10 min)         |                     |                |
+ |<------------------------| {attempt_id, poll_token, 600}     |                     |                |
+ | abre navegador (browser_launcher) ------------------------->| GET /begin/{id}     |                |
+ |                         |<----------------------------------|                     |                |
+ |                         | PKCE + state, 302 --------------->|-------------------->| elegir cuenta  |
+ |                         |<--------- GET /callback?code&state (o ?error) ----------|                |
+ |                         | cambia code por id_token -------------------------------->|               |
+ |                         | accounts:signInWithIdp ----------------------------------------------->|
+ |                         | página estática "ya puedes volver" -->|                     |                |
+ | GET /status/{id} cada 2 s (X-Poll-Token)                       |                     |                |
+ |------------------------>| pending | linked | signed_in | error |                     |                |
+```
+
+##### Endpoints nuevos (módulo `google_auth.py`, cableado en `main.py`)
+Todos los errores usan el sobre `{"error": "<código>"}` de §4.14.3. Sin `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` o una URL pública, los cuatro responden `503 google_not_configured` (salvo `status`, que sigue sirviendo intentos ya creados).
+
+| Método y ruta | Petición | Respuesta | Errores propios |
+|:---|:---|:---|:---|
+| `POST /v1/auth/google/start` | Cuerpo `{"mode": "link" \| "sign_in"}`. `link` exige `Authorization: Bearer <idToken>` (misma verificación de §4.14.6); `sign_in` no lleva Bearer. `X-Client-Token` como en las demás rutas de cuenta | `200` `{"attempt_id": "<token_urlsafe(16)>", "poll_token": "<token_urlsafe(32)>", "expires_in": 600}` | 401 `invalid_session` (`link` sin Bearer válido), 422 `invalid_request` (modo desconocido), 429 `too_many_attempts` (ya hay ~100 intentos vivos), 503 `google_not_configured`. Para `link`, el intento guarda en memoria el `idToken` del usuario y su `uid` |
+| `GET /v1/auth/google/begin/{attempt_id}` | Lo abre el **navegador**. Sin cabeceras de la app | `302` a `https://accounts.google.com/o/oauth2/v2/auth` con `client_id`, `redirect_uri` (= `<URL pública>/v1/auth/google/callback`), `response_type=code`, `scope=openid email profile`, `state`, `code_challenge`, `code_challenge_method=S256` y `prompt=select_account`. Genera el `code_verifier` (PKCE) y un `state` aleatorio (`token_urlsafe(32)`) que apunta al intento; ambos se guardan en el intento. Respuesta con `Cache-Control: no-store` y `Referrer-Policy: no-referrer`. Un intento solo se puede iniciar **una vez** | 404 `google_attempt_not_found` (id desconocido o ya iniciado), 410 `google_attempt_expired`, 503 `google_not_configured` |
+| `GET /v1/auth/google/callback?code&state` (o `?error&state`) | Lo abre Google al redirigir al navegador | `200` con la **página estática** (abajo), siempre la misma, con o sin éxito. Por dentro: busca el intento por `state`; si llegó `error=access_denied` (u otro `error`), marca el intento como fallido con `google_cancelled`; si llegó `code`, lo cambia en `https://oauth2.googleapis.com/token` (`code`, `client_id`, `client_secret`, `code_verifier`, `redirect_uri`, `grant_type=authorization_code`), toma el `id_token` de Google y llama a `accounts:signInWithIdp` (abajo). Marca el intento como `linked`, `signed_in` o fallido | `400` con la misma página si el `state` es desconocido o el intento venció (no se filtra nada). No devuelve JSON |
+| `GET /v1/auth/google/status/{attempt_id}` | Cabecera `X-Poll-Token: <poll_token>` (comparación en tiempo constante con `hmac.compare_digest`) | `200` `{"status": "pending"}` · `{"status": "linked"}` (modo `link`) · `{"status": "signed_in", "session": <Session>}` (modo `sign_in`; la misma `Session` de `/v1/auth/login`) · o un error del sobre estándar con el código del fallo. Un intento **terminado se borra tras leerse una vez** (la segunda lectura da 404). **404 frente a 410:** `410` solo se da si el intento vencido todavía está en memoria al leerlo; el almacén purga los vencidos al crear otro intento, así que un sondeo de un intento ya purgado recibe `404`, no `410` (la app trata ambos como «inténtalo otra vez») | 404 `google_attempt_not_found` (id desconocido, `poll_token` ausente o incorrecto: mismo código y mismo texto para no distinguirlos), 410 `google_attempt_expired`, y los fallos del intento (tabla de abajo) |
+
+**Qué envía `accounts:signInWithIdp`** (`POST https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=<FIREBASE_API_KEY>`): `postBody = "id_token=<id_token de Google>&providerId=google.com"`, `requestUri = <redirect_uri>`, `returnSecureToken = true`, `returnIdpCredential = true` y, **solo en `link`**, `idToken = <idToken guardado del usuario>`.
+- **`link`:** éxito → intento `linked`. Si Firebase responde `FEDERATED_USER_ID_ALREADY_LINKED` o `EMAIL_EXISTS` (esa cuenta de Google ya pertenece a otro perfil) → `google_already_linked`. Si el `idToken` guardado ya no vale → `invalid_session` (la app lo renueva y deja reintentar).
+- **`sign_in`:** si la respuesta trae `isNewUser: true`, el backend **borra ese usuario recién creado** con `accounts:delete` y su propio `idToken` (el de la respuesta) y el intento falla con `google_not_linked`. Si el borrado falla, el intento también falla con `google_not_linked` y el backend registra solo el código `google_orphan_user` (**sin** `uid` ni correo), para poder limpiarlo a mano en la consola. Si `isNewUser` es `false`, el intento termina `signed_in` con una `Session` armada igual que en el inicio de sesión (con `accounts:lookup` para `email`, `display_name` y `email_verified`). Si la respuesta trae `needConfirmation: true`, se trata como `google_not_linked`.
+- **Riesgo conocido (mitigado en código; sin prueba real):** si ya existe una cuenta de correo y contraseña con el **mismo correo** que la cuenta de Google, pero Google **no** está vinculado, Firebase (con «una cuenta por correo») puede devolver esa cuenta existente con `isNewUser: false` y así `sign_in` entraría sin que la persona haya vinculado nada. Cómo se comporta Firebase aquí no se pudo confirmar en las páginas consultadas; si ocurre, el diseño debe cambiar (por ejemplo, exigir `providerUserInfo` con `google.com` previo, comprobado con `accounts:lookup`, antes de devolver la sesión). Se anota en §8. **Mitigación implementada en código (decisión de la usuaria, 2026-10-20); sin prueba real:** al vincular (`link` correcto), el backend escribe en el documento `profiles/<uid>` de Firestore el campo `google_linked_at` (marca de tiempo) con el `idToken` del propio usuario, y `sign_in` lo lee con el `idToken` que devuelve `signInWithIdp` antes de devolver la sesión. Si falta la marca, el intento falla con `google_not_linked` (403) y **no se borra la cuenta**; si la lectura falla, falla con `auth_upstream_error` (nunca se deja entrar sin la marca). Si la escritura de la marca falla tras vincular, el intento falla con `auth_upstream_error` y la persona reintenta: como Firebase ya vinculó el proveedor, el reintento recibe `FEDERATED_USER_ID_ALREADY_LINKED`; el backend entonces vuelve a llamar a `signInWithIdp` **sin** `idToken` y, si la cuenta que devuelve tiene el mismo `uid` que quien vincula, lo da por bueno y reescribe la marca. La marca vive fuera de los campos sincronizados (`settings`, `words`, `topics`, `updated_at`, `schema_version`): `PUT /v1/profile` usa `updateMask.fieldPaths` con solo esos campos, así que la sincronización nunca la borra, y un documento con solo la marca se trata como «sin perfil» (404 en `GET /v1/profile`). Las reglas de §4.14.7 ya permiten al dueño leer y escribir cualquier campo de su documento: no hay que republicarlas. Coste: una escritura más al vincular; **las cuentas que vincularon Google antes de este cambio deben volver a vincular** (Ajustes → Cuenta) para poder entrar con Google.
+- Los errores de red hacia Google o Firebase se traducen a `auth_upstream_error` (502) o `auth_upstream_timeout` (504), como en el resto de §4.14. Un `code` rechazado por Google (`invalid_grant`, `redirect_uri_mismatch`) es `auth_upstream_error`.
+
+**Cambio en `Session` (todas las respuestas que la devuelven: registro, entrada, refresco y `signed_in`):** nuevo campo `google_linked: bool`, calculado **con el mismo `accounts:lookup` que ya se hace para leer `email`, `display_name` y `email_verified`** (buscando un elemento de `providerUserInfo` con `providerId == "google.com"`); **no se añade ninguna llamada extra**. Sirve para que Ajustes muestre «Google vinculado». **No** se añade `GET /v1/auth/session-info`. En la app, `Session`/`StoredSession` ganan `google_linked`; `AccountInfo` también. La entrada con correo ya hacía `lookup` en el refresco; en `login` y `register` se añade esa llamada (una más por inicio de sesión; si falla, `google_linked = false` y no se rompe el inicio de sesión).
+
+##### Almacén de intentos (`GoogleAttemptStore`)
+Clase inyectada en `main.py` (sin globales), **en memoria**, con reloj inyectable para los tests.
+| Regla | Valor |
+|:---|:---|
+| TTL | **10 minutos** (`expires_in = 600`) desde `start` |
+| Máximo de intentos vivos | **~100** (al llegar, `start` responde `429 too_many_attempts`; primero se purgan los vencidos) |
+| `attempt_id` | `secrets.token_urlsafe(16)`; aparece en la URL del navegador; no da acceso al resultado |
+| `poll_token` | `secrets.token_urlsafe(32)`; solo lo conoce la app; **nunca** en una URL; se guarda solo para compararlo (en tiempo constante) |
+| `state` | `secrets.token_urlsafe(32)`, aleatorio, ligado a un único intento; se descarta al usarse |
+| Contenido | modo, estado (`pending`, `linked`, `signed_in`, `failed`), `code_verifier`, `state`, y para `link` el `idToken` y el `uid` del usuario; el resultado (`Session` o código de error) hasta que se lee. **Nunca** guarda el `id_token` de Google, el `code` ni el `client_secret` |
+| Fin | Se borra al leerse el resultado una vez, al vencer, o al purgarse |
+
+**Límite honesto de Render gratuito.** Los intentos viven en la memoria del proceso y hay **una sola instancia**. Si Render duerme o reinicia el servicio a mitad del flujo, el intento se pierde y la app muestra «inténtalo otra vez» (`google_attempt_not_found`). Se acepta para ~2 usuarios. Con más de una instancia el flujo se rompería (el `callback` podría caer en otra); no se soporta.
+
+##### Página estática del `callback`
+Es **el único texto visible que existe en el backend**: una constante en `google_auth.py`, corta, bilingüe (español primero, luego inglés), sin datos de la cuenta, sin scripts y sin recursos externos (ni fuentes, ni imágenes, ni CSS remotos). El estilo es un `<style>` mínimo en la propia página. Cabeceras: `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer`. Texto:
+
+> **Listo. Ya puedes volver a ClearRead.** Puedes cerrar esta pestaña. Si algo falló, la app te lo dirá.
+> **Done. You can go back to ClearRead.** You can close this tab. If something went wrong, the app will tell you.
+
+La página dice lo mismo en éxito, cancelación y error, a propósito: así no revela nada ni depende del resultado, y el resultado real lo ve la app con `status`. Es una excepción a la regla «el texto visible vive en `strings.py`» porque el backend no tiene `strings.py` ni Qt; la app nunca la muestra.
+
+##### Códigos de error nuevos
+Se suman a §4.14.4 (donde también aparecen). Los códigos HTTP de `google_*` los fija este documento (la especificación de partida no los daba).
+
+| HTTP | Código | Causa | `AccountErrorKind` en la app |
+|:---:|:---|:---|:---|
+| 409 | `google_cancelled` | La persona canceló en Google (`error=access_denied`) | `GOOGLE_CANCELLED` |
+| 409 | `google_already_linked` | Esa cuenta de Google ya está vinculada a otro perfil (`FEDERATED_USER_ID_ALREADY_LINKED` / `EMAIL_EXISTS` al vincular) | `GOOGLE_ALREADY_LINKED` |
+| 403 | `google_not_linked` | `sign_in` con una cuenta de Google que no estaba vinculada (Firebase la dio por nueva y se borró) | `GOOGLE_NOT_LINKED` |
+| 404 | `google_attempt_not_found` | Intento desconocido, ya leído o con `poll_token` incorrecto | `GOOGLE_ATTEMPT_NOT_FOUND` |
+| 410 | `google_attempt_expired` | Pasaron los 10 minutos | `GOOGLE_ATTEMPT_EXPIRED` |
+| 503 | `google_not_configured` | Faltan `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` o la URL pública | `GOOGLE_NOT_CONFIGURED` |
+| 502 / 504 | `auth_upstream_error` / `auth_upstream_timeout` | (ya existen) Google o Firebase fallaron o tardaron | `SERVICE_UNAVAILABLE` / `TIMEOUT` |
+
+La app añade además `BROWSER_UNAVAILABLE` (no es un código del backend): `BrowserLauncher.open_backend_page` devolvió `False`.
+
+##### Variables de entorno nuevas
+Se suman a §4.14.5. En `render.yaml` con `sync: false` y en `backend/.env` con las claves **vacías** (el `.env` real no se versiona).
+| Variable | Contenido | Dónde vive |
+|:---|:---|:---|
+| `GOOGLE_OAUTH_CLIENT_ID` | ID del cliente web de OAuth (§6.6) | Render / `.env`. Nunca en el repositorio, la app, los tests ni la salida |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Secreto de ese cliente | Render / `.env`. **Secreto**: tratarlo como la `DEEPSEEK_API_KEY` |
+| `PUBLIC_BASE_URL` | URL `https` propia del backend, por ejemplo `https://clearread-api.onrender.com`. El `redirect_uri` es `PUBLIC_BASE_URL + "/v1/auth/google/callback"` (se le quita la barra final). Si falta, el backend usa `RENDER_EXTERNAL_URL`, que Render define solo | Render / `.env`. En local: `http://localhost:8000` (Google admite `localhost` sin HTTPS) y ese URI también hay que registrarlo |
+
+`settings.py` expone la propiedad `google_configured` (las tres cosas presentes), igual que `auth_configured`. Las dos URL de Google son **constantes del backend** (`google_auth.py`); nunca llegan a la app.
+
+##### Privacidad y logs
+- El backend **nunca registra** `code`, `state`, `code_verifier`, `poll_token`, `attempt_id`, ni ningún token (de Google ni de Firebase), ni correos, ni el `client_secret`. El logger de `httpx` se queda en `WARNING` (sus mensajes llevan la URL). Los errores se registran solo por su código propio.
+- Las URL con `attempt_id` y `state` no se escriben en ningún registro de acceso propio; **implementado:** el filtro `RedactGoogleAccessLog` (en `google_auth.py`, instalado en `main.py` sobre el logger `uvicorn.access`) sustituye en cada línea del registro de acceso el `attempt_id` y la consulta del `callback` (`?code=…&state=…`) por `[hidden]` en las rutas `/v1/auth/google/…`. Además el `code` solo sirve una vez, está atado al `code_verifier` (PKCE) y el intento vence a los 10 minutos. **Por verificar en Render real** que las líneas del registro salen ocultas (§8, punto (i)).
+- El `id_token` de Google y el `code` se usan dentro de una sola petición y no se guardan. La `Session` de un `sign_in` vive en memoria hasta leerse una vez o hasta el TTL.
+- Mientras la persona está en el navegador, Google le muestra su pantalla de consentimiento; el correo y el nombre de Google llegan a Firebase y quedan en su perfil. El aviso de privacidad (`auth.privacy_body`) hay que revisarlo para mencionarlo (§8).
+
+##### App: piezas nuevas o cambiadas
+| Pieza | Módulo | Qué hace |
+|:---|:---|:---|
+| Navegador | `services/browser_launcher.py` | **El único módulo que importa `QDesktopServices`.** `BrowserLauncher(backend_url)` con `open_backend_page(path: str) -> bool`: arma `backend_url + path`, **rechaza (devuelve `False`) cualquier URL que no empiece por `backend_url`** y si no, llama a `QDesktopServices.openUrl`. Se inyecta por constructor |
+| Cliente | `services/account_client.py` | `start_google(mode, bearer)` → `GoogleAttempt(attempt_id, poll_token, expires_in)`; `google_status(attempt_id, poll_token)` → `GoogleStatus` (`pending`, `linked` o `signed_in` con `Session`). Siempre a través de `backend_transport.py`. Los códigos nuevos de §4.14.11 son `AccountErrorKind` nuevos |
+| Sondeo | `ui/google_flow.py` (`GoogleFlow`) / `workers/account_worker.py` | Un `QTimer` en el hilo principal **cada 2 s** programa **un `GoogleStatusWorker` corto** (una sola llamada a `google_status`) en el pool de cuentas (`maxThreadCount=1`); **si ya hay uno en vuelo, se salta ese tick**. No hay un worker largo que sondee en bucle: bloquearía el pool único (los demás trabajos de cuentas esperarían). Para al recibir un resultado, al cancelar o al pasar `expires_in`. **Solo la llamada `start` pasa por `ensure_awake`** (despierta el backend); los sondeos llaman a `google_status` directamente, sin sondeo previo a `/health` en cada tick |
+| UI | `ui/views/login_view.py`, `login_pages.py`, `account_card.py` | Botón «Entrar con Google» en la página Entrar; botón «Vincular con Google» en Ajustes → Cuenta; pantalla de espera con «Cancelar» (A.4.11, A.4.12) |
+| Resultado | `ui/app_controller.py` | Un `sign_in` correcto **reutiliza** el camino del inicio de sesión con correo (guardar sesión con DPAPI, migración, sincronización); no se duplica código |
+
+`AccountErrorKind` suma: `GOOGLE_CANCELLED`, `GOOGLE_ALREADY_LINKED`, `GOOGLE_NOT_LINKED`, `GOOGLE_ATTEMPT_NOT_FOUND`, `GOOGLE_ATTEMPT_EXPIRED`, `GOOGLE_NOT_CONFIGURED`, `BROWSER_UNAVAILABLE`. Recursos: `resources/icons/google_g.svg` (la «G» multicolor, Anexo A, A.11).
+
+##### Reglas del flujo en la app
+1. Clic → `start_google` → si `open_backend_page("/v1/auth/google/begin/<attempt_id>")` da `False`, error `BROWSER_UNAVAILABLE`. Si no, pantalla de espera.
+2. Sondeo cada 2 s. `Cancelar` o `Esc` paran el sondeo y vuelven a la pantalla anterior; el intento del backend queda hasta vencer (no hay endpoint para cancelarlo). **Si un sondeo ya en vuelo contesta `signed_in` después de pulsar `Cancelar`, la app cierra la sesión** que ese resultado acaba de guardar (la persona canceló: no debe quedar dentro). Las respuestas de una ejecución cancelada se distinguen de las vigentes con un contador de ejecución.
+2b. **Paso de inicio.** Mientras se crea el intento (`start`, que puede despertar el servidor) **no** se muestra la pantalla de espera: se usa la **franja de ocupado** de la página de origen (la de «Despertando el servidor…», A.3.13). La pantalla de espera (A.4.13) solo aparece cuando el navegador ya se abrió.
+3. `linked` → la tarjeta «Cuenta» pasa a «Google vinculado» y el botón desaparece. `signed_in` → misma ruta que `sign_in` con correo. Un error → mensaje en línea (A.3.13) con la clave `auth.error.<tipo>`.
+4. Un `invalid_session` en `link` hace que `SessionManager` renueve el token y la persona pueda repetir.
+5. El `poll_token` y el `attempt_id` viven solo en memoria de la app; no se escriben en disco ni en registros.
+
+#### 4.14.12 Pruebas
+- **Backend** (`backend/tests/`, pytest + `TestClient`, **Firebase simulado** con `httpx.MockTransport` o pasarelas falsas inyectadas; sin red ni claves reales): cada endpoint de §4.14.3 con su respuesta y sus errores; traducción de las cadenas de error de Firebase a los códigos de §4.14.4; `password-reset` devuelve 204 para un correo que existe y para uno que no; Bearer obligatorio en `/v1/explain` y `/v1/simplify`; caché de `idToken` (acierto sin llamar a Firebase, vencimiento, tope de 1 000 entradas); tope por usuario y reinicio al cambiar de día UTC; `profile_too_large` con cuerpo > 900 KB y con 2 001 palabras; **ninguno de estos datos aparece en los logs capturados con `caplog` ni en las respuestas de error: correo, contraseña, `idToken`, `refresh_token`, contenido del perfil y `FIREBASE_API_KEY`**.
+- **App** (pytest + pytest-qt): `BackendTransport` (envía el Bearer recibido y nada más) y `AccountClient` con transporte simulado; `SessionManager` con `AccountClient` simulado (la regla del 401: refrescar una vez y reintentar una vez en `run_authorized`, refresco 60 s antes de vencer, `session_revoked` cierra la sesión); `ai_client` con los mismos tests de siempre, incluido el reintento con `bearer_source`; `SessionStore` con **DPAPI real** (ida y vuelta en este Windows; un falso no basta para NFR-SEC02); `get_profile_dir` y `profile_migration` (se mueve, no se copia; `OSError` no escribe la marca; la marca impide una segunda adopción); `profile_sync` (quién gana, fecha remota ilegible = época 0, `apply_sync_result`, `touch()`, campos locales excluidos); `LoginView` y la sección «Cuenta» (teclado, errores en línea, botón deshabilitado con borde discontinuo); `tests/test_strings.py` (todas las claves con `es` y `en` y los mismos parámetros, sin `áéíóúñ¿¡` fuera de `strings.py`); `offline-audit`.
+- **Pendiente y real (§8):** una pasada manual contra un proyecto de Firebase de pruebas (registro, entrada, correo de recuperación, perfil entre dos equipos, borrado de cuenta) y contra Render; hasta que se haga, **no se afirma** que funcione con Firebase real.
+- **Fase 2 · Google (v1.7.0), plan de pruebas (implementado en código, sin prueba real (§8)):**
+  - *Backend* (`backend/tests/`, `TestClient`; Google y Firebase simulados con `httpx.MockTransport`, sin red ni claves reales, reloj inyectado en `GoogleAttemptStore`): `start` en ambos modos (`link` sin Bearer → 401; modo desconocido → 422; sin variables → 503 `google_not_configured`; más de ~100 intentos vivos → 429); `begin` arma la URL de Google con `client_id`, `redirect_uri` exacto, `scope`, `state`, `code_challenge_method=S256`, `prompt=select_account`, y una segunda visita da 404; `callback` con `error=access_denied` → `google_cancelled`, con `state` desconocido → 400, con `code` correcto en `link` (envía `idToken`) y en `sign_in` (no lo envía); `FEDERATED_USER_ID_ALREADY_LINKED` y `EMAIL_EXISTS` → `google_already_linked`; **`sign_in` con `isNewUser: true` llama a `accounts:delete` con el `idToken` nuevo y da `google_not_linked`**, también cuando el borrado falla; `needConfirmation` → `google_not_linked`; `status` con `poll_token` incorrecto o ausente → 404 (el mismo cuerpo que un id desconocido), vencido → 410 (reloj avanzado 10 min), `pending` → `linked` / `signed_in` y **una segunda lectura da 404**; `google_linked` en `Session` según `providerUserInfo`; la página estática no contiene scripts, enlaces ni recursos externos ni datos de la cuenta; **ni `code`, `state`, `code_verifier`, `poll_token`, `attempt_id`, tokens, correo ni `GOOGLE_OAUTH_CLIENT_SECRET` aparecen en los logs de `caplog` ni en las respuestas de error**.
+  - *App* (pytest + pytest-qt): `BrowserLauncher` abre una URL del backend y **rechaza** otra (otro host, esquema distinto, `backend_url.evil.com`, mayúsculas, `..`), con `QDesktopServices` simulado; `AccountClient.start_google` / `google_status` con transporte simulado y el mapeo de cada código a `AccountErrorKind`; sondeo cada 2 s que para al terminar, al cancelar y al pasar `expires_in`, sin tocar widgets fuera del hilo principal; botón «Vincular con Google» oculto y «Google vinculado» visible cuando `google_linked`; `sign_in` reutiliza el camino del inicio de sesión con correo; `tests/test_strings.py` (las claves de §4.14.10 con `es` y `en`); el test que prohíbe hex fuera de `theme.py` permite **solo** `resources/icons/google_g.svg`; `offline-audit` con la única excepción de `browser_launcher.py`.
+  - *Prueba real obligatoria (§8)*: un falso no basta para lo que depende de Google, Firebase, el navegador o Render. Con un proyecto de pruebas: vincular, entrar, cancelar en Google, cuenta de Google ya vinculada a otro perfil, entrar con una cuenta no vinculada (comprobar en la consola de Firebase que **no** queda ningún usuario nuevo), el caso del mismo correo del riesgo de §4.14.11, y un reinicio de Render a mitad del flujo. Hasta entonces **no se afirma** que funcione.
+
 ---
 
 ## 5. Matriz de Requisitos Verificables (RTM Actualizada)
@@ -1949,7 +2498,22 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 | **AI-F06** | Mis palabras | **Temas del glosario (2026-10-18).** Cada palabra guardada tiene un `topic` (id de tema o vacío). Fichas de tema con contador ("Todas", "Sin tema" y los creados); crear/renombrar/borrar temas (mismas reglas de nombre que las carpetas; guardados en `topics.json`); cambiar el tema de una palabra desde el menú de su tarjeta; filtro por tema combinado con la búsqueda sin tildes. Al explicar una palabra, su tema por defecto es el del mismo nombre que la **carpeta del documento abierto**, si existe; si no, "Sin tema". Una palabra repetida conserva el tema que ya tenía. Borrar un tema devuelve sus palabras a "Sin tema". **No añade llamadas a la IA.** | Un `glossary.json` antiguo sin `topic` sigue cargando; el filtro por tema más la búsqueda "celula" encuentra "célula"; una palabra de un tema borrado se muestra como "Sin tema"; explicar una palabra en un documento de la carpeta "Biología" le asigna el tema "Biología" si existe. `tests/test_glossary_topics.py`, `tests/test_groups.py`; capturas `real/v3/mis_palabras_*`. |
 | **BE-F01** | Backend | Endpoints `POST /v1/explain`, `POST /v1/simplify`, `GET /health` y `/docs` automático (§4.11). | Tests con `TestClient` (DeepSeek simulado) en verde; en el despliegue, `/health` → 200, `/docs` accesible y una petición real a `/v1/explain` responde en español. |
 | **BE-F02** | Backend | Token de cliente, límites de tamaño y tope global diario de llamadas a DeepSeek. | Palabra > 40, contexto > 300 o párrafo > 1500 caracteres → 413; superar `DAILY_CALL_LIMIT` → 429; sin `X-Client-Token` válido → 401. Verificado por tests y por la checklist de `deploy-backend`. |
-| **BE-F03** | Backend | Sin logs de textos: el backend nunca registra los textos recibidos ni las respuestas de DeepSeek. | Test con `caplog` sin el texto de entrada en los logs; revisión de los logs de Render tras una petición real. |
+| **BE-F03** | Backend | Sin logs de textos: el backend nunca registra los textos recibidos ni las respuestas de DeepSeek. **Ampliado en la v1.6.0:** tampoco correos, contraseñas, tokens, contenido del perfil, palabras guardadas ni IP (§4.14.6). | Test con `caplog` sin el texto de entrada en los logs; revisión de los logs de Render tras una petición real. Los tests nuevos de la v1.6.0 (BE-F04–BE-F06) repiten la comprobación con correo, contraseña, tokens y perfil. |
+| **AUTH-F01** | Cuentas (`LoginView`, `AccountClient`) | **Registro (v1.6.0).** Pantalla «Crear cuenta»: nombre (1–40), correo, contraseña (8–128 caracteres, sin reglas de composición, con Mostrar/Ocultar) y casilla obligatoria del aviso de privacidad; `POST /v1/auth/register`. Envía un correo de confirmación sin bloquear: confirmarlo **no** es necesario para entrar. Sin «seguir sin cuenta» (§4.14). | El botón queda deshabilitado (borde discontinuo y *tooltip*) hasta marcar la casilla; con menos de 8 caracteres se ve el mensaje en línea; `email_exists` muestra su mensaje; si el registro funciona se abre la ventana principal con la sesión guardada. `tests/test_account_client.py` y `tests/test_login_view.py` (previstos, con backend simulado) y, en el backend, `backend/tests/` con Firebase simulado. **Prueba real contra Firebase: pendiente (§8).** |
+| **AUTH-F02** | Cuentas | **Entrar (v1.6.0).** Pantalla «Entra a tu cuenta»: correo y contraseña; `POST /v1/auth/login`. El inicio de sesión es **obligatorio** al abrir la app. Un fallo muestra el mismo mensaje exista o no el correo (`invalid_credentials`). | Credenciales correctas abren la ventana principal; incorrectas muestran el mensaje en línea sin revelar cuál de los dos datos falla; `too_many_attempts` y los errores de red tienen su mensaje; con el backend dormido sale el aviso de espera (hasta 60 s). Tests previstos como en AUTH-F01. **Prueba real pendiente (§8).** |
+| **AUTH-F03** | Cuentas / Ajustes | **Cerrar sesión (v1.6.0).** Botón en Ajustes → Cuenta, con confirmación; avisa si hay cambios sin subir; borra `session.bin` y vuelve a la pantalla de entrada **sin relanzar la app** (decisión (d) de §4.14.1). La carpeta local del perfil se conserva. | Tras cerrar sesión no queda `session.bin`, la app muestra la pantalla de entrada y ningún dato del perfil anterior; al volver a entrar con el mismo usuario reaparecen sus datos locales. Tests previstos de `SessionStore` y de la vista de Ajustes. |
+| **AUTH-F04** | Cuentas | **Recuperar la contraseña (v1.6.0).** Dos pasos: «Enviar enlace» y «Revisa tu correo». `POST /v1/auth/password-reset` responde `204` **siempre**, exista o no el correo, y la pantalla del paso 2 no afirma que exista («Si … tiene una cuenta…»). | El backend devuelve 204 con un correo registrado y con uno que no (test); el texto del paso 2 es idéntico en ambos casos; «Enviar otra vez» repite la petición. **El correo real y su plantilla en español: pendientes de comprobar en Firebase (§6.6, §8).** |
+| **AUTH-F05** | Cuentas / `SessionStore` | **Sesión guardada y apertura sin red (v1.6.0).** Con una sesión guardada la app abre la ventana principal **sin esperar a la red** y funciona completa sin conexión; el refresco y la sincronización ocurren en segundo plano. Un `session_revoked` borra la sesión y lleva a la pantalla de entrada. | Con `session.bin` válido y sin red, la ventana principal abre y el núcleo (ingesta, OCR, silabeo, voz) funciona; con `session_revoked` aparece la pantalla de entrada con su mensaje y los datos locales siguen en disco. Tests previstos con transporte simulado; **la prueba del `.exe` sin red tras un primer inicio de sesión real: pendiente (§8).** |
+| **AUTH-F06** | Cuentas / Ajustes | **Borrar la cuenta (v1.6.0).** Botón en Ajustes → Cuenta con confirmación; `DELETE /v1/account` borra el perfil de Firestore y después el usuario de Firebase; luego se borra la sesión y la carpeta local del perfil (los archivos originales no se tocan). | Tras borrar, el correo ya no puede entrar (`invalid_credentials`) y `GET /v1/profile` con el token viejo da 401; un fallo a medias se puede repetir. Tests del backend con Firebase simulado; **prueba real pendiente (§8)**. |
+| **AUTH-F07** | Cuentas / Ajustes | **Vincular una cuenta de Google (v1.7.0; implementado en código, sin prueba real (§8)).** Ajustes → Cuenta → «Vincular con Google» (con `Bearer`) abre el navegador en `GET /v1/auth/google/begin/{attempt_id}` de nuestro backend; el backend hace OAuth 2.0 con PKCE `S256` y llama a `accounts:signInWithIdp` con el `idToken` del usuario para añadir Google **al mismo perfil**; la app sondea `GET /v1/auth/google/status/{attempt_id}` cada 2 s, con «Cancelar». Una vez vinculada, se muestra «Google vinculado». La app nunca habla con Google. | Pendiente: tests de §4.14.12 (backend con Google y Firebase simulados; app con `BrowserLauncher` simulado) **y prueba real** de la vinculación, de la cancelación y de `google_already_linked` (§8). Hasta la prueba real no se afirma que funcione. |
+| **AUTH-F08** | Cuentas | **Entrar con una cuenta de Google ya vinculada (v1.7.0; implementado en código, sin prueba real (§8)).** En la pantalla de acceso, «Entrar con Google» usa el mismo mecanismo con `mode = sign_in`. **Nunca crea un perfil**: si Firebase informa `isNewUser`, el backend borra esa cuenta nueva con `accounts:delete` y el intento termina en `google_not_linked`; la app pide crear primero la cuenta con el correo y vincular Google en Ajustes. Un éxito guarda la sesión igual que el inicio de sesión con correo (DPAPI, migración, sincronización). | Pendiente: tests de §4.14.12 y **prueba real**: entrar con una cuenta vinculada, y con una no vinculada comprobando en la consola de Firebase que no queda un usuario nuevo; revisar el riesgo del mismo correo (§4.14.11, §8). |
+| **PROF-F01** | Perfil (`ProfileSync`) | **Ajustes sincronizados (v1.6.0).** Los campos de `AppConfig` viajan con la cuenta, **menos** `backend_url` y `voice_id`. | Cambiar un ajuste en un equipo y entrar en otro lo aplica; `backend_url` y `voice_id` no se tocan; `apply_profile` ignora campos desconocidos. Tests previstos de `profile_sync`. |
+| **PROF-F02** | Perfil | **«Mis palabras» y temas sincronizados (v1.6.0).** Las entradas del glosario (con su explicación) y los temas viajan con la cuenta; el perfil entero se resuelve por `updated_at` y **gana el último en escribir** (límite documentado: dos equipos editando sin conexión a la vez pierden cambios, §4.14.9). | Una palabra guardada en un equipo aparece en el otro; con `updated_at` remoto más nuevo se aplica el remoto, con el local más nuevo se sube el local, con 404 se sube el local; más de 2 000 palabras o 900 KB dan `profile_too_large`. Tests previstos de `profile_sync` y del backend. |
+| **PROF-F03** | Datos locales por perfil | **Un perfil, una carpeta (v1.6.0).** Todo lo local (`config.json`, `glossary.json`, `topics.json`, `folders.json`, `stats.json`, `cache\`, `ai_cache.json`) vive en `%APPDATA%\ClearRead\profiles\<uid>\`; documentos, biblioteca, carpetas, estadísticas y caché de la IA **no** se sincronizan. | Dos usuarios en el mismo equipo no ven los datos del otro; `get_profile_dir(uid)` es la única fuente de la ruta. `tests/test_paths.py` previsto. |
+| **PROF-F04** | Migración | **Migración única (v1.6.0).** El primer perfil que inicia sesión en un equipo adopta los archivos que ya estaban en la raíz de `%APPDATA%\ClearRead` (se **mueven**); la marca `legacy_adopted.json` en la raíz de `%APPDATA%\ClearRead` impide una segunda adopción; si un movimiento falla, no se escribe la marca y el siguiente inicio de sesión reintenta. | Con archivos de la 1.5.0 en la raíz, tras el primer inicio de sesión están en la carpeta del perfil y la raíz queda sin ellos; el segundo perfil empieza vacío; repetir la migración no hace nada. Tests previstos con una carpeta de datos temporal; **prueba con datos reales de la 1.5.0: pendiente (§8).** |
+| **BE-F04** | Backend | **Endpoints de autenticación (v1.6.0).** `POST /v1/auth/register`, `/login`, `/refresh` y `/password-reset` hablan con Firebase Authentication por REST (§4.14.2–§4.14.3) y traducen sus errores a códigos propios (§4.14.4); el texto de Firebase nunca llega a la app. | Tests con `TestClient` y Firebase simulado: respuestas, códigos de error y 204 de `password-reset` para correos que existen y que no. **Prueba real contra Firebase y Render: pendiente (§8).** |
+| **BE-F05** | Backend | **Perfil y borrado de cuenta (v1.6.0).** `GET` y `PUT /v1/profile` y `DELETE /v1/account`, con Bearer, contra Firestore por REST con el `idToken` del usuario; cuerpo máximo de 900 KB y 2 000 palabras (`413 profile_too_large`). Reglas de Firestore de solo-dueño (§4.14.7). | Tests con Firebase simulado (incluidos 404 `profile_not_found`, 413 y orden de borrado); **comprobación real de las reglas de seguridad** (un usuario no puede leer el perfil de otro): pendiente (§8). |
+| **BE-F06** | Backend | **Bearer en la IA y tope por usuario (v1.6.0).** `/v1/explain` y `/v1/simplify` exigen un `idToken` válido (verificado con `accounts:lookup` y una caché en memoria de ≤ 1 h y ≤ 1 000 entradas) y aplican `USER_DAILY_CALL_LIMIT` (15 por defecto) por usuario y día UTC → `429 user_daily_limit_reached`. | Tests: 401 sin Bearer o con token malo, acierto de caché de tokens sin llamar a Firebase, 429 por usuario con un tope bajo en el test y reinicio al cambiar de día; el tope global (BE-F02) no cambia. |
 
 ### 5.2 Requisitos No Funcionales (NFRs Calibrados)
 
@@ -1958,10 +2522,11 @@ Las cadenas nuevas están en es y en `ui/strings.py`; las claves de Alto Contras
 | **NFR-MEM01** | Consumo RAM | Meta de diseño estimada: Residencia $\le 450\text{ MB}$ procesando un PDF estándar de 100 páginas a 300 DPI. | Medición de `WorkingSet` en Windows Resource Monitor durante el procesamiento en streaming. |
 | **NFR-LAT01** | Latencia Ingesta | Meta estimada: Renderizado de página $\le 1.2\text{ s}$ en Intel Core i5-8250U / 8GB RAM (o equivalente). | Benchmark interno mediante `time.perf_counter()` en pruebas de carga controlada. |
 | **NFR-A11Y01** | Contraste | Relación de contraste $\ge 7.0:1$ (WCAG AAA) en texto, y $\ge 3.0:1$ en componentes, en los **dos temas visuales (Claro y Oscuro)**; todo color es el morado `#392F5A`, el amarillo `#F4D06F` o un tono derivado de ellos. | Verificación algorítmica de ratios con la fórmula oficial W3C de luminancia relativa (`tests/test_theme.py`, que también recorre `theme.py` y falla ante un hex fuera de la paleta). *(Tokens y ratios medidos en el Anexo A, A.1.1–A.1.3.)* |
-| **NFR-OFF01** | Dependencia de Red | Todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) son opcionales: solo se habilitan con conexión a internet; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python con WiFi/Ethernet deshabilitados: flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores. Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/ai_client.py` importa librerías de red y la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`. `backend/` es un proyecto aparte que no entra en el `.exe`. |
+| **NFR-OFF01** | Dependencia de Red | **Reescrito en la v1.6.0:** una vez iniciada la sesión por primera vez en un equipo, todas las funciones principales (ingesta, OCR, silabeo, lectura en voz alta, resaltado, temas y configuración) operan con 0 conexiones de red: la app abre con la sesión guardada (AUTH-F05). El **primer** inicio de sesión en un equipo, el registro, la recuperación de contraseña, el borrado de la cuenta y la sincronización del perfil necesitan internet; la sincronización espera a que vuelva la red. Las funciones de asistencia con IA generativa (vía nuestro backend, §4.11) siguen siendo opcionales: solo se habilitan con conexión a internet y con sesión; sin red, la interfaz las deshabilita con un mensaje claro y el resto de la app funciona igual. | Prueba del `.exe` en máquina sin Python: primer inicio de sesión **con** red; después, con WiFi/Ethernet deshabilitados, se reabre la app y el flujo completo PDF/foto → lectura con voz funciona; el botón de IA aparece deshabilitado sin errores (**pendiente, §8**). Auditoría (skill `offline-audit`, solo `src/`): en la app, solo `services/backend_transport.py` importa librerías de red; la única URL fuera de él es `DEFAULT_BACKEND_URL` en `core/config.py`; ninguna URL de Firebase ni de Google aparece en `src/`. **Excepción única de la v1.7.0 (aprobada por la usuaria el 2026-10-19):** `QDesktopServices.openUrl` solo aparece en `services/browser_launcher.py`, y solo abre URLs que empiecen por la URL del backend configurada; `webbrowser`, `QTcpSocket`, `QTcpServer` y los puertos locales siguen en 0 en todo `src/`, y la app sigue sin tener ninguna URL de Google ni de Firebase (búsquedas 5 y 8 de `offline-audit`). El navegador del sistema, no la app, habla con Google. `backend/` es un proyecto aparte que no entra en el `.exe`. |
 | **NFR-FON01** | Precisión Silábica | Tasa de acierto $\ge 98.0\%$ en banco curado de 50 palabras complejas en español (hiatos acentuales, diptongos, triptongos, prefijos y dígrafos ch/ll/rr). | Suite automatizada de pruebas unitarias ejecutadas mediante `pytest tests/test_syllabifier.py`. |
 | **OCR-NF01** | Latencia OCR | **Medido** (A4 a 300 DPI, Intel Core i5-8300H, 23.8 GB, Windows 10, `perf_counter`): 1.ª inferencia de cada proceso ~4.0 s (3964–6268 ms; 1.ª ejecución del `.exe` 10.3 s); inferencias siguientes ~1.9 s (mediana 1.86–1.95 s). La meta previa ($\le 2.5\text{ s}$) se cumple desde la 2.ª página en el mismo proceso, no en la primera. | Benchmark interno mediante `time.perf_counter()`; se vuelve a medir con el modelo y DPI definitivos del Día 3 y con el set de calibración de 10 imágenes reales. **Día 3, fichas reales densas (A4, 300 DPI, 15 páginas):** media ~7 s por página (4.3–12.8 s); la meta de 2.5 s solo vale para páginas con poco texto. |
 | **NFR-SEC01** | Seguridad de Credenciales | La API key de DeepSeek existe **solo** en las variables de entorno del hosting (y en `backend/.env`, ignorado por git, para desarrollo): nunca en el repositorio, en la app ni en el `.exe`. Solo se envía el texto seleccionado por el usuario, con aviso de privacidad visible. El `X-Client-Token` **no** se considera secreto (§4.11). | Auditoría: grep de la key en el repositorio (incluido el historial de git) y en `dist/` da 0 resultados; revisión manual del aviso de privacidad antes del primer uso de IA. |
+| **NFR-SEC02** | Seguridad de la sesión (v1.6.0) | La sesión se guarda **cifrada con Windows DPAPI** (`win32crypt.CryptProtectData`) en `session.bin`; el `idToken` vive solo en memoria; **ni la app ni el backend escriben tokens, correos, contraseñas ni contenido del perfil en logs** (ni en la salida de los tests), y la API key de Firebase sigue la misma regla que la de DeepSeek (NFR-SEC01). Límite: DPAPI no protege contra un proceso del mismo usuario de Windows (§4.14.8). | Test de ida y vuelta con **DPAPI real** en Windows (el archivo no contiene el token en claro); `caplog` en el backend y en la app sin esos datos; `grep` de `FIREBASE_API_KEY` y de tokens en el repositorio, `src/` y `dist/` da 0 resultados; `offline-audit` sin URLs de Firebase/Google en `src/`. |
 | **BE-NF01** | Arranque en Frío | *Estimación a medir:* tras ≥ 15 min sin tráfico, el backend en Render Free responde a `/health` en ~1 min (cifra de la documentación de Render, consultada el 2026-10-01). | Medición real con `curl.exe -w "%{time_total}"` o cronómetro desde el `.exe`, anotando fecha, hora y equipo (Días 10 y 12). |
 
 ---
@@ -2241,6 +2806,18 @@ gantt
 | **D14** | 2026-10-15 | Prueba en máquina limpia sin Python **sin red** (NFR-OFF01) y **con red contra el backend desplegado**; video de entrega; buffer de contingencia. |
 | **P1** | 2026-10-18 | **Cambio posterior al cronograma, pedido por la usuaria** (no reescribe los días anteriores): control estricto de la voz (UI-F02, sustituye al Día 8), reinicio automático al cambiar de idioma (I18N-F01), páginas y modos de vista (UI-F06, UI-F07, amplía UI-F03), biblioteca con carpetas (HOME-F04) y temas del glosario (AI-F06); revisión de código y refactor (§4.13); segunda tanda: color de selección (UI-F05), voz por idioma (I18N-F01), botón de sílabas (UI-F08) y destino de guardado (HOME-F04). Resultado: tests en verde y capturas reales (retiradas después del repositorio por decisión de la usuaria). **Queda por rehacer** la compilación del `.exe` (D13) y la prueba en máquina limpia (D14), porque lo hecho en ellas no incluye estos módulos (§8). |
 
+**Bloque v1.6.0 «Cuentas y perfil sincronizado» (2026-10-19).** Pedido por la usuaria, **posterior al cronograma base**: no reescribe los días anteriores. Los días V1–V6 son una **estimación de esfuerzo, no resultados ni fechas comprometidas**; las fechas se fijan cuando la usuaria autorice cada día. **Estado (2026-10-19):** V1–V4 están hechos en código y sin probar contra Firebase real; V5 y V6 están pendientes. Ningún día de UI (V4) empieza antes de que el diseño de las pantallas nuevas (Anexo A, A.4.11–A.4.12) esté aprobado por la usuaria (§k de `CLAUDE.md`; el lienzo de referencia ya fue aprobado, falta aprobar el texto del Anexo).
+
+| Día | Fecha | Entregables principales (estimación) |
+|:---:|:---:|:---|
+| **V1** | 2026-10-19 | **Especificación y proyecto de Firebase.** Hecho en código; sin probar contra Firebase real. Esta especificación (§4.14, §5, Anexo A); decisiones abiertas de §8 decididas el 2026-10-19 (pantalla de acceso con `device.json`; borrar la carpeta del perfil al borrar la cuenta), pendientes de confirmación de la usuaria. La creación del proyecto de Firebase y la carga de las variables (§6.6) las hace la usuaria. |
+| **V2** | 2026-10-19 | **Backend.** Hecho en código; sin probar contra Firebase real. `settings.py`, `firebase.py` (`FirebaseAuthGateway`, `FirestoreGateway`), verificación de `idToken` con caché, tope por usuario, endpoints de §4.14.3 y códigos de §4.14.4; tests con Firebase simulado y sin logs sensibles (BE-F04–BE-F06). |
+| **V3** | 2026-10-19 | **Servicios de la app.** Hecho en código; sin probar contra Firebase real. `services/backend_transport.py` (único con `httpx`) y refactor de `ai_client.py` sin cambiar su API; `account_client.py`, `session_store.py` (DPAPI), `profile_sync.py`, `core/paths.py` con `get_profile_dir` y la migración única, `workers/account_worker.py`; `offline-audit` actualizada (AUTH-F05, PROF-F01–PROF-F04, NFR-SEC02). |
+| **V4** | 2026-10-19 | **UI.** Hecho en código; sin probar contra Firebase real. `ui/views/login_view.py` (Entrar, Crear cuenta, Recuperar contraseña), sección «Cuenta» de Ajustes, arranque con sesión guardada o pantalla de entrada, cierre de sesión, borrado de cuenta y los textos de §4.14.10 en `strings.py` (AUTH-F01–AUTH-F04, AUTH-F06); contraste de los pares nuevos medido con la skill `contrast-check`. |
+| **V5** | por fijar | **Pendiente. Verificación.** Suite completa de la app y del backend, ruff, `offline-audit`; prueba **real** contra el proyecto de Firebase de pruebas y contra Render (registro, entrada, correo de recuperación, perfil entre dos equipos, reglas de seguridad, borrado de cuenta, primer inicio con el arranque en frío) y capturas con la app real. |
+| **V6** | por fijar | **Pendiente. Recompilar el `.exe`** con `clearread.spec` (incluye los módulos nuevos de §4.13 y §4.14, que no están en la compilación del Día 13), verificar `dist/` (skill `package-exe`), prueba en máquina limpia con el primer inicio de sesión con red y la reapertura sin red (NFR-OFF01), y release (la hace la usuaria). |
+| **V7** | por fijar | **Pendiente. Google (v1.7.0).** Especificación escrita el 2026-10-19 (§4.14.11, §4.14.10, §6.6, Anexo A). Falta: `google_auth.py` y sus tests, `browser_launcher.py`, `account_client.py`, UI (botones, pantalla de espera, `google_g.svg`), variables en `render.yaml`, medición de contraste del botón, `offline-audit` con la excepción y **la prueba real con Google y Firebase**. |
+
 > [!NOTE]
 > **Si da tiempo (stretch, fuera del compromiso base):** exportar el documento procesado a TXT/PDF, modo foco (oscurece todas las líneas excepto la activa, sin ocultar los controles), recordar la posición de lectura entre sesiones.
 >
@@ -2257,9 +2834,13 @@ py -3.11 -m venv backend\.venv
 .\backend\.venv\Scripts\python -m pip install -e ".\backend[dev]"
 .\backend\.venv\Scripts\python -m pytest backend/tests -v
 # Con las variables de backend/.env cargadas en la sesión
-# (DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL, CLIENT_TOKEN, DAILY_CALL_LIMIT):
+# (DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL, CLIENT_TOKEN, DAILY_CALL_LIMIT y,
+# desde la v1.6.0, FIREBASE_API_KEY, FIREBASE_PROJECT_ID, USER_DAILY_CALL_LIMIT; y desde la v1.7.0, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PUBLIC_BASE_URL; ver las guías más abajo):
 .\backend\.venv\Scripts\python -m uvicorn clearread_backend.main:app --host 127.0.0.1 --port 8000
 ```
+
+Para probar la app contra un backend local (solo desarrollo), define la variable de entorno `CLEARREAD_BACKEND_URL` (por ejemplo `http://localhost:8000`) antes de abrir ClearRead. Si está definida y es una dirección `http` o `https` válida, `resolve_backend_url()` (en `core/config.py`) la usa, sin la barra final, para las llamadas de cuenta (`AccountClient`), para la página de Google que abre `BrowserLauncher` y para el asistente de IA, y tiene prioridad sobre la `backend_url` del perfil. Si no está definida o no es válida, todo funciona como siempre: la cuenta y el navegador usan `DEFAULT_BACKEND_URL` (Render) y la IA usa la `backend_url` del perfil. La URL local nunca aparece escrita en `src/`, así que `offline-audit` sigue limpio, y el `.exe` distribuido, que no define la variable, sigue usando Render.
+
 `backend/.env` queda fuera de git por la regla `.env` del `.gitignore`.
 
 #### Despliegue en Render desde GitHub
@@ -2325,6 +2906,44 @@ Fuentes oficiales de Render consultadas el **2026-10-07**: https://render.com/do
 | Respuestas 502 `upstream_auth_failed` / `upstream_no_balance` | `DEEPSEEK_API_KEY` incorrecta (401) o saldo de DeepSeek agotado (402). |
 
 Después de corregir un ajuste o una variable, pulsa **Manual Deploy** → **Deploy latest commit** (cambiar una variable de entorno también redespliega por sí solo). Si sigue fallando, copia las últimas líneas de **Logs** (sin claves) y pásaselas a Claude.
+
+#### Guía paso a paso para la usuaria: crear el proyecto de Firebase (v1.6.0)
+Necesitas una cuenta de Google (cualquiera sirve) y la consola de Firebase, https://console.firebase.google.com. Es el plan gratuito **Spark**, que no pide tarjeta *(que no la pida: **por verificar** al crear el proyecto)*. Los límites del plan están en §2.2 (consultados el 2026-10-19). **Las pantallas y los nombres de los menús los escribí de memoria de la consola y pueden haber cambiado**: lo marcado «por verificar» hay que confirmarlo mirando la consola real, y si algo no coincide, avisa a Claude antes de seguir. Nunca pegues claves en el chat ni en archivos del repositorio.
+
+1. **Crear el proyecto.** En la consola pulsa **Crear un proyecto** (*Create a project* / *Add project*), ponle un nombre (por ejemplo `clearread`) y acepta. Si ofrece **Google Analytics**, desactívalo: ClearRead no usa telemetría *(que lo ofrezca: por verificar)*.
+2. **Activar el acceso con correo y contraseña.** En el menú izquierdo: **Compilación** (*Build*) → **Authentication** → **Comenzar** (*Get started*) → pestaña **Método de acceso** (*Sign-in method*) → **Correo electrónico/contraseña** → activa **Habilitar** y pulsa **Guardar**. **No** actives «Vínculo del correo electrónico (acceso sin contraseña)». No actives Google: es la fase 2.
+3. **Activar la protección contra la enumeración de correos, si aparece.** En Authentication → **Configuración** (*Settings*) busca algo llamado **Protección contra la enumeración de correo electrónico** (*Email enumeration protection*) y actívala. *(Dónde está y cómo se llama: **por verificar**; en algunos proyectos viene activada por defecto y en otros la opción no existe.)* Con ella, los fallos al entrar pueden llegar como `INVALID_LOGIN_CREDENTIALS`; el backend ya lo tiene en cuenta (§4.14.2).
+4. **Crear la base de datos.** **Compilación** → **Firestore Database** → **Crear base de datos**. Deja el identificador `(default)`. Elige una **ubicación** (no se puede cambiar después; conviene una cercana a la región de Render, aunque no es obligatorio *(opciones y si exige plan de pago: **por verificar**)*). Elige el modo de **producción** (*production mode*), que arranca con todo denegado.
+5. **Pegar las reglas de seguridad.** En Firestore → pestaña **Reglas** (*Rules*), borra el contenido y pega **exactamente** las de §4.14.7 (empiezan con `rules_version = '2';`). Pulsa **Publicar** (*Publish*). Estas reglas hacen que cada persona solo pueda leer y escribir su propio perfil.
+6. **Copiar el identificador del proyecto y la clave de API web.** Pulsa la rueda dentada junto a «Descripción general del proyecto» → **Configuración del proyecto** → pestaña **General**. Copia el **ID del proyecto** (*Project ID*) y la **Clave de API web** (*Web API Key*) *(en qué parte de la página aparece la clave: **por verificar**; en algunos proyectos hay que registrar antes una «app web» para verla)*. La clave de API web de Firebase no es tan secreta como la de DeepSeek, pero **no la subas a GitHub**.
+7. **Cargar las variables.** Añade estas tres líneas a `backend/.env` (que git ignora) y las mismas tres en el panel de Render (servicio → **Environment**), sin espacios ni comillas:
+
+   | Variable | Qué poner |
+   |:---|:---|
+   | `FIREBASE_API_KEY` | La Clave de API web del paso 6 |
+   | `FIREBASE_PROJECT_ID` | El ID del proyecto del paso 6 |
+   | `USER_DAILY_CALL_LIMIT` | `15` (consultas de IA por usuario y por día) |
+
+   El archivo `render.yaml` necesitará esas variables con `sync: false`, igual que las secretas de hoy; **eso es un cambio de código que se hace más adelante** (día V2/V5 de §6.5): por ahora solo cárgalas a mano en Render.
+8. **Personalizar el correo de recuperación en español.** En Authentication → **Plantillas** (*Templates*) → **Restablecimiento de contraseña** (*Password reset*): pulsa el lápiz, cambia el **idioma** a Español, escribe el **nombre del remitente** (por ejemplo `ClearRead`) y revisa el **asunto** y el **mensaje**; deja `%LINK%` en el texto, porque ahí va el enlace. Haz lo mismo con la plantilla **Verificación de dirección de correo**. *(Los correos salen de una dirección de Firebase del tipo `noreply@…firebaseapp.com`; pueden caer en «no deseado» y eso es normal al principio. Si se puede cambiar el remitente o el idioma por plantilla sin dominio propio: **por verificar**.)* El texto del correo lo pone Firebase, no la app: no queda en `strings.py`.
+9. **Probar.** Con el backend en local (comandos de «Ejecución local») y la app, crea una cuenta de prueba, entra, pide el correo de recuperación y, al terminar, bórrala desde Ajustes → Cuenta. Anota qué funcionó y qué no; hasta entonces no se afirma que funcione (§8).
+
+#### Guía paso a paso para la usuaria: activar Google (v1.7.0)
+**Hazla antes de la prueba real de la fase 2** (implementada en código, sin prueba real; §4.14.11 y §8). Proyecto de Firebase: **`clearread-4f934`**. Igual que la guía anterior, los nombres de menús salen de la documentación consultada el 2026-10-19 y de memoria de las consolas; lo marcado «por verificar» hay que mirarlo en la consola real y avisar a Claude si no coincide. **Nunca pegues el secreto del cliente en el chat, en archivos del repositorio ni en capturas.**
+
+1. **Activar el proveedor Google en Firebase.** Consola de Firebase → proyecto `clearread-4f934` → **Authentication** → pestaña **Método de acceso** → **Agregar proveedor nuevo** → **Google** → **Habilitar**, elige el correo de soporte y **Guardar** (https://firebase.google.com/docs/auth/web/google-signin, consultada el 2026-10-19; el nombre exacto de los botones: **por verificar**).
+2. **Obtener el ID y el secreto del cliente web.** En Google Cloud (el proyecto de Google que respalda a Firebase) → **Google Auth Platform → Clientes** (antes «APIs y servicios → Credenciales»). Puedes usar el cliente web que Firebase crea solo al habilitar Google o **crear uno nuevo** con *Crear cliente* → *Aplicación web* (https://support.google.com/cloud/answer/6158849). Copia el **ID de cliente** y el **secreto**; el secreto solo se muestra al crearlo en algunos casos, así que guárdalo enseguida. *(Dónde los muestra la consola de **Firebase** dentro del proveedor Google: **por verificar**. Si usas un cliente nuevo, hay que pegar su ID y su secreto en el proveedor Google de Firebase para que `accounts:signInWithIdp` acepte su `id_token`: **por verificar** en una prueba real.)* Si Google pide configurar la **pantalla de consentimiento**, hazlo con el tipo de usuario que corresponda y añade tu cuenta como usuaria de prueba mientras la app esté en modo de prueba.
+3. **Añadir el URI de redirección autorizado.** En ese cliente web, en **URIs de redirección autorizados**, añade exactamente `https://<url-de-render>/v1/auth/google/callback` (hoy `https://clearread-api.onrender.com/v1/auth/google/callback`). Debe coincidir **carácter por carácter** (esquema, host, ruta, sin barra final) o Google responde `redirect_uri_mismatch`. Para probar en local añade también `http://localhost:8000/v1/auth/google/callback` (Google admite `localhost` sin HTTPS). Los cambios pueden tardar de 5 minutos a unas horas en aplicarse.
+4. **Cargar las variables.** En `backend/.env` (ignorado por git) y en Render (servicio → **Environment**), sin espacios ni comillas:
+
+   | Variable | Qué poner |
+   |:---|:---|
+   | `GOOGLE_OAUTH_CLIENT_ID` | El ID de cliente del paso 2 |
+   | `GOOGLE_OAUTH_CLIENT_SECRET` | El secreto del paso 2 |
+   | `PUBLIC_BASE_URL` | `https://clearread-api.onrender.com` (en local, `http://localhost:8000`). Si no la pones, el backend usa `RENDER_EXTERNAL_URL`, que Render define solo |
+
+   `render.yaml` las declara con `sync: false` (cambio de código que viene con la fase 2).
+5. **Probar.** Con el backend en local o en Render y la app: crea una cuenta con correo, entra, **vincula Google**, cierra sesión y **entra con Google**; luego prueba con otra cuenta de Google que **no** esté vinculada y comprueba en Authentication → Usuarios que no se creó ningún usuario nuevo. Anota qué funcionó; hasta entonces no se afirma que funcione (§8).
 
 #### Token del cliente en el `.exe`
 El token **no se versiona**. `load_client_token()` (`core/config.py`) lo busca en este orden: variable de entorno `CLEARREAD_CLIENT_TOKEN` (desarrollo) y el archivo `resources/client_token.local.json` (`{"client_token": "..."}`), que el build genera con ese mismo valor y que `*.local.json` mantiene fuera de git. `clearread.spec` debe incluirlo como dato (lo define el *packager* en el Día 12). Quien tenga el `.exe` puede extraer el token (§4.11, límite honesto).
@@ -2469,6 +3088,23 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 
 > **Renumeración del 2026-10-07:** el cronograma (§6.5) ahora es D12 = rediseño, D13 = `.exe` final y D14 = prueba en máquina limpia y video. Donde los puntos de abajo dicen "Día 12" para compilar o probar el `.exe`, léase **Día 13** (compilar) o **Día 14** (máquina limpia).
 
+- **v1.6.0 «Cuentas y perfil sincronizado» (2026-10-19), pendientes y límites (§4.14).** El código de §4.14.8 ya existe en el repositorio, con sus tests en `tests/` y `backend/tests/` (Firebase simulado). **Nada de esto se ha probado contra un Firebase real ni contra Render**, y lo que sigue está **sin hacer o sin comprobar** (se anotará aquí cuando se ejecute cada día V1–V6 de §6.5). El dictamen de §7 sigue describiendo la 1.5.0.
+  - **Revisión legal del aviso de privacidad.** La app pasará a guardar **datos personales** (nombre y correo, más ajustes y palabras) en servicios de Google (Firebase). Hay que revisar el aviso (`auth.privacy_body`, hoy un **borrador**) frente a la **Ley 1581 de 2012** de Colombia (protección de datos personales): consentimiento, finalidad, derechos de la persona, y si el almacenamiento en servidores fuera del país exige algo más *(esto último: por verificar)*. **La redacción definitiva la confirma el profesor**; no la da por buena esta documentación.
+  - **Último que escribe, gana.** Con dos equipos editando sin conexión a la vez, se pierden los cambios del guardado más antiguo, sin aviso; y un reloj mal puesto puede hacer ganar una versión vieja (§4.14.9). Mejora posible: unir las palabras por fecha e identificador.
+  - **Arranque en frío de Render y primer inicio de sesión.** Render duerme el backend tras 15 min sin tráfico (§2.2). Ahora **el primer inicio de sesión también puede toparse con el arranque en frío**: la única medición que existe (una sola, abajo: 38,40 s la primera petición tras un periodo sin tráfico) es de la IA, no de las cuentas. La pantalla de entrada espera hasta 60 s y avisa («Despertando el servidor…»); **no se ha medido** el inicio de sesión real.
+  - **Pruebas reales pendientes** contra un Firebase de pruebas y contra Render: registro, entrada, cadenas de error reales de Firebase (§4.14.2), correo de recuperación y su plantilla en español, `updateMask` del `PATCH`, **reglas de seguridad** (un usuario no puede leer el perfil de otro), perfil entre dos equipos, borrado de cuenta (¿exige inicio de sesión reciente?), tamaño de documento y la cuota de `accounts:lookup`.
+  - **Recompilar el `.exe`** (módulos de §4.13 y §4.14) y repetir la prueba en máquina limpia: primer inicio de sesión con red, reapertura sin red, sesión DPAPI en el `.exe` compilado (V6 de §6.5). Además, `render.yaml` necesita las variables `FIREBASE_*` y `USER_DAILY_CALL_LIMIT` con `sync: false` (cambio de código pendiente).
+  - **Decisiones tomadas el 2026-10-19** (decisión del supervisor, **pendiente de confirmación por la usuaria**; detalle en §4.14.1): (a) **pantalla de acceso antes de tener perfil** con un archivo no sincronizado `device.json` (`theme` y `ui_language`), que se actualiza al cambiar el tema o el idioma del perfil; antes de entrar se usa `DEFAULT_BACKEND_URL`; (b) **borrar la cuenta borra también la carpeta local del perfil** (AUTH-F06); (c) **idioma remoto distinto del local:** se aplica en el próximo inicio, sin reinicio automático; (d) **cerrar sesión** vuelve a la pantalla de entrada sin relanzar la app.
+  - **Decisión abierta para la usuaria.** **`ai_privacy_accepted` viaja con la cuenta**, así que quien ya aceptó el aviso de IA no lo vuelve a ver en otro equipo; confirmar que es lo deseado.
+  - **Límites de cuota y de diseño.** (a) Con `DAILY_CALL_LIMIT = 45` global y 15 por usuario, **tres usuarios activos agotan el tope global**; hay que decidir si subir el global o bajar el de usuario (el cálculo de costo de §4.11 no se rehízo). **Decisión pendiente de la usuaria.** (b) Las cuentas nuevas por hora son **por IP** y todo sale de la IP de Render: el tope de 100/h es compartido (§2.2). (c) Un usuario borrado o deshabilitado sigue siendo aceptado hasta 1 h por la caché de tokens. (d) El registro con un correo ya usado revela que existe (`409 email_exists`). (e) No hay endpoint para **reenviar** el correo de confirmación ni para **cambiar la contraseña** dentro de la app: se usa el enlace de recuperación. (f) El contador «Asistente hoy: N de 15» del lienzo aprobado necesitaría un endpoint que no está especificado, por lo que **no está en la fase 1**.
+  - **Fase 2 (Google, v1.7.0), implementada en código (2026-10-19) y sin prueba real (§4.14.11).** La excepción de red **ya está aprobada** por la usuaria (`QDesktopServices.openUrl` solo en `services/browser_launcher.py`, `CLAUDE.md` §f y `offline-audit`); no hay puerto local. **Sin prueba real.** Por verificar (todas con una prueba real o mirando la consola): (a) **PKCE `S256` en el flujo de cliente web con `client_secret`** (la página oficial de aplicaciones web de servidor no lo menciona en la parte leída; sí la de aplicaciones de escritorio); (b) si `client_secret` es obligatorio para el cliente web (la tabla oficial lo marca opcional); (c) los textos de error de Firebase `FEDERATED_USER_ID_ALREADY_LINKED` y `EMAIL_EXISTS` al vincular (la referencia los nombra, pero las secciones de la página REST general de Firebase no se pudieron leer), `INVALID_ID_TOKEN` y `USER_DISABLED`; (d) que `providerUserInfo[].providerId` sea `google.com`; (e) **el caso del mismo correo (riesgo conocido, pendiente de prueba real)**: con «una cuenta por correo», entrar con Google cuando existe una cuenta de correo con ese correo y Google no está vinculado podría devolver esa cuenta con `isNewUser: false` sin haber vinculado nada (§4.14.11). **Mitigación implementada en código (2026-10-20), sin prueba real:** el backend escribe `google_linked_at` en `profiles/<uid>` al vincular y `sign_in` la exige (si falta: `google_not_linked`, sin borrar la cuenta; si no se puede leer: `auth_upstream_error`); las cuentas vinculadas antes de este cambio deben volver a vincular; hay que comprobar con una prueba real que `PATCH` con `updateMask` conserva la marca tras sincronizar; (f) que el `id_token` de un cliente web distinto al configurado en Firebase sea aceptado; (g) dónde muestra la consola de Firebase el ID y el secreto del cliente web y cómo se llama el campo del URI de redirección; (h) cuánto tardan los cambios del URI; (i) que en Render el filtro `RedactGoogleAccessLog` oculte de verdad `/begin/<attempt_id>` y el `?code=…&state=…` del `callback` en el registro de uvicorn (§4.14.11); (j) que el aviso de privacidad mencione a Google; (k) **la prueba real completa** (vincular, entrar, cancelar, ya vinculada, no vinculada sin crear usuario, reinicio de Render a mitad). **Contraste del botón de Google: medido** (texto ≥ 8,53:1 y borde ≥ 8,53:1 en ambos temas; cifras en A.11).
+- **Pendientes de la UI de cuentas (2026-10-19).**
+  - ~~**Contraste de los pares nuevos sobre `surface`.**~~ **MEDIDO (2026-10-19, `contrast.py` de la skill `contrast-check`, validado antes con 21.00 / 5.75 / 4.44):** todos ≥ 7:1. Claro: `#392F5A/#DDD4EF` 8.53, `#43386B/#DDD4EF` 7.31, `#392F5A/#EDE8F7` 10.12, `#43386B/#EDE8F7` 8.67, `#392F5A/#F4D06F` 8.16, `#392F5A/#D2C7EA` 7.58. Oscuro: `#E4DCF3/#2B2344` 11.10, `#D8CEEE/#2B2344` 9.80, `#E4DCF3/#392F5A` 9.16, `#CFC4E8/#2B2344` 8.91, `#E4DCF3/#4A3D75` 7.15, `#392F5A/#F4D06F` 8.16, `#F4D06F/#2B2344` 9.88.
+  - **Sin probar:** teclado físico, Narrador y escalado de Windows al 150 % en las pantallas de acceso y en la sección «Cuenta».
+  - **Sin probar contra servicios reales:** Firebase y Render (V5 de §6.5). Ningún resultado de §4.14 está comprobado con ellos.
+  - **`.exe` sin recompilar:** los módulos de v1.6.0 no están en ningún `dist/` (V6 de §6.5).
+  - **Decisión pendiente de la usuaria:** tope diario global (`DAILY_CALL_LIMIT = 45`) frente al tope por usuario (`USER_DAILY_CALL_LIMIT = 15`). Con tres usuarios activos al día se agota el global.
+  - **Decisiones de implementación de §4.14.9** (2026-10-19, letras (a) a (f)): pendientes de confirmación de la usuaria.
 - **Día 13 — `.exe` final en este equipo (2026-10-07), resultado parcial.** `clearread.spec` creado y compilado con `--clean --noconfirm` (compilación ~2 min 20 s con `time` de Bash en este equipo): `dist/ClearRead` pesa **321 MB** (`du`), con PySide6 92 MB, `cv2` 83 MB, `onnxruntime` 36 MB, `numpy.libs` 21 MB y `rapidocr_onnxruntime` 16 MB. Verificado en `dist/`: fuentes con licencias, modelos ONNX, iconos (incluidos `app.ico`, `qico`, `qsvg`, `networkinformation`), ejemplo, `upx=False`, sin `fastapi`/`uvicorn`/`DEEPSEEK_API_KEY`/`sk-…`; `offline-audit` sin fallos. La primera compilación falló al arrancar por falta de `silabeador/exceptions.lst`; se añadió al spec. El `.exe` abre la ventana de Inicio con el icono en el título (~7 s hasta tener ventana, medido con `Stopwatch`; la meta de < 2 s de §6.3 **no** se cumple en este equipo). **Esta compilación usó un token de relleno** porque la creación de `resources/client_token.local.json` desde `backend/.env` no se autorizó; por eso **no hay `.zip` ni SHA256 todavía** y no se probó la IA contra Render. No se probaron a mano (no hay control de la interfaz en esta sesión): ejemplo, OCR, voz, pausa, clic en palabra, modo foco, temas, fuente, idioma, "Mis palabras" y recientes. **Máquina limpia: pendiente (la hace la usuaria, §6.6 «Publicación y prueba en máquina limpia»).**
 - **Cambios del 2026-10-18 (§4.13), pendientes y límites.** Lo ejecutado: suite de la app 1424 passed, 1 skipped (2026-10-18, equipo de desarrollo; la tanda anterior fue 1338 passed, 1 skipped); backend 52 passed (no se repitió en la segunda tanda); capturas con la app real en pantalla virtual. **Sin hacer:**
   - **Recompilar el `.exe`** con `clearread.spec` (los módulos nuevos de §4.13 no están en la compilación del Día 13) y **repetir la prueba en máquina limpia** (§6.6 «Publicación y prueba en máquina limpia»), incluidos los pasos manuales nuevos (clic/doble clic, páginas, biblioteca, temas, reinicio de idioma).
@@ -2511,7 +3147,7 @@ La especificación de arquitectura, el diseño de interfaces y el plan de contin
 
 ## Anexo A. Design system
 
-> **Versión:** 2.1 (v2.0 del rediseño del Día 12 de §6.5, más las adiciones del 2026-10-18 de §4.13) · **Fecha:** 2026-10-18. Este anexo reúne el antiguo documento de design system, que se fusionó aquí; la carpeta `docs/` y sus capturas se eliminaron del repositorio por decisión de la usuaria.
+> **Versión:** 2.2 (v2.0 del rediseño del Día 12 de §6.5, más las adiciones del 2026-10-18 de §4.13 y las de cuentas de la v1.6.0 del 2026-10-19) · **Fecha:** 2026-10-19. **Adiciones de la v1.7.0 (implementadas en código, sin prueba real, §8):** botón de Google en Entrar (A.4.11), fila de Google en «Cuenta» (A.4.12), pantalla de espera (A.4.13) y excepción de la «G» (A.11). **Adiciones del 2026-10-19 (§4.14):** pares de contraste de las pantallas de cuenta (final de [A.1.3](#a13-contraste-salida-de-contrastpy)), moléculas A.3.11–A.3.15, organismos A.4.11 (pantalla de acceso) y A.4.12 (sección «Cuenta»), plantilla A.5.4, navegación A.7 y la excepción futura del botón de Google ([A.11](#a11-decisiones-y-tareas-pendientes)). **Ningún color ni token nuevo.** Las pantallas de la fase 1 (correo y contraseña) y las de Google están **construidas en código**; todavía **no se han probado contra Firebase real** (§8). Este anexo reúne el antiguo documento de design system, que se fusionó aquí; la carpeta `docs/` y sus capturas se eliminaron del repositorio por decisión de la usuaria.
 > **Estado:** decisiones de la usuaria (2026-10-07) ya aplicadas en el código. La versión 1.0 (Día 2) queda sustituida; sus mockups v1 (3 temas, turquesa y naranja) **no representan** la app actual y ya no están en el repositorio.
 > **Adiciones del 2026-10-18 (§4.13):** chip de carpeta/tema ([A.2.10](#a210-chip-de-carpeta-o-tema)), cabecera de la biblioteca ([A.4.9](#a49-biblioteca-en-inicio-home-f04)), botones de las tarjetas de carpeta y tema ([A.3.4](#a34-tarjeta-de-documento-de-la-biblioteca) y [A.3.9](#a39-tarjeta-de-palabra-ai-f05)), barra de páginas y modos de vista ([A.4.10](#a410-barra-de-páginas-y-modos-de-vista-ui-f06-ui-f07)). **Primera tanda: ningún color ni token nuevo.** **Segunda tanda: dos tokens nuevos**, `selection-bg` y `selection-fg` ([A.1.2](#a12-tokens-semánticos-por-tema)), más el botón «Sílabas» ([A.3.2](#a32-control-de-reproducción)) y el selector «Guardar en:» ([A.3.1](#a31-zona-de-arrastre)). Las capturas reales (v2 y v3) se retiraron del repositorio por decisión de la usuaria (ver [A.6](#a6-páginas)).
 
@@ -2730,6 +3366,26 @@ Tema por defecto: **Claro**. Un archivo `config.json` antiguo con `"high_contras
 
 Para repetir la medición: `.\.venv\Scripts\python .claude\skills\contrast-check\contrast.py "<texto>/<fondo>" ...`. **Cualquier cambio de color obliga a volver a medir y a actualizar esta sección.**
 
+##### Pares nuevos de la v1.6.0 (pantallas de cuenta, 2026-10-19)
+
+Las pantallas de acceso y la sección «Cuenta» (A.4.11 y A.4.12) **no añaden colores ni tokens**. Cada par que usan, y dónde aparece medido arriba:
+
+| Uso en las pantallas nuevas | Par | Claro | Oscuro | Dónde está medido |
+|:--|:--|--:|--:|:--|
+| Título, etiquetas, texto de la tarjeta, enlaces subrayados, icono «!» y casilla | `text` / `surface` (y `secondary` / `surface`, mismo par de colores) | 8,53 | 11,10 | Tabla «Texto» de arriba |
+| Introducción, ayudas de 13 px y «¿Todavía no tienes cuenta?» | `text-muted` / `surface` | 7,31 | 9,80 | Tabla «Texto» de arriba |
+| Texto escrito dentro de los campos | `text` / `bg` | 10,12 | 9,16 | Tabla «Texto» de arriba |
+| Botón «Entrar» y «Crear cuenta» (primario), inicial del avatar, marca ✓ del paso 2 | `primary-fg` / `primary-bg` | 8,16 | 8,16 | Tabla «Texto» de arriba |
+| Botón primario deshabilitado (borde discontinuo) | `disabled-fg` / `disabled-bg` | 7,31 (mismo par que `text-muted` / `surface`) | 8,91 | Claro: tabla «Texto»; Oscuro: solo en la «Salida literal» (`#CFC4E8 / #2B2344`), no en las tablas |
+| Botón secundario o enlace con el ratón encima | `secondary` / `secondary-bg-hover` | 7,58 | 7,15 | Tabla «Texto» de arriba |
+| Borde de la tarjeta, de los campos y borde discontinuo | `border` / `surface` · `border` / `bg` | 4,04 · 4,79 | 4,93 · 4,07 | Tabla «No texto» de arriba (≥ 3,0) |
+| Anillo de foco en campos, enlaces y botones secundarios | `focus-ring` / `surface` · `bg` | 8,53 · 10,12 | 9,88 · 8,16 | Tabla «No texto» (Oscuro `/ surface`: solo en la «Salida literal») |
+| Anillo de foco sobre el botón primario | `focus-ring-primary` / `primary-bg` | 8,16 | 10,49 | Tabla «No texto» |
+
+**Único par nuevo, medido el 2026-10-19** con `.claude/skills/contrast-check/contrast.py` (el script se validó antes con `#000000/#FFFFFF` = 21,00, `#1565C0/#FFFFFF` = 5,75 y `#D84315/#FFFFFF` = 4,44, que coincidieron): `primary-bg` `#F4D06F` / `surface` `#DDD4EF` = **1,05** (FAIL; es un fondo, no texto). Afecta al relleno amarillo de la casilla marcada y al disco del avatar en el tema Claro, donde el amarillo casi no se distingue de la tarjeta: por eso ambos llevan **borde de 2 px** (`secondary` en la casilla, `primary-border` en el avatar; 8,53:1, medido arriba) y la señal no es el relleno. En el Oscuro el par equivalente (`#F4D06F` / `#2B2344`) vale 9,88 (en la «Salida literal»).
+
+**Regla.** Antes de aceptar la UI de la v1.6.0 hay que volver a medir con la skill `contrast-check` cualquier par de texto o de fondo que **no** figure en esta sección, y `tests/test_theme.py` debe seguir en verde. Esta tabla es una **verificación de diseño sobre los hex de los tokens**, no una medición de las pantallas ya construidas.
+
 #### A.1.4 Tipografía
 
 ##### Fuentes
@@ -2941,6 +3597,26 @@ Primer uso (NFR-SEC01): tarjeta con borde **2 px** `text`, candado, título "Ant
 `Card` sobre la columna de lectura: título, "Estabas en la palabra 56 de 165.", botón secundario "Empezar de nuevo" y primario **"Seguir"**. Aparece solo si el documento se dejó a medias (después de la 1.ª palabra y antes de la última).
 
 
+#### A.3.11 Campo con etiqueta (v1.6.0)
+
+Etiqueta de 15 px semibold en `text` **encima** del campo, a 4 px (`space-1`). El campo es el de [A.2.5](#a25-campo-de-texto-y-combobox): 40 px, borde 2 px `border`, `radius-md`, fondo `bg`, y con foco de teclado borde de 3 px `focus-ring`. **Nunca se usa un texto de ayuda dentro del campo (*placeholder*) en lugar de la etiqueta**: la etiqueta siempre es visible y es el nombre accesible del campo (`QLabel.setBuddy`). Cada campo lleva debajo, si hace falta, un [mensaje en línea](#a313-mensaje-en-línea-v160). Tipos: correo (`QLineEdit`, sin corrección automática) y nombre (hasta 40 caracteres).
+
+#### A.3.12 Campo de contraseña con mostrar y ocultar (v1.6.0)
+
+Un [campo con etiqueta](#a311-campo-con-etiqueta-v160) cuyo contenedor lleva a la derecha un **botón de texto** de 32 px de alto y 10 px de relleno, subrayado, semibold, en `text`, que dice **«Mostrar»** o **«Ocultar»** (es una palabra, no solo un icono; su nombre accesible es «Mostrar la contraseña» / «Ocultar la contraseña»). Alterna entre puntos y texto; por defecto oculta. El borde del contenedor (2 px `border`; 3 px `focus-ring` cuando el foco de teclado está en el campo) rodea las dos partes. El botón entra en el orden de Tab justo después del campo. Se permite pegar. El *hover* del botón usa el fondo `secondary-bg-hover` (7,58:1 en Claro, 7,15:1 en Oscuro).
+
+#### A.3.13 Mensaje en línea (v1.6.0)
+
+Debajo del campo al que se refiere (o, si el problema es general, encima del botón principal): un **círculo de 20 px con borde de 2 px `text` y un «!» en negrita de 12 px**, a 8 px del texto; el texto va en `text`, 15 px, interlineado 1,4. **No hay rojo ni otro color** (P7: icono + texto). Es el mismo lenguaje del icono de A.4.6 y del estado de error de A.4.4. Cada mensaje nuevo se anuncia a `QAccessible` como alerta, pero la ayuda de contraseña («Usa al menos 8 caracteres. Llevas {count}.») solo se vuelve a anunciar al cruzar el umbral, no en cada tecla. Tras un error, el foco vuelve al primer campo con problema.
+
+#### A.3.14 Tarjeta de acceso (v1.6.0)
+
+`Card` de **440 px** de ancho, fondo `surface`, borde 1 px `border`, `radius-lg` (12 px), **relleno de 32 px** (`space-8`) y 16 px entre sus elementos (`space-4`). Centrada en el área bajo la barra superior. Es la única tarjeta de la pantalla: nada de columnas, ilustraciones ni segunda tarjeta al lado. Se desplaza solo en vertical si la ventana es más baja que la tarjeta.
+
+#### A.3.15 Casilla con aviso y enlace (v1.6.0)
+
+Casilla de 22 px (como A.2.3: borde `secondary`, marcada = relleno amarillo con ✓ en `primary-fg`) con su frase a la derecha, a 12 px, en 15 px e interlineado 1,4. En vez del «Sí / No» de A.2.3, **la propia frase** es la segunda señal. Como un `QCheckBox` no puede llevar un enlace dentro, el enlace «Leer el aviso de privacidad» va **debajo**, como un botón plano **subrayado** (variante `link`: texto `text` semibold, subrayado siempre, sin cambiar de color; *hover* con fondo `secondary-bg-hover` y cursor de mano; foco de teclado con anillo de 3 px `focus-ring`). El aviso se abre en un diálogo de la app (`auth.privacy_title`), **nunca en el navegador** (`offline-audit`, búsqueda 8).
+
 ### A.4 Organismos
 
 #### A.4.1 Barra superior de navegación
@@ -2950,6 +3626,7 @@ Alto **56 px**, fondo `surface`, borde inferior 1 px `border`, relleno lateral 2
 - **Lectura:** "← Inicio" · título del documento centrado (truncado con "…") · "Asistente" (alternable; se desactiva sin internet, con *badge* "Sin internet") · "Mis palabras" · "Ajustes".
 - **Mis palabras / Ajustes:** "← Volver" · título.
 - **Procesando:** "Ajustes" deshabilitado.
+- **Acceso (v1.6.0):** solo la **marca** (icono + «ClearRead»); sin «Ajustes» ni otros botones ([A.4.11](#a411-pantalla-de-acceso-loginview-v160)).
 
 #### A.4.2 Lector (`ReaderWidget`)
 
@@ -2977,7 +3654,7 @@ Alto **80 px**, fondo `surface`, borde superior 1 px, contenido de hasta 980 px.
 
 #### A.4.5 Panel de ajustes
 
-- Pantalla completa con dos columnas (controles flexibles · "Vista previa" de 420 px). Secciones: **Tema** (2 tarjetas-radio, Claro y Oscuro, con muestra "Aa"), **Texto** (**fuente de lectura**, tamaño, interlineado, espacio entre letras en em, entre palabras en em, sílabas de colores), **Voz** (velocidad, voz; la lista muestra primero las voces del idioma de la interfaz y, al arrancar, la app elige una voz de ese idioma si la actual no lo es) e **Idioma** (de la interfaz; se aplica al reiniciar, con aviso).
+- Pantalla completa con dos columnas (controles flexibles · "Vista previa" de 420 px). Secciones: **Cuenta** (v1.6.0, primera tarjeta; [A.4.12](#a412-sección-cuenta-de-ajustes-v160)), **Tema** (2 tarjetas-radio, Claro y Oscuro, con muestra "Aa"), **Texto** (**fuente de lectura**, tamaño, interlineado, espacio entre letras en em, entre palabras en em, sílabas de colores), **Voz** (velocidad, voz; la lista muestra primero las voces del idioma de la interfaz y, al arrancar, la app elige una voz de ese idioma si la actual no lo es) e **Idioma** (de la interfaz; se aplica al reiniciar, con aviso).
 - **Fuente de lectura:** desplegable con "Lexend (recomendada)", "Atkinson Hyperlegible" y "OpenDyslexic", y la nota "Ninguna fuente funciona igual para todas las personas: elige la que te resulte más cómoda."
 - **No hay "Ajustes avanzados"** (decisión de la usuaria, 2026-10-07): la dirección del asistente sigue en `AppConfig.backend_url` pero no se muestra. Tampoco hay campo de API key.
 - "Restablecer valores" (vuelve a la apariencia por defecto, conserva voz e idioma) y la tarjeta "Tu privacidad" con "Borrar documentos recientes".
@@ -3012,6 +3689,44 @@ Barra bajo el lector (contenido de hasta 980 px, 16 px entre elementos), visible
 **Contraste.** Estos componentes reutilizan pares de [A.1.3](#a13-contraste-salida-de-contrastpy) ya medidos con `contrast.py` (chip marcado = botón primario, 8,16:1). **No se midió aparte** el color del asa de la barra de desplazamiento ni el borde `border` de los chips sin marcar frente al fondo; `tests/test_theme.py` sigue comprobando que todo hex pertenece a la paleta.
 
 
+#### A.4.11 Pantalla de acceso (`LoginView`, v1.6.0)
+
+Se muestra al abrir la app **sin sesión guardada**, y también al cerrar sesión, al borrar la cuenta o cuando la sesión terminó. Un `QStackedWidget` con tres páginas, cada una con **una sola** [tarjeta de acceso](#a314-tarjeta-de-acceso-v160) centrada. Basada en el lienzo aprobado (pantallas 1, 2, 3, 5 y 6), **sin «Seguir sin cuenta»**. Desde la v1.7.0 *(implementado en código, sin prueba real, §8)* la página Entrar lleva además el botón «Entrar con Google» (fase 2, A.11) y hay una pantalla de espera (A.4.13). Los textos están en §4.14.10.
+
+**Barra superior de las pantallas de acceso:** solo la **marca** (icono de libro + «ClearRead», sin «Ajustes» ni navegación). Por eso el «← Volver» de las páginas 2 y 3 va **dentro de la tarjeta**, como botón fantasma arriba a la izquierda (`nav.back`), y no en la barra como en el lienzo.
+
+| Página | Contenido de la tarjeta, de arriba abajo |
+|:--|:--|
+| **1. Entrar** | Título «Entra a tu cuenta» (24 px bold) y frase de introducción (`text-muted`) · *(v1.7.0)* botón secundario de ancho completo **«Entrar con Google»** con la «G» multicolor de 20 px a la izquierda del texto (`google_g.svg`, A.11), **encima** del separador · *(v1.7.0)* separador con el texto «o con tu correo» (13 px, `text-muted`, líneas de 1 px `border`) · [Campo](#a311-campo-con-etiqueta-v160) **Correo** · [Campo de contraseña](#a312-campo-de-contraseña-con-mostrar-y-ocultar-v160) · enlace subrayado «¿Olvidaste tu contraseña?» · botón primario **«Entrar»** · separador de 1 px `border` · fila con «¿Todavía no tienes cuenta?» (`text-muted`) y el botón secundario **«Crear cuenta»**. |
+| **2. Crear cuenta** | «← Volver» · título «Crear cuenta» · **Nombre** · **Correo** · **Contraseña** con su mensaje en línea («Usa al menos 8 caracteres. Llevas 6.») · [casilla del aviso](#a315-casilla-con-aviso-y-enlace-v160) y su enlace · botón primario **«Crear cuenta»**, **deshabilitado (fondo `disabled-bg`, texto `disabled-fg`, borde discontinuo de 2 px y *tooltip*)** hasta marcar la casilla; los campos se validan al enviar y cada error aparece junto a su campo · nota «Te enviaremos un correo para confirmar que es tuyo…» (13 px, `text-muted`). |
+| **3. Recuperar contraseña** | «← Volver» · rótulo «Paso 1 de 2» (13 px semibold `text-muted`) · «¿Olvidaste tu contraseña?» · frase · **Correo** · primario **«Enviar enlace»**. Al enviar, la **misma tarjeta** pasa al paso 2: «Paso 2 de 2» · disco de 32 px (`primary-bg`, borde 2 px `primary-border`, ✓ en `primary-fg`) con «Revisa tu correo» · «Si {email} tiene una cuenta, te llegará un enlace en unos minutos.» · lista numerada de 3 pasos · «¿No llega? …» (13 px) · botones secundario **«Enviar otra vez»** y primario **«Volver a entrar»**. *(El lienzo dibuja los dos pasos lado a lado solo para mostrar el flujo: en la app se ve uno a la vez. El mensaje del paso 2 es el mismo exista o no el correo, AUTH-F04.)* |
+
+**Estados.** *Enviando:* el botón principal pasa a «Entrando…», «Creando tu cuenta…» o «Enviando…», se deshabilita (borde discontinuo) y los campos se bloquean; debajo, la barra de progreso indeterminada de [A.2.6](#a26-barra-de-progreso) (8 px). *Despertando el servidor:* si la sonda de `/health` no responde, una línea con el icono de reloj y «Despertando el servidor. Puede tardar cerca de un minuto.» más un botón fantasma «Cancelar» (mismo patrón que el estado C de [A.4.4](#a44-panel-lateral-de-ia)), hasta 60 s. *Sin internet:* el *badge* «Sin internet» ([A.2.8](#a28-badge)) arriba a la derecha de la tarjeta y la línea «Para entrar por primera vez en este equipo necesitas internet.»; el botón sigue habilitado (si falla, sale el error de red). *Error:* [mensaje en línea](#a313-mensaje-en-línea-v160); un `invalid_credentials` va bajo la contraseña, sin decir cuál de los dos datos falla (pantalla 5 del lienzo, en el tema Oscuro).
+
+**Teclado.** `Enter` envía la página; `Esc` y `Alt+←` vuelven de las páginas 2 y 3 a la 1; foco inicial en el primer campo. Orden de Tab en A.7.2.
+
+#### A.4.12 Sección «Cuenta» de Ajustes (v1.6.0)
+
+Es la **primera tarjeta** de la columna de controles de [Ajustes](#a45-panel-de-ajustes) (antes de «Tema»), una `Card` de relleno 20 px con el título «Cuenta» (20 px bold). Basada en la pantalla 6 del lienzo, con la etiqueta «Entraste con Google» sustituida desde la v1.7.0 *(implementado en código, sin prueba real, §8)* por la fila de Google (abajo) **y sin** el bloque «Asistente hoy: N de 15» (necesitaría un endpoint que no está especificado, §8).
+
+1. **Fila de identidad:** disco de 56 px (`primary-bg`, borde 2 px `primary-border`, la inicial del nombre en 24 px bold `primary-fg`) · nombre (16 px bold) y correo (`text-muted`), ambos con [`ElidedLabel`](#a24-etiqueta) y *tooltip* · [*badge*](#a28-badge) de 24 px: «Correo confirmado» con ✓ o «Correo sin confirmar» con «!» (icono + texto; confirmar el correo no es obligatorio).
+2. **Estado de la sincronización** (13 px, `text-muted`, con su icono ✓, reloj o «!»): «Guardado en tu cuenta», «Se guardará en tu cuenta cuando haya internet» o «No pudimos guardar en tu cuenta. Lo intentaremos otra vez.», más la nota «Sin internet, tu sesión sigue abierta…».
+3. **Fila de Google (v1.7.0, implementado en código, sin prueba real, §8):** si `google_linked` es falso, botón secundario **«Vincular con Google»** con la «G» multicolor de 20 px (`google_g.svg`); si es verdadero, el botón **no se muestra** y en su lugar va la etiqueta «Google vinculado» con ✓ (icono + texto, como el *badge* «Correo confirmado», [A.2.8](#a28-badge)). Al pulsar el botón se abre la pantalla de espera (A.4.13).
+4. **Botones, en una fila que pasa a otra línea si no cabe:** secundario **«Cerrar sesión»** y fantasma subrayado **«Borrar mi cuenta»**.
+5. **Nota fija** (13 px, `text-muted`): «Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Tus ajustes y tus palabras se guardan en tu cuenta.» *(El lienzo decía «Tus documentos, palabras y estadísticas se guardan solo en este equipo»; es incorrecto porque las palabras sí se sincronizan, PROF-F02.)*
+
+**Diálogos de confirmación** (`make_confirm_box`, §4.13): *Cerrar sesión* avisa además si hay cambios sin subir. *Borrar mi cuenta* explica qué se borra y que no se puede deshacer; el foco inicial está en **«Cancelar»** (primario) y «Borrar mi cuenta» es el secundario, para que `Enter` nunca borre. Si la persona cierra sesión o borra la cuenta, la app vuelve a la [pantalla de acceso](#a411-pantalla-de-acceso-loginview-v160).
+
+#### A.4.13 Pantalla de espera de Google (v1.7.0; implementada en código, sin prueba real (§8))
+
+Se muestra mientras la persona elige su cuenta en el navegador (§4.14.11). **Sin tokens de color nuevos.** En la pantalla de acceso es una **cuarta página** del `QStackedWidget` de `LoginView`; en Ajustes es un **diálogo modal** (`make_confirm_box`-like) con el mismo contenido. Una tarjeta de 440 px, relleno 32, separación 16, de arriba abajo:
+1. Título «Esperando a Google…» (24 px bold).
+2. Barra de progreso indeterminada de [A.2.6](#a26-barra-de-progreso) (8 px) con nombre accesible igual al título (animación atenuada si «Mostrar animaciones en Windows» está apagado, A.1.8).
+3. Frase `google.waiting_body` (`text`).
+4. Botón fantasma **«Cancelar»** (`google.waiting_cancel`), con el foco inicial. `Esc` y `Alt+←` también cancelan.
+
+Estados: si el navegador no se puede abrir, no se llega a esta pantalla: se muestra el [mensaje en línea](#a313-mensaje-en-línea-v160) `auth.error.browser_unavailable` en la página de origen. Si el intento falla o vence, la pantalla se cierra y el error sale como mensaje en línea (`auth.error.google_*`). El lector de pantalla anuncia el título al abrir la pantalla y el resultado al cerrarla.
+
 ### A.5 Plantillas
 
 Ventana de referencia **1280 × 800 px**; mínima **1024 × 700 px**.
@@ -3043,6 +3758,24 @@ La columna de lectura (550–820 px) va centrada en el área flexible; con el pa
 Ajustes: contenedor de 1120 px con dos columnas y scroll vertical. Mis palabras: columna única de hasta 860 px.
 
 
+#### A.5.4 Acceso (v1.6.0)
+
+```text
+┌──────────────────────────── 1280 ────────────────────────────┐
+│ Barra superior 56:  ClearRead   (solo la marca)               │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│                 ┌────────── 440 ──────────┐                   │
+│                 │ tarjeta de acceso       │                   │
+│                 │ relleno 32, separación 16                   │
+│                 │ campos · botón primario │                   │
+│                 └─────────────────────────┘                   │
+│            (centrada en horizontal y en vertical)             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Ventana de referencia 1280 × 800 y mínima 1024 × 700 (igual que el resto). La tarjeta no cambia de ancho; la página más alta es «Crear cuenta». Un test (previsto) comprueba, a 1024 × 700, que no hay barra horizontal y que ningún botón se sale de la vista. Mismas reglas en el tema Oscuro con los tokens de A.1.2.
+
 ### A.6 Páginas
 
 **Capturas.** Se tomaron capturas reales de la app (v2 el 2026-10-13 y v3 el 2026-10-18; app real, fuentes y tema reales, pantalla virtual `offscreen`, no un monitor físico; scripts `tests/manual/run_real_v2.py`, `run_real_v3.py` y `run_real_v4.py`) para inicio vacío y con datos, foco de teclado, lectura con sílabas y en modo foco, panel de IA, Mis palabras (con temas), Ajustes, lectura continua y por páginas, y biblioteca. **Por decisión de la usuaria, esas imágenes y la carpeta `docs/` se eliminaron del repositorio**; ya no hay capturas versionadas y este anexo es la única referencia visual. Las cifras de las estadísticas y las carpetas, documentos y palabras de esas capturas eran datos de muestra creados por los scripts.
@@ -3061,7 +3794,10 @@ flowchart LR
     Palabras["Mis palabras"]
     Ajustes["Ajustes"]
     Error["Diálogo de error<br/>(modal)"]
+    Acceso["Acceso (v1.6.0)<br/>Entrar · Crear cuenta · Recuperar"]
 
+    Acceso -- "entrar / crear cuenta con éxito" --> Inicio
+    Ajustes -- "Cerrar sesión / Borrar mi cuenta" --> Acceso
     Inicio -- "arrastrar / Elegir archivo (Ctrl+O)" --> Procesando
     Inicio -- "Probar con un ejemplo" --> Lectura
     Inicio -- "Continuar / abrir reciente (caché)" --> Lectura
@@ -3082,6 +3818,8 @@ flowchart LR
     Ajustes -- "← Volver / Esc / Alt+←" --> Lectura
 ```
 
+*Arranque (v1.6.0):* sin sesión guardada se abre **Acceso**; con sesión guardada se abre **Inicio** directamente, sin esperar a la red (AUTH-F05). Si la sesión termina (`session_revoked`), desde cualquier pantalla se pasa a **Acceso** con su mensaje.
+
 #### A.7.2 Orden de foco (Tab)
 
 *Orden previsto: en el código sigue el orden en que se crean los widgets, no se fijó con `setTabOrder`.*
@@ -3094,7 +3832,10 @@ flowchart LR
 | Lectura | ← Inicio → Asistente → Mis palabras → Ajustes → **lector** (foco inicial) → Reproducir → Detener → Modo foco → Velocidad |
 | Lectura + panel | … → panel: × → Explicar palabra → Simplificar párrafo → Reintentar/Cancelar/Escuchar |
 | Mis palabras | ← Volver → búsqueda → (por tarjeta) Escuchar → Borrar |
-| Ajustes | ← Volver → Tema → Fuente → Tamaño → Interlineado → Letras → Palabras → Sílabas → Velocidad → Voz → Idioma → Restablecer |
+| Ajustes | ← Volver → **Cuenta (Cerrar sesión → Borrar mi cuenta)** → Tema → Fuente → Tamaño → Interlineado → Letras → Palabras → Sílabas → Velocidad → Voz → Idioma → Restablecer |
+| Acceso: Entrar *(v1.6.0)* | **Correo** (foco inicial) → Contraseña → Mostrar/Ocultar → ¿Olvidaste tu contraseña? → **Entrar** → Crear cuenta |
+| Acceso: Crear cuenta *(v1.6.0)* | ← Volver → **Nombre** (foco inicial) → Correo → Contraseña → Mostrar/Ocultar → casilla del aviso → Leer el aviso de privacidad → **Crear cuenta** |
+| Acceso: Recuperar contraseña *(v1.6.0)* | Paso 1: ← Volver → **Correo** (foco inicial) → Enviar enlace. Paso 2: **Enviar otra vez** → Volver a entrar |
 
 #### A.7.3 Atajos de teclado
 
@@ -3124,6 +3865,8 @@ Los atajos de página y zoom y la tecla `S` se añadieron el 2026-10-18 (UI-F03,
 | Lectura | Detiene la voz, guarda la posición y vuelve a Inicio (cierra el panel de IA). |
 | Mis palabras | Detiene la voz y vuelve a la pantalla de origen (Inicio o Lectura). |
 | Ajustes | Vuelve a la pantalla de origen. Los cambios ya están guardados. |
+| Acceso: Entrar *(v1.6.0)* | No hay atrás (la cuenta es obligatoria): `Esc` no cierra la pantalla. |
+| Acceso: Crear cuenta y Recuperar contraseña *(v1.6.0)* | `Esc`, `Alt+←` o «← Volver» regresan a Entrar sin borrar el correo ya escrito. |
 
 
 ### A.8 Checklist de accesibilidad
@@ -3137,6 +3880,7 @@ Los atajos de página y zoom y la tecla `S` se añadieron el 2026-10-18 (UI-F03,
 - [x] **Nombres accesibles** en botones de solo icono, tarjetas ("Abrir {documento}", "Escuchar {palabra}"), campo de búsqueda y respuesta de IA.
 - [x] **Sin cursivas, sin justificado, sin mayúsculas sostenidas.**
 - [x] **Home sin barra horizontal desde 1024 px.**
+- [ ] **Pantallas de cuenta (v1.6.0):** cada par de texto o de fondo que no figure en el final de A.1.3 se mide con `contrast-check` antes de aceptar la UI; errores con icono + texto; campos con etiqueta visible; nombres accesibles en «Mostrar/Ocultar» y en el avatar; todo se hace con teclado. *(Construido en código; sin probar contra Firebase real, §8.)*
 - [ ] **Movimiento:** la barra indeterminada no respeta aún "Mostrar animaciones en Windows" (pendiente).
 - [ ] **Escalado de Windows** al 125 % y 150 %: el 125 % se ve en las capturas; el 150 % no se probó.
 - [ ] **Narrador de Windows:** no se probó.
@@ -3155,6 +3899,8 @@ Los atajos de página y zoom y la tecla `S` se añadieron el 2026-10-18 (UI-F03,
 | "ACEPTAR" | "Entendido" |
 | "Estadísticas de uso" | "Estas cifras se calculan en tu equipo y no se envían a ningún sitio." |
 | "Glosario vacío" | "Aún no hay palabras guardadas" |
+
+**Textos de cuenta (v1.6.0).** El catálogo completo (clave → es → en) está en §4.14.10. Reglas de tono propias de esas pantallas: un error de acceso **nunca dice cuál de los dos datos falló** («El correo o la contraseña no coinciden…») ni si un correo tiene cuenta («Si {email} tiene una cuenta…»); la contraseña se pide con una regla corta y positiva («Usa al menos 8 caracteres»), sin exigir símbolos; y se evita la jerga (en vez de «Token inválido» o «INVALID_LOGIN_CREDENTIALS» decimos «Tu sesión terminó. Entra otra vez.»).
 
 Los mensajes de error de ingesta y del asistente son los de la v1 (viven en `ui/strings.py`; ver `document.md` §4.9 y §4.10). **Textos nuevos del Día 12** (todos en es y en): "Tu espacio de lectura", "Continuar leyendo", "Probar con un ejemplo", "Te damos la bienvenida a ClearRead", "Palabras leídas", "Tiempo de lectura", "Documentos", "Seguir desde donde lo dejaste", "Seguir", "Empezar de nuevo", "Modo foco", "Mis palabras", "Buscar una palabra", "Escuchar", "Borrar", "Guardada en Mis palabras.", "Fuente de lectura".
 
@@ -3175,6 +3921,7 @@ QPushButton                    { border: 2px solid {secondary}; background: tran
 QPushButton[keyFocus="true"]   { border: 3px solid {focus_ring}; padding: 0 17px; }
 QPushButton[variant="primary"] { background: {primary_bg}; color: {primary_fg}; border-color: {primary_border}; }
 QPushButton[variant="primary"][keyFocus="true"] { border: 3px solid {focus_ring_primary}; }
+QPushButton[variant="link"]    { border: 2px solid transparent; background: transparent; color: {text}; text-decoration: underline; }  /* v1.6.0: enlaces de la pantalla de acceso; solo tokens existentes */
 
 QSlider::groove:horizontal   { background: {track}; border: 1px solid {track_border}; }
 QSlider::sub-page:horizontal { background: {primary_bg}; }
@@ -3203,6 +3950,8 @@ Las variantes se marcan con propiedades dinámicas (`variant`, `role`, `keyFocus
 
 **Decisiones de la usuaria (2026-10-07), aplicadas en este documento y en el código:** solo dos colores de marca (A.1.1); solo Claro y Oscuro, sin Alto Contraste; botones primarios, barras y deslizadores amarillos en ambos temas; sin bordes de otro color; foco solo con teclado y en amarillo o morado; palabra que suena invertida entre temas; sílabas con fondo amarillo suave (Claro) o alternancia amarillo/lavanda (Oscuro); regleta y modo foco en tonos de morado; "Ajustes avanzados" oculto; Lexend por defecto con Atkinson Hyperlegible y OpenDyslexic como opciones; 18 pt, interlineado 1,5, letra +0,12 em y palabra +0,16 em.
 
+**Excepción de color aplicada en la v1.7.0 (fase 2; implementado en código, sin prueba real, §8).** El botón «Entrar con Google» (pantalla de acceso) y el botón «Vincular con Google» (Ajustes → Cuenta) llevan la **«G» oficial multicolor** de Google, en **un solo recurso: `resources/icons/google_g.svg`**. Es la **única excepción** a la regla de los dos colores de marca de A.1.1 y a la de «iconos recoloreados por tema» de A.1.7: el SVG **no se recolorea**. El resto del botón (fondo, texto, borde, foco, estados deshabilitado y presionado) usa **solo tokens existentes** (el de un botón secundario, A.2.1): **no se añade ningún token de color nuevo**. `tests/test_theme.py` y el test que prohíbe hex fuera de `theme.py` permiten **únicamente** ese archivo SVG (no un hex en el código). Para un lector de pantalla el icono es decorativo; el nombre accesible es el texto del botón. **Contraste medido (2026-10-19) con la skill `contrast-check` (script validado antes con los pares de referencia), con los tokens reales de `theme.py`:** el botón es un secundario (fondo transparente, texto y borde de 2 px = `secondary`) sobre la tarjeta (`surface`, tanto en `LoginCard` como en `Card`). Claro: texto `#392F5A` sobre `#DDD4EF` = **8,53:1** (sobre `bg` `#EDE8F7`: 10,12:1; con *hover* `#D2C7EA`: 7,58:1); borde `#392F5A` contra `surface` = **8,53:1** (contra `bg`: 10,12:1). Oscuro: texto `#E4DCF3` sobre `#2B2344` = **11,10:1** (sobre `bg` `#392F5A`: 9,16:1; con *hover* `#4A3D75`: 7,15:1); borde `#E4DCF3` contra `surface` = **11,10:1** (contra `bg`: 9,16:1). Todos cumplen texto ≥ 7:1 y borde ≥ 3:1. No se midió el estado deshabilitado (usa `disabled_fg`/`disabled_bg`, igual que el resto de botones) ni la «G» (decorativa). La «G» queda a la izquierda del texto, a 20 px, con 8 px de separación. Las guías de marca de Google para el botón (tamaños y márgenes) **no se consultaron**: **por verificar** antes de publicar.
+
 **Pendientes y límites honestos**
 
 1. **Sin pruebas con personas.** Ni la tipografía por defecto ni el modo foco se probaron con lectores con dislexia (A.1.4).
@@ -3214,4 +3963,5 @@ Las variantes se marcan con propiedades dinámicas (`variant`, `role`, `keyFocus
 7. **`clearread.spec` (Día 13):** debe incluir `resources/samples/` además de `resources/fonts/` y los iconos nuevos; verificarlo en `dist/` con la skill `package-exe`. Donde este documento dice "Día 12" para compilar el `.exe`, léase **Día 13**; la prueba en máquina limpia es el **Día 14** (`document.md` §6.5).
 8. **Barra de título oscura:** se deja la nativa de Windows.
 9. **Adiciones del 2026-10-18 sin probar a mano:** las comprobaciones visuales se hicieron con la app real en pantalla virtual (capturas ya retiradas); no se probaron con ratón físico, ni con lectores de pantalla, ni con escalado de Windows al 150 %. No se midió el contraste del asa de la barra de desplazamiento ni del borde de los chips sin marcar (A.4.10).
+10. **Pantallas de cuenta (v1.6.0), implementadas en código y sin probar contra Firebase real.** Diferencias deliberadas respecto al lienzo aprobado: barra superior solo con la marca (el «Volver» va dentro de la tarjeta), sin Google (en la v1.6.0; la v1.7.0 *implementa* el botón y la pantalla de espera, A.4.11, A.4.12, A.4.13, implementado en código, sin prueba real (§8)), sin «Asistente hoy: N de 15», nota de privacidad corregida (las palabras sí viajan con la cuenta), e icono «!» y bordes con los tokens de A.1.2 (el lienzo usaba amarillo para el «!» y un borde `#261F3C` en el primario del Oscuro). El tema y el idioma de la pantalla de acceso salen de `device.json` (decisión (a) de §4.14.1, implementada el 2026-10-19; pendiente de confirmación de la usuaria).
 

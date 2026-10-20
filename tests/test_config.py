@@ -9,10 +9,12 @@ from typing import Any
 import pytest
 
 from clearread.core.config import (
+    BACKEND_URL_ENV_VAR,
     CLIENT_TOKEN_ENV_VAR,
     DEFAULT_BACKEND_URL,
     AppConfig,
     load_client_token,
+    resolve_backend_url,
 )
 
 CHANGED = {
@@ -229,3 +231,27 @@ def test_an_old_high_contrast_config_opens_in_the_light_theme(tmp_path: Path) ->
     )
     loaded = AppConfig.load(tmp_path)
     assert (loaded.theme, loaded.font_size_pt) == ("light", 20)
+
+
+def test_backend_url_defaults_when_environment_is_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(BACKEND_URL_ENV_VAR, raising=False)
+    assert resolve_backend_url() == DEFAULT_BACKEND_URL
+    assert resolve_backend_url("https://profile.example") == "https://profile.example"
+
+
+def test_backend_url_uses_a_valid_environment_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(BACKEND_URL_ENV_VAR, " http://localhost:8000/ ")
+    assert resolve_backend_url() == "http://localhost:8000"
+    assert resolve_backend_url("https://profile.example") == "http://localhost:8000"
+
+
+@pytest.mark.parametrize("value", ["localhost:8000", "ftp://x.test", "http://", ""])
+def test_backend_url_ignores_an_invalid_environment_value(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv(BACKEND_URL_ENV_VAR, value)
+    assert resolve_backend_url() == DEFAULT_BACKEND_URL

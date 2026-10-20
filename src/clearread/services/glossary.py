@@ -79,6 +79,11 @@ class GlossaryStore:
         self._entries = [entry, *kept][:MAX_ENTRIES]
         self._save()
 
+    def replace_all(self, entries: list[GlossaryEntry]) -> None:
+        """Swap the whole list (a profile pulled from the account), newest first."""
+        self._entries = list(entries)[:MAX_ENTRIES]
+        self._save()
+
     def set_topic(self, word: str, topic: str) -> None:
         self._entries = [
             replace(e, topic=topic) if _key(e.word) == _key(word) else e

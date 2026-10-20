@@ -18,6 +18,10 @@ DEFAULT_BACKEND_URL = "https://clearread-api.onrender.com"
 CLIENT_TOKEN_ENV_VAR = "CLEARREAD_CLIENT_TOKEN"
 CLIENT_TOKEN_FILE = Path("resources") / "client_token.local.json"
 
+# Development only: points every backend call at another server (a local one). The
+# shipped .exe never sets it, so it keeps talking to DEFAULT_BACKEND_URL.
+BACKEND_URL_ENV_VAR = "CLEARREAD_BACKEND_URL"
+
 THEME_IDS = ("light", "dark")
 READING_FONTS = ("Lexend", "Atkinson Hyperlegible", "OpenDyslexic")
 UI_LANGUAGES = ("es", "en")
@@ -33,6 +37,14 @@ _URL_SCHEMES = ("https", "http")
 def is_backend_url(text: str) -> bool:
     scheme, separator, rest = text.strip().partition(":" + "//")
     return scheme in _URL_SCHEMES and bool(separator) and bool(rest)
+
+
+def resolve_backend_url(default: str = DEFAULT_BACKEND_URL) -> str:
+    """The development override when it is set and valid, else ``default``."""
+    from_env = os.environ.get(BACKEND_URL_ENV_VAR, "").strip()
+    if from_env and is_backend_url(from_env):
+        return from_env.rstrip("/")
+    return default
 
 
 def load_client_token() -> str:

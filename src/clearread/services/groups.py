@@ -74,6 +74,11 @@ class GroupStore:
         ]
         self._save()
 
+    def replace_all(self, groups: list[Group]) -> None:
+        """Swap the whole list (a profile pulled from the account)."""
+        self._groups = list(groups)[:MAX_GROUPS]
+        self._save()
+
     def delete(self, group_id: str) -> None:
         self._groups = [g for g in self._groups if g.id != group_id]
         self._save()

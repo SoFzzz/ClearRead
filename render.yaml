@@ -24,3 +24,18 @@ services:
         sync: false
       - key: DAILY_CALL_LIMIT
         sync: false
+      # Firebase Authentication key: a public web API key, still kept out of the file.
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: USER_DAILY_CALL_LIMIT
+        sync: false
+      # Google sign-in through the backend (v1.7.0). PUBLIC_BASE_URL falls back to
+      # RENDER_EXTERNAL_URL, which Render sets by itself.
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

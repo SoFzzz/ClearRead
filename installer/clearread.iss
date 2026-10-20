@@ -3,7 +3,7 @@
 ; Nothing here downloads anything: the installer is fully offline.
 
 #define MyAppName "ClearRead"
-#define MyAppVersion "1.5.0"
+#define MyAppVersion "1.7.0"
 #define MyAppPublisher "SoFzzz"
 #define MyAppExeName "ClearRead.exe"
 

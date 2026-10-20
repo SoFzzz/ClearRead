@@ -6,6 +6,8 @@ from string import Formatter
 
 import pytest
 
+from clearread.services.account_client import AccountErrorKind
+from clearread.services.ai_client import AIErrorKind
 from clearread.ui.strings import CATALOG, Language, MissingStringError, tr
 
 SRC_DIR = Path(__file__).resolve().parents[1] / "src"
@@ -74,3 +76,65 @@ def test_no_spanish_outside_strings_py() -> None:
         if SPANISH_CHARS.search(line)
     ]
     assert offenders == []
+
+
+def test_every_account_error_kind_has_a_message() -> None:
+    missing = [
+        kind.name
+        for kind in AccountErrorKind
+        if f"auth.error.{kind.name.lower()}" not in CATALOG
+    ]
+    assert missing == []
+
+
+def test_every_ai_error_kind_has_a_message() -> None:
+    missing = [
+        kind.name
+        for kind in AIErrorKind
+        if f"ai.error.{kind.name.lower()}" not in CATALOG
+    ]
+    assert missing == []
+
+
+GOOGLE_TEXTS = {
+    "auth.google_sign_in": ("Entrar con Google", "Sign in with Google"),
+    "auth.or_with_email": ("o con tu correo", "or with your email"),
+    "account.google_link": ("Vincular con Google", "Link with Google"),
+    "account.google_linked": ("Google vinculado", "Google linked"),
+    "google.waiting_title": ("Esperando a Google…", "Waiting for Google…"),
+    "google.waiting_cancel": ("Cancelar", "Cancel"),
+    "auth.error.google_attempt_not_found": (
+        "Se perdió el intento con Google. Inténtalo otra vez.",
+        "The Google attempt was lost. Try again.",
+    ),
+    "auth.error.google_attempt_expired": (
+        "Pasó demasiado tiempo esperando a Google. Inténtalo otra vez.",
+        "It took too long to hear from Google. Try again.",
+    ),
+    "auth.error.browser_unavailable": (
+        "No pudimos abrir tu navegador. Ábrelo tú y vuelve a intentarlo.",
+        "We couldn't open your browser. Open it yourself and try again.",
+    ),
+}
+GOOGLE_KEYS = [
+    *GOOGLE_TEXTS,
+    "google.waiting_body",
+    "auth.error.google_cancelled",
+    "auth.error.google_already_linked",
+    "auth.error.google_not_linked",
+    "auth.error.google_not_configured",
+]
+
+
+@pytest.mark.parametrize("key", GOOGLE_KEYS)
+def test_google_keys_have_both_languages_and_the_same_parameters(key: str) -> None:
+    es, en = tr(key, Language.ES), tr(key, Language.EN)
+    assert es and en and es != en
+    assert "{" not in CATALOG[key]["es"] and "{" not in CATALOG[key]["en"]
+
+
+@pytest.mark.parametrize(("key", "texts"), list(GOOGLE_TEXTS.items()))
+def test_google_texts_match_the_design_document(
+    key: str, texts: tuple[str, str]
+) -> None:
+    assert (tr(key, Language.ES), tr(key, Language.EN)) == texts

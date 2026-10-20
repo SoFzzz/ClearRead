@@ -243,3 +243,50 @@ class NamePromptDialog(QDialog):
         self.problem_label.setText(tr(f"group.error.{problem.value}", self._language))
         self.problem_label.show()
         self.name_edit.setFocus()
+
+
+def make_info_box(parent: QWidget, text: str, language: Language) -> QMessageBox:
+    """A short notice with a single "Got it" answer."""
+    box = QMessageBox(
+        QMessageBox.Icon.Information,
+        tr("dialog.window_title", language),
+        text,
+        parent=parent,
+    )
+    understood = box.addButton(
+        tr("common.understood", language), QMessageBox.ButtonRole.AcceptRole
+    )
+    box.setDefaultButton(understood)
+    return box
+
+
+class PrivacyNoticeDialog(QDialog):
+    """The account privacy notice, shown inside the app (never in a browser)."""
+
+    def __init__(self, parent: QWidget | None, language: Language) -> None:
+        super().__init__(parent)
+        self.setObjectName("ErrorDialog")
+        self.setWindowTitle(tr("auth.privacy_title", language))
+        self.setModal(True)
+        self.setFixedWidth(DIALOG_WIDTH)
+
+        heading = QLabel(tr("auth.privacy_title", language))
+        heading.setProperty("role", "heading")
+        body = QLabel(tr("auth.privacy_body", language))
+        body.setTextFormat(Qt.TextFormat.MarkdownText)
+        body.setWordWrap(True)
+        close = QPushButton(tr("common.understood", language))
+        close.setProperty("variant", "primary")
+        close.setDefault(True)
+        close.clicked.connect(self.accept)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 20)
+        layout.setSpacing(16)
+        layout.addWidget(heading)
+        layout.addWidget(body)
+        layout.addLayout(buttons)
+        close.setFocus()

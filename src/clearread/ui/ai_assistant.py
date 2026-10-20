@@ -53,6 +53,7 @@ class AIAssistant(QObject):
     # The first-use notice was accepted: keep it in the config.
     privacy_accepted = Signal()
     word_explained = Signal(str, str)  # word, explanation (AI-F05)
+    sign_in_required = Signal()  # the account no longer accepts this session
 
     def __init__(
         self,
@@ -182,6 +183,8 @@ class AIAssistant(QObject):
         if self._settle():
             self._panel.show_error(kind)
             self._refresh_counter()
+            if kind is AIErrorKind.SIGN_IN_REQUIRED:
+                self.sign_in_required.emit()
 
     def _refresh_counter(self) -> None:
         self._panel.set_counter(

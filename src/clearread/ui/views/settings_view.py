@@ -30,6 +30,7 @@ from clearread.core.config import (
     WORD_SPACING_RANGE_EM,
     AppConfig,
 )
+from clearread.services.account_client import AccountErrorKind
 from clearread.services.syllabifier import SpanishSyllabifier
 from clearread.services.text_formatter import (
     ReadingStyle,
@@ -37,9 +38,11 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import VoiceInfo, sort_voices
+from clearread.ui.account_state import AccountInfo, SyncStatus
 from clearread.ui.dialogs import make_clear_recents_box, make_restart_box
 from clearread.ui.strings import Language, tr
-from clearread.ui.theme import THEMES, ThemeId, syllable_palette
+from clearread.ui.theme import THEMES, ThemeId, ThemeTokens, syllable_palette
+from clearread.ui.views.account_card import AccountCard
 from clearread.ui.views.reader_widget import ReaderWidget
 
 CACHE_FOLDER_LABEL = "%APPDATA%\\ClearRead\\cache"
@@ -135,17 +138,24 @@ class SettingsView(QWidget):
     clear_recents_requested = Signal()
     back_requested = Signal()
     restart_requested = Signal()  # the user accepted restarting to change the language
+    sign_out_requested = Signal()
+    delete_account_requested = Signal()
+    google_link_requested = Signal()
+    google_cancel_requested = Signal()
 
     def __init__(
         self,
         config: AppConfig,
         language: Language,
         syllabifier: SpanishSyllabifier,
+        account: AccountInfo | None = None,
     ) -> None:
         super().__init__()
         self._config = config
         self._language = language
         self._syllabifier = syllabifier
+        self._account = account
+        self.account_card: AccountCard | None = None
         self.dialog: QMessageBox | None = None
         self.sliders: dict[str, QSlider] = {}
         self._value_labels: dict[str, QLabel] = {}
@@ -177,6 +187,8 @@ class SettingsView(QWidget):
         left = QVBoxLayout()
         left.setSpacing(12)
         left.addLayout(header)
+        if self._account is not None:
+            left.addWidget(self._build_account_card(self._account))
         left.addWidget(self._heading("settings.section.theme"))
         left.addLayout(self._build_theme_cards())
         left.addWidget(self._heading("settings.section.text"))
@@ -226,6 +238,50 @@ class SettingsView(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll)
+
+    def _build_account_card(self, account: AccountInfo) -> AccountCard:
+        card = AccountCard(account, self._tokens(), self._language, self._show_dialog)
+        card.sign_out_requested.connect(self.sign_out_requested)
+        card.delete_requested.connect(self.delete_account_requested)
+        card.google_link_requested.connect(self.google_link_requested)
+        card.google_cancel_requested.connect(self.google_cancel_requested)
+        self.account_card = card
+        return card
+
+    def _tokens(self) -> ThemeTokens:
+        return THEMES[ThemeId(self._config.theme)]
+
+    def set_account(self, account: AccountInfo) -> None:
+        if self.account_card is not None:
+            self.account_card.set_info(account)
+
+    def set_sync_status(self, status: SyncStatus) -> None:
+        if self.account_card is not None:
+            self.account_card.set_sync_status(status)
+
+    def set_online(self, online: bool) -> None:
+        if self.account_card is not None:
+            self.account_card.set_online(online)
+
+    def set_account_busy(self, busy: bool) -> None:
+        if self.account_card is not None:
+            self.account_card.set_busy(busy)
+
+    def show_account_error(self, kind: AccountErrorKind) -> None:
+        if self.account_card is not None:
+            self.account_card.show_error(kind)
+
+    def set_google_starting(self, starting: bool) -> None:
+        if self.account_card is not None:
+            self.account_card.set_google_starting(starting)
+
+    def show_google_waiting(self) -> None:
+        if self.account_card is not None:
+            self.account_card.show_google_waiting()
+
+    def close_google_waiting(self) -> None:
+        if self.account_card is not None:
+            self.account_card.close_google_waiting()
 
     def _heading(self, key: str) -> QLabel:
         label = QLabel(self._t(key))
@@ -441,6 +497,8 @@ class SettingsView(QWidget):
             max(self.font_combo.findData(config.reading_font), 0)
         )
         self.font_combo.blockSignals(False)
+        if self.account_card is not None:
+            self.account_card.apply_theme(self._tokens())
         self._refresh_preview()
 
     def _show_value(self, spec: SliderSpec, value: float) -> None:
