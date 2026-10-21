@@ -16,11 +16,17 @@ from PySide6.QtWidgets import (
 )
 
 from clearread.services.account_client import AccountErrorKind
-from clearread.ui.account_state import AccountInfo, SyncStatus, error_text_key
-from clearread.ui.dialogs import make_confirm_box
+from clearread.ui.account_state import (
+    AccountBusy,
+    AccountInfo,
+    SyncStatus,
+    error_text_key,
+)
+from clearread.ui.dialogs import PrivacyNoticeDialog, make_confirm_box
 from clearread.ui.icons import load_icon
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import ThemeTokens
+from clearread.ui.views.delete_account_dialog import DeleteAccountDialog
 from clearread.ui.views.flow_layout import FlowLayout
 from clearread.ui.views.home_view import ElidedLabel, fit_button
 from clearread.ui.views.login_pages import GoogleWaitingPage
@@ -40,6 +46,10 @@ _SYNC_TEXT = {
     SyncStatus.FAILED: "account.sync_failed",
 }
 _SYNC_MARK = {SyncStatus.OK: "✓", SyncStatus.FAILED: "!"}
+_BUSY_TEXT = {
+    AccountBusy.SIGNING_OUT: "account.signing_out",
+    AccountBusy.DELETING: "account.deleting",
+}
 
 
 class GoogleWaitingDialog(QDialog):
@@ -72,7 +82,7 @@ class GoogleWaitingDialog(QDialog):
 
 class AccountCard(QFrame):
     sign_out_requested = Signal()
-    delete_requested = Signal()
+    delete_requested = Signal(str)  # the password
     google_link_requested = Signal()
     google_cancel_requested = Signal()
 
@@ -90,6 +100,8 @@ class AccountCard(QFrame):
         self._show_dialog = show_dialog
         self._status = SyncStatus.PENDING
         self.google_dialog: GoogleWaitingDialog | None = None
+        self.privacy_dialog: PrivacyNoticeDialog | None = None
+        self.delete_dialog: DeleteAccountDialog | None = None
         self._build_ui()
         self.set_info(info)
         self.set_sync_status(self._status)
@@ -132,7 +144,7 @@ class AccountCard(QFrame):
         sync_row.addWidget(self.sync_label, stretch=1)
         self.offline_note = text_label(self._t("account.offline_note"), "note")
         self.offline_note.hide()
-        self.busy_label = text_label(self._t("account.deleting"), "note")
+        self.busy_label = text_label("", "note")
         self.busy_label.hide()
         self.error_message = InlineMessage()
 
@@ -158,6 +170,8 @@ class AccountCard(QFrame):
         row.addWidget(self.sign_out_button)
         row.addWidget(self.delete_button)
         local_note = text_label(self._t("account.local_note"), "note")
+        self.privacy_button = link_button(self._t("auth.privacy_link"))
+        self.privacy_button.clicked.connect(self.show_privacy_notice)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -171,6 +185,7 @@ class AccountCard(QFrame):
         layout.addLayout(google_row)
         layout.addWidget(buttons)
         layout.addWidget(local_note)
+        layout.addWidget(self.privacy_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
     # ---- what is shown -------------------------------------------------
 
@@ -211,16 +226,34 @@ class AccountCard(QFrame):
     def set_online(self, online: bool) -> None:
         self.offline_note.setVisible(not online)
 
-    def set_busy(self, busy: bool) -> None:
-        self.sign_out_button.setEnabled(not busy)
-        self.google_button.setEnabled(not busy)
-        self.delete_button.setEnabled(not busy)
-        self.busy_label.setVisible(busy)
-        if busy:
+    def set_busy(self, busy: AccountBusy | None) -> None:
+        idle = busy is None
+        self.sign_out_button.setEnabled(idle)
+        self.google_button.setEnabled(idle)
+        self.delete_button.setEnabled(idle)
+        self.busy_label.setVisible(not idle)
+        if busy is not None:
+            self.busy_label.setText(self._t(_BUSY_TEXT[busy]))
             self.error_message.clear()
 
+    def show_privacy_notice(self) -> None:
+        dialog = PrivacyNoticeDialog(self, self._language)
+        dialog.finished.connect(lambda: self._forget_privacy(dialog))
+        self.privacy_dialog = dialog
+        dialog.open()
+
+    def _forget_privacy(self, dialog: PrivacyNoticeDialog) -> None:
+        dialog.deleteLater()
+        if self.privacy_dialog is dialog:
+            self.privacy_dialog = None
+
     def show_error(self, kind: AccountErrorKind) -> None:
+        self._close_delete_dialog()
         self.error_message.show_message(self._t(error_text_key(kind)))
+
+    def show_wrong_delete_password(self) -> None:
+        if self.delete_dialog is not None:
+            self.delete_dialog.show_wrong_password()
 
     def set_google_starting(self, starting: bool) -> None:
         self.google_button.setEnabled(not starting)
@@ -260,18 +293,19 @@ class AccountCard(QFrame):
         self._show_dialog(box)
 
     def _confirm_delete(self) -> None:
-        box, confirm = make_confirm_box(
-            self,
-            self._t("account.delete_title"),
-            self._t("account.delete_body"),
-            self._t("account.delete_confirm"),
-            self._language,
-        )
-        safe = box.defaultButton()
-        if safe is not None:
-            # Cancel is the highlighted answer, so Enter can never delete (A.4.12).
-            safe.setProperty("variant", "primary")
-        box.buttonClicked.connect(
-            lambda clicked: self.delete_requested.emit() if clicked is confirm else None
-        )
-        self._show_dialog(box)
+        # Cancel is the highlighted answer and Enter never deletes (A.4.12).
+        dialog = DeleteAccountDialog(self.window(), self._language)
+        dialog.submitted.connect(self.delete_requested)
+        dialog.finished.connect(lambda: self._forget_delete_dialog(dialog))
+        self.delete_dialog = dialog
+        dialog.open()
+
+    def _forget_delete_dialog(self, dialog: DeleteAccountDialog) -> None:
+        dialog.deleteLater()
+        if self.delete_dialog is dialog:
+            self.delete_dialog = None
+
+    def _close_delete_dialog(self) -> None:
+        dialog = self.delete_dialog
+        if dialog is not None:
+            dialog.dismiss()

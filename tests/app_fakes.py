@@ -35,6 +35,9 @@ class FakeAccountServer:
     errors: dict[str, tuple[int, str]] = field(default_factory=dict)  # "METHOD path"
     session_fields: dict[str, object] = field(default_factory=dict)
     calls: list[str] = field(default_factory=list)
+    authorizations: dict[str, str | None] = field(
+        default_factory=dict
+    )  # last per route
     gates: dict[str, threading.Event] = field(default_factory=dict)  # block a route
     fail_once: dict[str, tuple[int, str]] = field(default_factory=dict)  # then recovers
     # Google: answers to the status polls, in order; "pending" once they run out.
@@ -42,12 +45,15 @@ class FakeAccountServer:
     google_expires_in: int = 600
     start_bearers: list[str | None] = field(default_factory=list)
     poll_tokens: list[str | None] = field(default_factory=list)
+    account_password: str = "secret-pass"
+    delete_passwords: list[object] = field(default_factory=list)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         route = f"{request.method} {request.url.path}"
         if request.url.path == "/health":
             return httpx.Response(200, json={})
         self.calls.append(route)
+        self.authorizations[route] = request.headers.get("Authorization")
         if route in self.gates:
             self.gates[route].wait(timeout=10)
         if route in self.fail_once:
@@ -81,6 +87,15 @@ class FakeAccountServer:
         if route == "PUT /v1/profile":
             self.profile = json.loads(request.content)
             return httpx.Response(200, json=self.profile)
+        if route == "DELETE /v1/account":
+            return self._delete(request)
+        return httpx.Response(204)
+
+    def _delete(self, request: httpx.Request) -> httpx.Response:
+        sent = json.loads(request.content).get("password")
+        self.delete_passwords.append(sent)
+        if sent != self.account_password:
+            return httpx.Response(401, json={"error": "invalid_credentials"})
         return httpx.Response(204)
 
     def _attempt(self) -> dict[str, object]:

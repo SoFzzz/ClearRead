@@ -773,6 +773,10 @@ CATALOG: dict[str, dict[str, str]] = {
         "es": "Nombre",
         "en": "Name",
     },
+    "auth.confirm_label": {
+        "es": "Repite la contraseña",
+        "en": "Repeat the password",
+    },
     "auth.password_count": {
         "es": "Usa al menos 8 caracteres. Llevas {count}.",
         "en": "Use at least 8 characters. You have {count}.",
@@ -806,8 +810,59 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Privacy notice",
     },
     "auth.privacy_body": {
-        "es": "**Borrador, pendiente de revisión legal (§8).** ClearRead guarda en tu cuenta tu nombre, tu correo, tus ajustes y tus palabras guardadas, para que las tengas en cualquier equipo. Estos datos se guardan en servicios de Google (Firebase). Tus documentos, tu biblioteca y tus estadísticas se quedan solo en este equipo. Si usas el asistente, el texto que seleccionas se envía a nuestro servidor y a DeepSeek. Puedes borrar tu cuenta cuando quieras desde Ajustes.",
-        "en": "**Draft, pending legal review (§8).** ClearRead saves your name, your email, your settings and your saved words in your account, so you have them on any computer. This data is stored in Google services (Firebase). Your documents, your library and your statistics stay only on this computer. If you use the assistant, the text you select is sent to our server and to DeepSeek. You can delete your account at any time from Settings.",
+        "es": (
+            "**Qué guardamos en tu cuenta.** Tu nombre, tu correo, tus ajustes, tus "
+            "palabras guardadas y sus temas. Así los tienes en cualquier equipo. "
+            "Si vinculas Google, también guardamos que tu cuenta de Google está "
+            "vinculada y el correo de esa cuenta.\n\n"
+            "**Dónde se guardan.** En servicios de Google (Firebase), por medio de "
+            "nuestro servidor, que está en Render. La aplicación nunca habla "
+            "directamente con Google ni con Firebase. Tu contraseña viaja a nuestro "
+            "servidor solo para entrar, crear la cuenta o borrarla, y Firebase la "
+            "guarda protegida. Render y Google pueden registrar datos técnicos de la "
+            "conexión, como la dirección de internet. Te enviamos correos para "
+            "confirmar tu correo y para recuperar tu contraseña.\n\n"
+            "**Qué se queda solo en este equipo.** Tus documentos, tu biblioteca, "
+            "tus carpetas, tus estadísticas y las respuestas del asistente. También "
+            "una sesión cifrada, para que no tengas que entrar cada vez.\n\n"
+            "**El asistente.** Si lo usas, el texto que seleccionas viaja a nuestro "
+            "servidor y de ahí a DeepSeek, un servicio de inteligencia artificial, "
+            "para obtener la explicación. El resto del documento no sale de tu "
+            "equipo. Nuestro servidor no guarda ese texto ni la respuesta. Solo "
+            "cuenta cuántas consultas haces al día.\n\n"
+            "**Lo que no hacemos.** No usamos publicidad, no enviamos estadísticas "
+            "de uso y no vendemos tus datos.\n\n"
+            "**Borrar tu cuenta.** Puedes hacerlo cuando quieras en Ajustes, en "
+            "Cuenta. Se borran tu cuenta y tus datos en línea, y también los datos "
+            "de tu perfil en este equipo. Tus archivos originales no se tocan."
+        ),
+        "en": (
+            "**What we keep in your account.** Your name, your email, your settings, "
+            "your saved words and their topics. This way you have them on any "
+            "computer. If you link Google, we also keep that your Google account is "
+            "linked and the email of that account.\n\n"
+            "**Where it is kept.** In Google services (Firebase), through our own "
+            "server, which runs on Render. The app never talks directly to Google or "
+            "Firebase. Your password travels to our server only to sign in, create "
+            "the account or delete it, and Firebase keeps it protected. Render and Google may "
+            "record technical data of the connection, such as the internet "
+            "address. We send you emails to confirm your email and to reset your "
+            "password.\n\n"
+            "**What stays only on this computer.** Your documents, your library, "
+            "your folders, your statistics and the assistant's answers. Also an "
+            "encrypted session, so you do not have to sign in every time.\n\n"
+            "**The assistant.** If you use it, the text you select travels to our "
+            "server and from there to DeepSeek, an artificial intelligence service, "
+            "to get the explanation. The rest of the document never leaves your "
+            "computer. Our server does not keep that text or the answer. It only "
+            "counts how many questions you ask each day.\n\n"
+            "**What we do not do.** We don't use ads, we don't send usage "
+            "statistics, and we don't sell your data.\n\n"
+            "**Deleting your account.** You can do it whenever you want in Settings, "
+            "under Account. Your account and your online data are deleted, and so is "
+            "the data of your profile on this computer. Your original files are not "
+            "touched."
+        ),
     },
     "auth.reset_title": {
         "es": "Recuperar contraseña",
@@ -870,12 +925,24 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Type a valid email, for example name@mail.com.",
     },
     "auth.validation.name_required": {
-        "es": "Escribe tu nombre (hasta 40 caracteres).",
-        "en": "Type your name (up to 40 characters).",
+        "es": "Escribe tu nombre (hasta 32 caracteres).",
+        "en": "Type your name (up to 32 characters).",
+    },
+    "auth.validation.name_too_long": {
+        "es": "El nombre puede tener hasta 32 caracteres.",
+        "en": "The name can have up to 32 characters.",
+    },
+    "auth.validation.email_too_long": {
+        "es": "El correo puede tener hasta 64 caracteres.",
+        "en": "The email can have up to 64 characters.",
     },
     "auth.validation.password_too_long": {
-        "es": "La contraseña puede tener hasta 128 caracteres.",
-        "en": "The password can have up to 128 characters.",
+        "es": "La contraseña puede tener hasta 32 caracteres.",
+        "en": "The password can have up to 32 characters.",
+    },
+    "auth.validation.password_mismatch": {
+        "es": "Las contraseñas no son iguales. Escríbelas otra vez.",
+        "en": "The passwords are not the same. Type them again.",
     },
     "auth.error.no_network": {
         "es": "No pudimos conectar. Revisa tu internet e inténtalo otra vez.",
@@ -900,6 +967,22 @@ CATALOG: dict[str, dict[str, str]] = {
     "auth.error.password_too_short": {
         "es": "La contraseña necesita al menos 8 caracteres.",
         "en": "The password needs at least 8 characters.",
+    },
+    "auth.error.invalid_email": {
+        "es": "Escribe un correo válido, por ejemplo nombre@correo.com.",
+        "en": "Type a valid email, for example name@mail.com.",
+    },
+    "auth.error.email_too_long": {
+        "es": "El correo puede tener hasta 64 caracteres.",
+        "en": "The email can have up to 64 characters.",
+    },
+    "auth.error.password_too_long": {
+        "es": "La contraseña puede tener hasta 32 caracteres.",
+        "en": "The password can have up to 32 characters.",
+    },
+    "auth.error.name_too_long": {
+        "es": "El nombre puede tener hasta 32 caracteres.",
+        "en": "The name can have up to 32 characters.",
     },
     "auth.error.invalid_request": {
         "es": "Revisa lo que escribiste e inténtalo otra vez.",
@@ -996,6 +1079,22 @@ CATALOG: dict[str, dict[str, str]] = {
     "account.delete_confirm": {
         "es": "Borrar mi cuenta",
         "en": "Delete my account",
+    },
+    "account.delete_password_label": {
+        "es": "Tu contraseña",
+        "en": "Your password",
+    },
+    "account.delete_password_hint": {
+        "es": "Escribe tu contraseña para confirmar que eres tú. Así nadie más puede borrar tu cuenta desde este equipo.",
+        "en": "Type your password to confirm it is you. This way nobody else can delete your account from this computer.",
+    },
+    "account.delete_wrong_password": {
+        "es": "La contraseña no es correcta. No se borró nada. Inténtalo otra vez.",
+        "en": "That password is not correct. Nothing was deleted. Try again.",
+    },
+    "account.signing_out": {
+        "es": "Cerrando tu sesión…",
+        "en": "Signing you out…",
     },
     "account.deleting": {
         "es": "Borrando tu cuenta…",

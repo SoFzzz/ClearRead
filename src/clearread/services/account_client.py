@@ -32,6 +32,10 @@ class AccountErrorKind(Enum):
     EMAIL_EXISTS = "email_exists"
     INVALID_CREDENTIALS = "invalid_credentials"
     PASSWORD_TOO_SHORT = "password_too_short"
+    PASSWORD_TOO_LONG = "password_too_long"
+    INVALID_EMAIL = "invalid_email"
+    EMAIL_TOO_LONG = "email_too_long"
+    NAME_TOO_LONG = "name_too_long"
     INVALID_REQUEST = "invalid_request"
     TOO_MANY_ATTEMPTS = "too_many_attempts"
     INVALID_SESSION = "invalid_session"
@@ -91,6 +95,10 @@ _CODE_TO_KIND: dict[str, AccountErrorKind] = {
     "email_exists": AccountErrorKind.EMAIL_EXISTS,
     "invalid_credentials": AccountErrorKind.INVALID_CREDENTIALS,
     "password_too_short": AccountErrorKind.PASSWORD_TOO_SHORT,
+    "password_too_long": AccountErrorKind.PASSWORD_TOO_LONG,
+    "invalid_email": AccountErrorKind.INVALID_EMAIL,
+    "email_too_long": AccountErrorKind.EMAIL_TOO_LONG,
+    "name_too_long": AccountErrorKind.NAME_TOO_LONG,
     "invalid_request": AccountErrorKind.INVALID_REQUEST,
     "too_many_attempts": AccountErrorKind.TOO_MANY_ATTEMPTS,
     "invalid_session": AccountErrorKind.INVALID_SESSION,
@@ -161,8 +169,11 @@ class AccountClient:
         reply = self._send("POST", "/v1/auth/password-reset", {"email": email})
         self._expect(reply, 204)
 
-    def delete_account(self, id_token: str) -> None:
-        self._expect(self._send("DELETE", "/v1/account", bearer=id_token), 204)
+    def delete_account(self, id_token: str, password: str) -> None:
+        reply = self._send(
+            "DELETE", "/v1/account", {"password": password}, bearer=id_token
+        )
+        self._expect(reply, 204)
 
     def fetch_profile(self, id_token: str) -> RemoteProfile | None:
         reply = self._send("GET", "/v1/profile", bearer=id_token)

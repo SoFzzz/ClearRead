@@ -38,7 +38,7 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import VoiceInfo, sort_voices
-from clearread.ui.account_state import AccountInfo, SyncStatus
+from clearread.ui.account_state import AccountBusy, AccountInfo, SyncStatus
 from clearread.ui.dialogs import make_clear_recents_box, make_restart_box
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, ThemeTokens, syllable_palette
@@ -139,7 +139,7 @@ class SettingsView(QWidget):
     back_requested = Signal()
     restart_requested = Signal()  # the user accepted restarting to change the language
     sign_out_requested = Signal()
-    delete_account_requested = Signal()
+    delete_account_requested = Signal(str)  # the password
     google_link_requested = Signal()
     google_cancel_requested = Signal()
 
@@ -263,13 +263,17 @@ class SettingsView(QWidget):
         if self.account_card is not None:
             self.account_card.set_online(online)
 
-    def set_account_busy(self, busy: bool) -> None:
+    def set_account_busy(self, busy: AccountBusy | None) -> None:
         if self.account_card is not None:
             self.account_card.set_busy(busy)
 
     def show_account_error(self, kind: AccountErrorKind) -> None:
         if self.account_card is not None:
             self.account_card.show_error(kind)
+
+    def show_wrong_delete_password(self) -> None:
+        if self.account_card is not None:
+            self.account_card.show_wrong_delete_password()
 
     def set_google_starting(self, starting: bool) -> None:
         if self.account_card is not None:

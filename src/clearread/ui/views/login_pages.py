@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -23,7 +24,9 @@ from clearread.ui.account_state import error_text_key
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import ThemeTokens
 from clearread.ui.views.login_widgets import (
+    EMAIL_MAX_CHARS,
     NAME_MAX_CHARS,
+    PASSWORD_MAX_CHARS,
     BusyStrip,
     ConsentRow,
     CurrentPageStack,
@@ -49,13 +52,27 @@ CARD_PADDING = 32
 CARD_SPACING = 16
 STEP_WIDTH = CARD_WIDTH - 2 * CARD_PADDING
 PASSWORD_MIN_CHARS = 8
-PASSWORD_MAX_CHARS = 128
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+_EMAIL_KINDS = (AccountErrorKind.INVALID_EMAIL, AccountErrorKind.EMAIL_TOO_LONG)
+_PASSWORD_KINDS = (
+    AccountErrorKind.PASSWORD_TOO_SHORT,
+    AccountErrorKind.PASSWORD_TOO_LONG,
+)
 _RESET_STEPS = ("auth.reset_step_1", "auth.reset_step_2", "auth.reset_step_3")
 
 
 def is_valid_email(text: str) -> bool:
     return _EMAIL.fullmatch(text.strip()) is not None
+
+
+def email_problem_key(text: str) -> str | None:
+    """Catalog key of what is wrong with an email, or None when it can be sent."""
+    email = text.strip()
+    if len(email) > EMAIL_MAX_CHARS:
+        return "auth.validation.email_too_long"
+    if not is_valid_email(email):
+        return "auth.validation.email_invalid"
+    return None
 
 
 def is_valid_name(text: str) -> bool:
@@ -156,6 +173,7 @@ class SignInPage(FormPage):
     register_requested = Signal()
     reset_requested = Signal()
     google_requested = Signal()
+    privacy_requested = Signal()
 
     def __init__(self, tokens: ThemeTokens, language: Language) -> None:
         super().__init__(tokens, language, "auth.sign_in_button", "auth.signing_in")
@@ -181,6 +199,7 @@ class SignInPage(FormPage):
         switch_row.setSpacing(12)
         switch_row.addWidget(no_account, stretch=1)
         switch_row.addWidget(self.create_button)
+        self.privacy_button = link_button(self._t("auth.privacy_link"))
 
         for widget in (title, intro, self.google_button, divider):
             self.column.addWidget(widget)
@@ -192,6 +211,7 @@ class SignInPage(FormPage):
         self._add_status_and_primary()
         self.column.addWidget(separator())
         self.column.addLayout(switch_row)
+        self.column.addWidget(self.privacy_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self._connect()
         self._set_tab_order()
 
@@ -203,6 +223,7 @@ class SignInPage(FormPage):
         self.forgot_button.clicked.connect(self.reset_requested)
         self.create_button.clicked.connect(self.register_requested)
         self.google_button.clicked.connect(self._request_google)
+        self.privacy_button.clicked.connect(self.privacy_requested)
 
     def _request_google(self) -> None:
         if not self.busy:
@@ -218,6 +239,7 @@ class SignInPage(FormPage):
             self.forgot_button,
             self.primary,
             self.create_button,
+            self.privacy_button,
         )
         chain_tab_order(chain)
 
@@ -231,6 +253,7 @@ class SignInPage(FormPage):
         self.forgot_button.setEnabled(enabled)
         self.create_button.setEnabled(enabled)
         self.google_button.setEnabled(enabled)
+        self.privacy_button.setEnabled(enabled)
 
     def set_google_starting(self, starting: bool) -> None:
         """Blocked while the Google attempt is created; the primary text stays as is."""
@@ -249,8 +272,9 @@ class SignInPage(FormPage):
         self.clear_messages()
         email = self.email.edit.text().strip()
         password = self.password.edit.text()
-        if not is_valid_email(email):
-            self._show_problem(self.email, self._t("auth.validation.email_invalid"))
+        email_problem = email_problem_key(email)
+        if email_problem is not None:
+            self._show_problem(self.email, self._t(email_problem))
         elif not password:
             problem = self._t(error_text_key(AccountErrorKind.INVALID_REQUEST))
             self._show_problem(self.password, problem)
@@ -262,6 +286,8 @@ class SignInPage(FormPage):
         text = self._t(error_text_key(kind))
         if kind is AccountErrorKind.INVALID_CREDENTIALS:
             self._show_problem(self.password, text)
+        elif kind in _EMAIL_KINDS:
+            self._show_problem(self.email, text)
         else:
             self.general_message.show_message(text)
             self.email.edit.setFocus()
@@ -300,7 +326,14 @@ class RegisterPage(FormPage):
         self.password, self.password_field = password_block(
             self._t("auth.password_label"), language
         )
-        self._blocks = [self.name, self.email, self.password]
+        self.confirm, self.confirm_field = password_block(
+            self._t("auth.confirm_label"), language
+        )
+        # One "Show" button reveals both fields, so the two can be compared by eye.
+        self.confirm_field.toggle.hide()
+        self.password_field.toggle.toggled.connect(self._reveal_confirm)
+        self._blocks = [self.name, self.email, self.password, self.confirm]
+        self._confirm_typed = False
         self.consent = ConsentRow(self._t("auth.privacy_consent"), tokens.primary_fg)
         self.privacy_button = link_button(self._t("auth.privacy_link"))
         note = text_label(self._t("auth.verify_note"), "note")
@@ -324,6 +357,7 @@ class RegisterPage(FormPage):
         self._clear_on_edit(self.name)
         self._clear_on_edit(self.email)
         self.password.edit.textChanged.connect(self._on_password_changed)
+        self.confirm.edit.textChanged.connect(self._on_confirm_changed)
         self.consent.toggled.connect(self._refresh_primary)
         self.primary.clicked.connect(self._submit)
         self.back_button.clicked.connect(self.back_requested)
@@ -336,6 +370,7 @@ class RegisterPage(FormPage):
             self.email.edit,
             self.password.edit,
             self.password_field.toggle,
+            self.confirm.edit,
             self.consent.check,
             self.privacy_button,
             self.primary,
@@ -350,32 +385,61 @@ class RegisterPage(FormPage):
         self.consent.check.setEnabled(enabled)
         self.privacy_button.setEnabled(enabled)
 
+    def _reveal_confirm(self, shown: bool) -> None:
+        mode = QLineEdit.EchoMode.Normal if shown else QLineEdit.EchoMode.Password
+        self.confirm.edit.setEchoMode(mode)
+
+    @property
+    def passwords_differ(self) -> bool:
+        return self.password.edit.text() != self.confirm.edit.text()
+
     def _refresh_primary(self) -> None:
         accepted = self.consent.check.isChecked()
-        self.primary.setEnabled(accepted and not self.busy)
-        waiting_for_consent = not accepted and not self.busy
-        self.primary.setToolTip(
-            self._t("auth.register_disabled_tip") if waiting_for_consent else ""
-        )
+        differ = self.passwords_differ
+        self.primary.setEnabled(accepted and not differ and not self.busy)
+        tip = ""
+        if not self.busy:
+            if not accepted:
+                tip = self._t("auth.register_disabled_tip")
+            elif differ:
+                tip = self._t("auth.validation.password_mismatch")
+        self.primary.setToolTip(tip)
+
+    def _on_confirm_changed(self, _text: str) -> None:
+        self._confirm_typed = True
+        self._show_match_state()
+
+    def _show_match_state(self) -> None:
+        if self._confirm_typed and self.passwords_differ:
+            self.confirm.message.show_message(
+                self._t("auth.validation.password_mismatch"), urgent=False
+            )
+        else:
+            self.confirm.message.clear()
+        self._refresh_primary()
 
     def _on_password_changed(self, text: str) -> None:
+        self._show_match_state()
         length = len(text)
         short = 0 < length < PASSWORD_MIN_CHARS
         message = self.password.message
         if length > PASSWORD_MAX_CHARS:
-            message.show_message(self._t("auth.validation.password_too_long"))
+            message.show_message(
+                self._t("auth.validation.password_too_long"), urgent=False
+            )
         elif short:
             # Announced when the rule first applies, not on every key.
             message.show_message(
                 self._t("auth.password_count", count=length),
                 announce=not self._was_short,
+                urgent=False,
             )
         else:
             message.clear()
         self._was_short = short
 
     def _submit(self) -> None:
-        if self.busy or not self.consent.check.isChecked():
+        if self.busy or not self.consent.check.isChecked() or self.passwords_differ:
             return
         self.clear_messages()
         name = self.name.edit.text().strip()
@@ -391,10 +455,13 @@ class RegisterPage(FormPage):
     def _first_problem(
         self, name: str, email: str, password: str
     ) -> tuple[FieldBlock, str] | None:
+        if len(name) > NAME_MAX_CHARS:
+            return self.name, self._t("auth.validation.name_too_long")
         if not is_valid_name(name):
             return self.name, self._t("auth.validation.name_required")
-        if not is_valid_email(email):
-            return self.email, self._t("auth.validation.email_invalid")
+        email_problem = email_problem_key(email)
+        if email_problem is not None:
+            return self.email, self._t(email_problem)
         if len(password) < PASSWORD_MIN_CHARS:
             key = error_text_key(AccountErrorKind.PASSWORD_TOO_SHORT)
             return self.password, self._t(key)
@@ -405,10 +472,12 @@ class RegisterPage(FormPage):
     def show_error(self, kind: AccountErrorKind) -> None:
         self.clear_messages()
         text = self._t(error_text_key(kind))
-        if kind is AccountErrorKind.EMAIL_EXISTS:
+        if kind is AccountErrorKind.EMAIL_EXISTS or kind in _EMAIL_KINDS:
             self._show_problem(self.email, text)
-        elif kind is AccountErrorKind.PASSWORD_TOO_SHORT:
+        elif kind in _PASSWORD_KINDS:
             self._show_problem(self.password, text)
+        elif kind is AccountErrorKind.NAME_TOO_LONG:
+            self._show_problem(self.name, text)
         else:
             self.general_message.show_message(text)
             self.name.edit.setFocus()
@@ -588,10 +657,11 @@ class ResetPage(CardPage):
         if self.busy:
             return
         email = self.email.edit.text().strip()
-        if is_valid_email(email):
+        problem = email_problem_key(email)
+        if problem is None:
             self.send_requested.emit(email)
         else:
-            self._show_problem(self.email, self._t("auth.validation.email_invalid"))
+            self._show_problem(self.email, self._t(problem))
 
     def _resend(self) -> None:
         if not self.busy:

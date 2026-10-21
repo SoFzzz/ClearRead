@@ -141,6 +141,7 @@ class LoginView(QWidget):
         self.register_page.submitted.connect(self._register)
         self.register_page.back_requested.connect(self.go_back)
         self.register_page.privacy_requested.connect(self.show_privacy_notice)
+        self.sign_in_page.privacy_requested.connect(self.show_privacy_notice)
         self.reset_page.send_requested.connect(self._send_reset)
         self.reset_page.back_requested.connect(self.go_back)
         for page in (self.sign_in_page, self.register_page, self.reset_page):

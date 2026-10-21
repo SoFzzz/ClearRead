@@ -3,6 +3,7 @@
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +24,8 @@ from clearread.ui.theme import ThemeTokens
 from clearread.workers.ocr_worker import ProcessingErrorKind
 
 DIALOG_WIDTH = 540
+PRIVACY_MIN_HEIGHT = 360
+PRIVACY_MAX_HEIGHT = 640
 MARK_SIZE = 44
 
 
@@ -264,17 +268,29 @@ class PrivacyNoticeDialog(QDialog):
     """The account privacy notice, shown inside the app (never in a browser)."""
 
     def __init__(self, parent: QWidget | None, language: Language) -> None:
-        super().__init__(parent)
+        # The window of the caller, not the card inside it, so the dialog is centered
+        # over ClearRead whichever screen asked for it.
+        owner = parent.window() if parent is not None else None
+        super().__init__(owner)
+        self._owner = owner
         self.setObjectName("ErrorDialog")
         self.setWindowTitle(tr("auth.privacy_title", language))
         self.setModal(True)
         self.setFixedWidth(DIALOG_WIDTH)
+        self.setMinimumHeight(PRIVACY_MIN_HEIGHT)
 
         heading = QLabel(tr("auth.privacy_title", language))
         heading.setProperty("role", "heading")
         body = QLabel(tr("auth.privacy_body", language))
         body.setTextFormat(Qt.TextFormat.MarkdownText)
         body.setWordWrap(True)
+        body.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setAccessibleName(tr("auth.privacy_title", language))
+        self.scroll.setWidget(body)
         close = QPushButton(tr("common.understood", language))
         close.setProperty("variant", "primary")
         close.setDefault(True)
@@ -287,6 +303,19 @@ class PrivacyNoticeDialog(QDialog):
         layout.setContentsMargins(24, 24, 24, 20)
         layout.setSpacing(16)
         layout.addWidget(heading)
-        layout.addWidget(body)
+        layout.addWidget(self.scroll, stretch=1)
         layout.addLayout(buttons)
         close.setFocus()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self._fit_and_center()
+
+    def _fit_and_center(self) -> None:
+        owner = self._owner
+        if owner is None:
+            return
+        height = min(PRIVACY_MAX_HEIGHT, max(PRIVACY_MIN_HEIGHT, owner.height() - 80))
+        self.resize(DIALOG_WIDTH, height)
+        center = owner.frameGeometry().center()
+        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)

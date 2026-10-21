@@ -41,6 +41,15 @@ SIMPLIFY_MAX_TOKENS = 250
 
 logger = logging.getLogger("clearread_backend")
 
+# (field, pydantic error type) -> our code, so the app can say which field is wrong.
+ACCOUNT_FIELD_ERRORS: dict[tuple[str, str], str] = {
+    ("email", "string_pattern_mismatch"): "invalid_email",
+    ("email", "string_too_long"): "email_too_long",
+    ("password", "string_too_short"): "password_too_short",
+    ("password", "string_too_long"): "password_too_long",
+    ("display_name", "string_too_long"): "name_too_long",
+}
+
 
 class _Request(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -99,6 +108,10 @@ def create_app(
     async def validation_handler(
         _: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        for err in exc.errors():
+            known = ACCOUNT_FIELD_ERRORS.get((str(err["loc"][-1]), err["type"]))
+            if known is not None:
+                return _error_response(422, known)
         # Over-length input is 413 (BE-F02); any other defect is a malformed request.
         if all(err["type"] == "string_too_long" for err in exc.errors()):
             return _error_response(413, "input_too_long")

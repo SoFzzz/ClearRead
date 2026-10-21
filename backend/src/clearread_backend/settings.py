@@ -73,7 +73,7 @@ def load_env_file(path: Path = ENV_FILE) -> None:
     """
     if not path.is_file():
         return
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
         key, separator, value = line.strip().partition("=")
         if separator and not key.startswith("#"):
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))

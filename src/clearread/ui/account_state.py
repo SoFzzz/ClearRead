@@ -7,6 +7,13 @@ from clearread.services.account_client import AccountErrorKind
 from clearread.services.session_store import Session, StoredSession
 
 
+class AccountBusy(Enum):
+    """What the account section is doing, so each action shows only its own text."""
+
+    SIGNING_OUT = "signing_out"
+    DELETING = "deleting"
+
+
 class SyncStatus(Enum):
     OK = "ok"
     PENDING = "pending"  # a change waits for the network or the next try

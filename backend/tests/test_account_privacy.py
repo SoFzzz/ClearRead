@@ -5,7 +5,7 @@ import logging
 import httpx
 import pytest
 from conftest import BEARER, FAKE_FIREBASE_KEY
-from fake_firebase import FakeFirebase, firebase_error
+from fake_firebase import DEFAULT_UID, FakeFirebase, firebase_error
 from fastapi.testclient import TestClient
 
 from clearread_backend.settings import Settings
@@ -58,6 +58,27 @@ def test_account_flows_log_no_email_password_or_token(
     )
 
 
+def test_deleting_an_account_logs_no_password_email_or_token(
+    caplog: pytest.LogCaptureFixture, client: TestClient, firebase: FakeFirebase
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    session = client.post(
+        "/v1/auth/register",
+        json={"email": EMAIL, "password": PASSWORD, "display_name": "Marta"},
+    ).json()
+    headers = {"Authorization": f"Bearer {session['id_token']}"}
+    client.request(
+        "DELETE", "/v1/account", json={"password": "wrong-password-1"}, headers=headers
+    )
+    response = client.request(
+        "DELETE", "/v1/account", json={"password": PASSWORD}, headers=headers
+    )
+    assert response.status_code == 204
+    assert_nothing_leaked(
+        caplog, "wrong-password-1", session["id_token"], session["refresh_token"]
+    )
+
+
 def test_profile_flows_log_no_contents(
     caplog: pytest.LogCaptureFixture, client: TestClient, firebase: FakeFirebase
 ) -> None:
@@ -69,6 +90,48 @@ def test_profile_flows_log_no_contents(
     client.put("/v1/profile", json=PROFILE, headers=BEARER)
     assert_nothing_leaked(caplog)
     assert "auth_upstream_error" in logged(caplog)
+
+
+@pytest.mark.parametrize(
+    "forced, expected",
+    [
+        (
+            httpx.Response(
+                403,
+                json={
+                    "error": {
+                        "code": 403,
+                        "message": f"denied {DEFAULT_UID} {EMAIL} "
+                        "https://firestore.googleapis.com/v1/x",
+                        "status": "PERMISSION_DENIED",
+                    }
+                },
+            ),
+            "http_status=403 firestore_status=PERMISSION_DENIED",
+        ),
+        (
+            httpx.Response(500, text=f"{WORD} {EMAIL}"),
+            "http_status=500 firestore_status=none",
+        ),
+        (
+            httpx.Response(400, json={"error": {"status": f"{EMAIL} {WORD}"}}),
+            "http_status=400 firestore_status=none",
+        ),
+    ],
+)
+def test_firestore_failures_log_only_the_http_and_firestore_status(
+    caplog: pytest.LogCaptureFixture,
+    client: TestClient,
+    firebase: FakeFirebase,
+    forced: httpx.Response,
+    expected: str,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    firebase.failures["firestore"] = forced
+    response = client.get("/v1/profile", headers=BEARER)
+    assert response.json() == {"error": "auth_upstream_error"}
+    assert f"auth_upstream_error {expected}" in logged(caplog)
+    assert_nothing_leaked(caplog, DEFAULT_UID, "firestore.googleapis.com", "denied")
 
 
 def test_firebase_error_text_is_logged_as_our_code_only(

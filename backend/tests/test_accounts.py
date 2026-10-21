@@ -111,37 +111,110 @@ def test_password_limits_are_inclusive_and_spaces_are_kept(
     other = NEW | {"email": "other@example.test", "password": padded}
     assert client.post("/v1/auth/register", json=other).status_code == 201
     assert firebase.users["other@example.test"].password == padded
-    long_password = NEW | {"email": "long@example.test", "password": "a" * 128}
+    long_password = NEW | {"email": "long@example.test", "password": "a" * 32}
     assert client.post("/v1/auth/register", json=long_password).status_code == 201
 
 
-def test_a_password_over_128_characters_is_413(client: TestClient) -> None:
-    response = client.post("/v1/auth/register", json=NEW | {"password": "a" * 129})
-    assert (response.status_code, response.json()) == (413, {"error": "input_too_long"})
+def test_a_password_over_32_characters_is_password_too_long(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    response = client.post("/v1/auth/register", json=NEW | {"password": "a" * 33})
+    assert (response.status_code, response.json()) == (
+        422,
+        {"error": "password_too_long"},
+    )
+    assert firebase.calls == []
 
 
 @pytest.mark.parametrize(
     "change",
     [
-        {"email": "not-an-email"},
-        {"email": ""},
-        {"display_name": ""},
-        {"display_name": "   "},
-        {"password": ""},
+        {"email": "not-an-email", "code": "invalid_email"},
+        {"email": "", "code": "invalid_email"},
+        {"email": "a b@example.test", "code": "invalid_email"},
+        {"email": "a@@example.test", "code": "invalid_email"},
+        {"email": "a@example", "code": "invalid_email"},
+        {"email": "a" * 60 + "@x.test", "code": "email_too_long"},
+        {"display_name": "", "code": "invalid_request"},
+        {"display_name": "   ", "code": "invalid_request"},
+        {"display_name": "n" * 33, "code": "name_too_long"},
+        {"password": "", "code": "password_too_short"},
     ],
 )
-def test_register_with_invalid_fields_is_422(client: TestClient, change: dict) -> None:
+def test_register_with_invalid_fields_is_422_with_a_code_per_field(
+    client: TestClient, firebase: FakeFirebase, change: dict
+) -> None:
+    code = change.pop("code")
     response = client.post("/v1/auth/register", json=NEW | change)
-    assert response.status_code == 422
-    assert response.json() in (
-        {"error": "invalid_request"},
-        {"error": "password_too_short"},
+    assert (response.status_code, response.json()) == (422, {"error": code})
+    assert firebase.calls == []
+
+
+def test_register_email_and_name_limits_are_inclusive(client: TestClient) -> None:
+    email = "a" * 57 + "@x.test"
+    assert len(email) == 64
+    body = NEW | {"email": email, "display_name": "n" * 32}
+    assert client.post("/v1/auth/register", json=body).status_code == 201
+
+
+def test_register_normalizes_the_email_before_calling_firebase(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    body = NEW | {"email": "  New@Example.TEST "}
+    session = client.post("/v1/auth/register", json=body).json()
+    assert session["email"] == "new@example.test"
+    (call,) = firebase.calls_to("signUp")
+    assert call.body["email"] == "new@example.test"
+
+
+def test_registering_a_case_or_space_variant_of_an_email_is_email_exists(
+    client: TestClient,
+) -> None:
+    for variant in (" Student@Example.test", "STUDENT@EXAMPLE.TEST  "):
+        response = client.post("/v1/auth/register", json=NEW | {"email": variant})
+        assert (response.status_code, response.json()) == (
+            409,
+            {"error": "email_exists"},
+        )
+
+
+def test_login_and_reset_normalize_the_email(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    body = {"email": " STUDENT@example.test ", "password": DEFAULT_PASSWORD}
+    assert client.post("/v1/auth/login", json=body).status_code == 200
+    reset = {"email": " Student@EXAMPLE.test"}
+    assert client.post("/v1/auth/password-reset", json=reset).status_code == 204
+    assert firebase.calls_to("signInWithPassword")[0].body["email"] == DEFAULT_EMAIL
+    assert firebase.calls_to("PASSWORD_RESET")[0].body["email"] == DEFAULT_EMAIL
+
+
+def test_login_applies_the_same_limits_as_register(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    cases = [
+        ({"password": "p" * 33}, "password_too_long"),
+        ({"email": "a" * 58 + "@x.test"}, "email_too_long"),
+        ({"email": "nope"}, "invalid_email"),
+    ]
+    for change, code in cases:
+        body = {"email": DEFAULT_EMAIL, "password": DEFAULT_PASSWORD} | change
+        response = client.post("/v1/auth/login", json=body)
+        assert (response.status_code, response.json()) == (422, {"error": code})
+    assert firebase.calls == []
+
+
+def test_password_reset_rejects_a_too_long_email(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    response = client.post(
+        "/v1/auth/password-reset", json={"email": "a" * 58 + "@x.test"}
     )
-
-
-def test_a_display_name_over_40_characters_is_413(client: TestClient) -> None:
-    response = client.post("/v1/auth/register", json=NEW | {"display_name": "n" * 41})
-    assert response.status_code == 413
+    assert (response.status_code, response.json()) == (
+        422,
+        {"error": "email_too_long"},
+    )
+    assert firebase.calls == []
 
 
 def test_register_trims_the_email_and_display_name(
@@ -312,37 +385,145 @@ def test_password_reset_still_reports_real_upstream_failures(
     )
 
 
-def test_password_reset_rejects_a_malformed_email(client: TestClient) -> None:
+def test_password_reset_rejects_a_malformed_email_without_calling_firebase(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
     response = client.post("/v1/auth/password-reset", json={"email": "nope"})
-    assert response.status_code == 422
+    assert (response.status_code, response.json()) == (422, {"error": "invalid_email"})
+    assert firebase.calls == []
 
 
 # ---- delete account ------------------------------------------------------------
 
+RIGHT = {"password": DEFAULT_PASSWORD}
 
-def test_delete_account_removes_the_profile_and_then_the_user(
+
+def delete_account(
+    client: TestClient, body: dict | None = RIGHT, headers: dict | None = None
+) -> httpx.Response:
+    return client.request(
+        "DELETE",
+        "/v1/account",
+        json=body,
+        headers=BEARER if headers is None else headers,
+    )
+
+
+def test_delete_account_removes_the_profile_and_then_the_user_with_a_fresh_token(
     client: TestClient, firebase: FakeFirebase
 ) -> None:
     firebase.documents[DEFAULT_UID] = {"settings": {"mapValue": {}}}
-    response = client.delete("/v1/account", headers=BEARER)
+    response = delete_account(client)
     assert response.status_code == 204
     assert DEFAULT_UID not in firebase.documents
     assert DEFAULT_EMAIL not in firebase.users
     operations = [firebase._operation(call) for call in firebase.calls]
+    assert operations.index("signInWithPassword") < operations.index("firestore")
     assert operations.index("firestore") < operations.index("delete")
+    (sign_in,) = firebase.calls_to("signInWithPassword")
+    assert sign_in.body["email"] == DEFAULT_EMAIL
+    assert sign_in.body["password"] == DEFAULT_PASSWORD
+    (profile_call,) = firebase.calls_to("firestore")
+    (delete,) = firebase.calls_to("delete")
+    fresh = profile_call.headers["authorization"].removeprefix("Bearer ")
+    assert fresh != "valid-id-token"
+    assert delete.body["idToken"] == fresh
+
+
+def test_delete_account_with_a_wrong_password_deletes_nothing(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.documents[DEFAULT_UID] = {"settings": {"mapValue": {}}}
+    response = delete_account(client, {"password": "not the password"})
+    assert (response.status_code, response.json()) == (
+        401,
+        {"error": "invalid_credentials"},
+    )
+    assert DEFAULT_UID in firebase.documents
+    assert DEFAULT_EMAIL in firebase.users
+    assert firebase.calls_to("firestore") == []
+    assert firebase.calls_to("delete") == []
+
+
+def test_delete_account_with_too_many_attempts_deletes_nothing(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.failures["signInWithPassword"] = firebase_error(
+        "TOO_MANY_ATTEMPTS_TRY_LATER"
+    )
+    response = delete_account(client)
+    assert (response.status_code, response.json()) == (
+        429,
+        {"error": "too_many_attempts"},
+    )
+    assert DEFAULT_EMAIL in firebase.users
+
+
+def test_delete_account_where_the_password_belongs_to_another_uid_deletes_nothing(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    # Defensive: the email of the token and the signed-in account must be one user.
+    firebase.failures["signInWithPassword"] = httpx.Response(
+        200,
+        json={
+            "localId": "uid-someone-else",
+            "idToken": "id-x",
+            "refreshToken": "refresh-x",
+            "expiresIn": "3600",
+        },
+    )
+    response = delete_account(client)
+    assert (response.status_code, response.json()) == (
+        401,
+        {"error": "invalid_credentials"},
+    )
+    assert DEFAULT_EMAIL in firebase.users
+    assert firebase.calls_to("firestore") == []
+    assert firebase.calls_to("delete") == []
+
+
+def test_delete_account_of_an_account_without_an_email_is_refused(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.users[DEFAULT_EMAIL].email = ""
+    response = delete_account(client)
+    assert (response.status_code, response.json()) == (
+        409,
+        {"error": "account_without_password"},
+    )
+    assert firebase.calls_to("signInWithPassword") == []
+    assert firebase.calls_to("delete") == []
+
+
+@pytest.mark.parametrize(
+    "body, code",
+    [
+        (None, "invalid_request"),
+        ({}, "invalid_request"),
+        ({"password": ""}, "password_too_short"),
+        ({"password": "x" * 33}, "password_too_long"),
+    ],
+)
+def test_delete_account_needs_a_valid_password_in_the_body(
+    client: TestClient, firebase: FakeFirebase, body: dict | None, code: str
+) -> None:
+    response = delete_account(client, body)
+    assert (response.status_code, response.json()) == (422, {"error": code})
+    assert DEFAULT_EMAIL in firebase.users
+    assert firebase.calls_to("signInWithPassword") == []
 
 
 def test_a_deleted_account_can_no_longer_use_its_cached_token(
     client: TestClient,
 ) -> None:
     assert client.get("/v1/profile", headers=BEARER).status_code == 404
-    assert client.delete("/v1/account", headers=BEARER).status_code == 204
+    assert delete_account(client).status_code == 204
     again = client.get("/v1/profile", headers=BEARER)
     assert (again.status_code, again.json()) == (401, {"error": "invalid_session"})
 
 
 def test_delete_account_needs_a_bearer_token(client: TestClient) -> None:
-    response = client.delete("/v1/account")
+    response = client.request("DELETE", "/v1/account", json=RIGHT)
     assert (response.status_code, response.json()) == (
         401,
         {"error": "invalid_session"},
@@ -353,11 +534,67 @@ def test_delete_account_needing_a_recent_sign_in_asks_to_sign_in_again(
     client: TestClient, firebase: FakeFirebase
 ) -> None:
     firebase.failures["delete"] = firebase_error("CREDENTIAL_TOO_OLD_LOGIN_AGAIN")
-    response = client.delete("/v1/account", headers=BEARER)
+    response = delete_account(client)
     assert (response.status_code, response.json()) == (
         401,
         {"error": "session_revoked"},
     )
+
+
+def test_delete_account_without_a_stored_profile_still_deletes_the_user(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    assert DEFAULT_UID not in firebase.documents
+    assert delete_account(client).status_code == 204
+    assert DEFAULT_EMAIL not in firebase.users
+
+
+def test_delete_account_with_a_firestore_failure_keeps_the_user(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.documents[DEFAULT_UID] = {"settings": {"mapValue": {}}}
+    firebase.failures["firestore"] = httpx.Response(500)
+    response = delete_account(client)
+    assert (response.status_code, response.json()) == (
+        502,
+        {"error": "auth_upstream_error"},
+    )
+    assert DEFAULT_EMAIL in firebase.users
+    assert firebase.calls_to("delete") == []
+    del firebase.failures["firestore"]
+    assert delete_account(client).status_code == 204
+    assert DEFAULT_EMAIL not in firebase.users
+
+
+def test_delete_account_with_an_auth_failure_can_be_retried(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.documents[DEFAULT_UID] = {"settings": {"mapValue": {}}}
+    firebase.failures["delete"] = httpx.Response(500)
+    response = delete_account(client)
+    assert (response.status_code, response.json()) == (
+        502,
+        {"error": "auth_upstream_error"},
+    )
+    assert DEFAULT_EMAIL in firebase.users
+    del firebase.failures["delete"]
+    assert delete_account(client).status_code == 204
+    assert DEFAULT_EMAIL not in firebase.users
+
+
+def test_delete_account_with_an_unknown_token_deletes_nothing(
+    client: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.documents[DEFAULT_UID] = {"settings": {"mapValue": {}}}
+    response = delete_account(client, headers={"Authorization": "Bearer forged-token"})
+    assert (response.status_code, response.json()) == (
+        401,
+        {"error": "invalid_session"},
+    )
+    assert DEFAULT_UID in firebase.documents
+    assert DEFAULT_EMAIL in firebase.users
+    assert firebase.calls_to("delete") == []
+    assert firebase.calls_to("signInWithPassword") == []
 
 
 # ---- upstream failures ---------------------------------------------------------

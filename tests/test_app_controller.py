@@ -480,9 +480,10 @@ def test_delete_removes_the_account_and_the_profile_folder(
     card = window.settings_view.account_card
     assert card is not None
     card.delete_button.click()
-    box = window.settings_view.dialog
-    assert isinstance(box, QMessageBox)
-    press(box, tr("account.delete_confirm", Language.ES))
+    dialog = card.delete_dialog
+    assert dialog is not None
+    dialog.password_edit.setText("secret-pass")
+    dialog.delete_button.click()
     qtbot.waitUntil(lambda: controller.window is None, timeout=TIMEOUT_MS)
     assert "DELETE /v1/account" in rig.server.calls
     assert not profile_dir(rig).exists()
@@ -502,9 +503,10 @@ def test_a_failed_delete_keeps_everything_and_shows_the_error(
     card = window.settings_view.account_card
     assert card is not None
     card.delete_button.click()
-    box = window.settings_view.dialog
-    assert isinstance(box, QMessageBox)
-    press(box, tr("account.delete_confirm", Language.ES))
+    dialog = card.delete_dialog
+    assert dialog is not None
+    dialog.password_edit.setText("secret-pass")
+    dialog.delete_button.click()
     expected = tr("auth.error.service_unavailable", Language.ES)
     qtbot.waitUntil(lambda: card.error_message.text == expected, timeout=TIMEOUT_MS)
     assert controller.window is window

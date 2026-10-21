@@ -36,11 +36,10 @@ from clearread.ui.theme import ThemeTokens
 
 MARK_SIZE = 20
 GOOGLE_ICON_PX = 20
-NAME_MAX_CHARS = 40
-EMAIL_MAX_CHARS = 254
-MAX_EDIT_CHARS = (
-    1024  # keeps a paste from freezing the field; the backend has the real cap
-)
+# The same limits the backend enforces.
+NAME_MAX_CHARS = 32
+EMAIL_MAX_CHARS = 64
+PASSWORD_MAX_CHARS = 32
 
 
 def set_variant(button: QPushButton, variant: str) -> QPushButton:
@@ -67,6 +66,13 @@ def link_button(text: str) -> QPushButton:
 def announce_alert(widget: QWidget) -> None:
     """Tell assistive technology that a message just appeared."""
     QAccessible.updateAccessibility(QAccessibleEvent(widget, QAccessible.Event.Alert))
+
+
+def announce_name_change(widget: QWidget) -> None:
+    """Refresh the accessible name quietly, without the system alert sound."""
+    QAccessible.updateAccessibility(
+        QAccessibleEvent(widget, QAccessible.Event.NameChanged)
+    )
 
 
 def text_label(text: str, role: str | None = None) -> QLabel:
@@ -100,13 +106,25 @@ class InlineMessage(QWidget):
     def text(self) -> str:
         return self._text.text()
 
-    def show_message(self, text: str, announce: bool = True) -> None:
-        changed = text != self._text.text() or not self.isHidden()
+    def show_message(
+        self, text: str, announce: bool = True, urgent: bool = True
+    ) -> None:
+        """Show ``text``; tell assistive technology only when it is new.
+
+        ``urgent=False`` is for hints that update while the user types: an
+        Alert event makes Windows play a system sound, so they use a quiet
+        name change instead.
+        """
+        changed = text != self._text.text() or self.isHidden()
         self._text.setText(text)
         self._text.setAccessibleName(text)
         self.show()
-        if announce and changed:
+        if not (announce and changed):
+            return
+        if urgent:
             announce_alert(self._text)
+        else:
+            announce_name_change(self._text)
 
     def clear(self) -> None:
         self._text.clear()
@@ -122,7 +140,7 @@ class PasswordField(QFrame):
         self._language = language
         self.edit = QLineEdit()
         self.edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.edit.setMaxLength(MAX_EDIT_CHARS)
+        self.edit.setMaxLength(PASSWORD_MAX_CHARS)
         self.edit.installEventFilter(self)
         self.toggle = link_button(tr("auth.show_password", language))
         self.toggle.setAccessibleName(tr("auth.show_password_a11y", language))

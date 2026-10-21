@@ -65,13 +65,20 @@ def test_refresh_sends_the_refresh_token() -> None:
     assert backend.bodies() == [{"refresh_token": "refresh-1"}]
 
 
+def test_delete_with_a_wrong_password_is_invalid_credentials() -> None:
+    with pytest.raises(AccountError) as error:
+        failing(401, "invalid_credentials").delete_account("id-1", "nope")
+    assert error.value.kind is AccountErrorKind.INVALID_CREDENTIALS
+
+
 def test_password_reset_and_delete_expect_204_and_use_the_bearer() -> None:
     client, backend = make_account_client(lambda r: httpx.Response(204))
 
     client.request_password_reset("ana@example.com")
-    client.delete_account("id-1")
+    client.delete_account("id-1", "my password")
 
     assert [r.method for r in backend.requests] == ["POST", "DELETE"]
+    assert backend.bodies()[1] == {"password": "my password"}
     assert backend.requests[1].url.path == "/v1/account"
     assert backend.requests[1].headers["Authorization"] == "Bearer id-1"
     assert "Authorization" not in backend.requests[0].headers

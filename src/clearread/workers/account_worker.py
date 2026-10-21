@@ -120,11 +120,15 @@ class SyncProfileWorker(_AccountWorker):
 
 
 class DeleteAccountWorker(_AccountWorker):
-    def __init__(self, client: AccountClient, session: SessionManager) -> None:
-        super().__init__(client, lambda: self._delete(session))
+    def __init__(
+        self, client: AccountClient, session: SessionManager, password: str
+    ) -> None:
+        super().__init__(client, lambda: self._delete(session, password))
 
-    def _delete(self, session: SessionManager) -> None:
-        session.run_authorized(self._client.delete_account)
+    def _delete(self, session: SessionManager, password: str) -> None:
+        session.run_authorized(
+            lambda token: self._client.delete_account(token, password)
+        )
         session.sign_out()
 
 

@@ -5,15 +5,22 @@ from typing import Annotated, Any
 from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+EMAIL_MAX_CHARS = 64
 PASSWORD_MIN_CHARS = 8
-PASSWORD_MAX_CHARS = 128
-DISPLAY_NAME_MAX_CHARS = 40
+PASSWORD_MAX_CHARS = 32
+DISPLAY_NAME_MAX_CHARS = 32
 
-# Passwords are never stripped: surrounding spaces are part of the secret.
+# Firebase treats emails case-insensitively, so every spelling is folded to one.
 Email = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, max_length=254, pattern=EMAIL_PATTERN),
+    StringConstraints(
+        strip_whitespace=True,
+        to_lower=True,
+        max_length=EMAIL_MAX_CHARS,
+        pattern=EMAIL_PATTERN,
+    ),
 ]
+# Passwords are never stripped: surrounding spaces are part of the secret.
 Password = Annotated[str, Field(min_length=1, max_length=PASSWORD_MAX_CHARS)]
 
 
@@ -30,6 +37,10 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: Email
+    password: Password
+
+
+class DeleteAccountRequest(BaseModel):
     password: Password
 
 

@@ -360,3 +360,23 @@ def test_every_google_error_kind_has_a_message_in_both_languages() -> None:
     for kind in kinds:
         for language in Language:
             assert tr(f"auth.error.{kind.name.lower()}", language)
+
+
+def test_linking_refreshes_the_card_to_confirmed_without_restarting(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    controller = make_profile_window(qtbot, controllers, rig, linked=False)
+    card = controller.window.settings_view.account_card  # type: ignore[union-attr]
+    assert card is not None
+    controller.window.set_account(  # type: ignore[union-attr]
+        AccountInfo("Ana", "ana@example.com", False, False)
+    )
+    assert tr("account.not_verified", Language.ES) in card.badge.text()
+    rig.server.session_fields = {"google_linked": True, "email_verified": True}
+    rig.server.google_answers = [LINKED]
+    card.google_button.click()
+    qtbot.waitUntil(
+        lambda: tr("account.verified", Language.ES) in card.badge.text(),
+        timeout=TIMEOUT_MS,
+    )
+    assert "POST /v1/auth/refresh" in rig.server.calls

@@ -3,15 +3,17 @@
 import re
 
 import pytest
-from PySide6.QtWidgets import QAbstractButton, QLabel, QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QAbstractButton, QLabel, QLineEdit, QMessageBox
 from pytestqt.qtbot import QtBot
 
 from clearread.core.config import AppConfig
 from clearread.services.account_client import AccountErrorKind
 from clearread.services.syllabifier import SpanishSyllabifier
-from clearread.ui.account_state import AccountInfo, SyncStatus
+from clearread.ui.account_state import AccountBusy, AccountInfo, SyncStatus
 from clearread.ui.strings import Language, tr
 from clearread.ui.theme import THEMES, ThemeId, build_stylesheet
+from clearread.ui.views.delete_account_dialog import DeleteAccountDialog
 from clearread.ui.views.settings_view import SettingsView
 
 SPANISH_CHARS = re.compile("[áéíóúñÁÉÍÓÚÑ¿¡]")
@@ -158,40 +160,180 @@ def test_sign_out_warns_only_when_changes_are_unsaved(qtbot: QtBot) -> None:
         box_of(view).close()
 
 
-def test_delete_explains_what_goes_and_cancel_is_the_safe_default(
+def open_delete_dialog(view: SettingsView) -> DeleteAccountDialog:
+    assert view.account_card is not None
+    view.account_card.delete_button.click()
+    dialog = view.account_card.delete_dialog
+    assert dialog is not None
+    return dialog
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_delete_asks_for_the_password_and_cancel_is_the_safe_answer(
+    qtbot: QtBot, language: Language
+) -> None:
+    view = make_view(qtbot, language)
+    requested: list[str] = []
+    view.delete_account_requested.connect(requested.append)
+    dialog = open_delete_dialog(view)
+    texts = [label.text() for label in dialog.findChildren(QLabel)]
+    for key in ("account.delete_title", "account.delete_body"):
+        assert tr(key, language) in texts
+    assert tr("account.delete_password_hint", language) in texts
+    assert dialog.password_block.label.text() == tr(
+        "account.delete_password_label", language
+    )
+    assert dialog.cancel_button.property("variant") == "primary"
+    assert not dialog.cancel_button.autoDefault()
+    assert not dialog.delete_button.autoDefault()
+    dialog.cancel_button.click()
+    assert requested == []
+    assert view.account_card is not None
+    assert view.account_card.delete_dialog is None
+
+
+def test_the_password_field_is_hidden_limited_and_named(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    dialog = open_delete_dialog(view)
+    edit = dialog.password_edit
+    assert edit.echoMode() == QLineEdit.EchoMode.Password
+    assert edit.maxLength() == 32
+    assert edit.accessibleName() == tr("account.delete_password_label", Language.ES)
+    toggle = dialog.password_field.toggle
+    assert toggle.text() == tr("auth.show_password", Language.ES)
+    toggle.click()
+    assert edit.echoMode() == QLineEdit.EchoMode.Normal
+
+
+def test_delete_stays_disabled_until_a_password_is_typed(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    requested: list[str] = []
+    view.delete_account_requested.connect(requested.append)
+    dialog = open_delete_dialog(view)
+    assert not dialog.delete_button.isEnabled()
+    dialog.delete_button.click()
+    assert requested == []
+    dialog.password_edit.setText("abc")
+    assert dialog.delete_button.isEnabled()
+    dialog.password_edit.clear()
+    assert not dialog.delete_button.isEnabled()
+
+
+def test_enter_never_deletes(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    requested: list[str] = []
+    view.delete_account_requested.connect(requested.append)
+    dialog = open_delete_dialog(view)
+    dialog.password_edit.setText("abc")
+    qtbot.keyClick(dialog.password_edit, Qt.Key.Key_Return)
+    assert requested == []
+    assert dialog.isVisible()
+
+
+def test_confirming_sends_the_password_and_waits(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    requested: list[str] = []
+    view.delete_account_requested.connect(requested.append)
+    dialog = open_delete_dialog(view)
+    dialog.password_edit.setText("my secret")
+    dialog.delete_button.click()
+    assert requested == ["my secret"]
+    assert dialog.isVisible()
+    assert dialog.busy_label.isVisible()
+    assert not dialog.password_edit.isEnabled()
+    assert not dialog.delete_button.isEnabled()
+    assert dialog.password_edit.text() == ""
+    dialog.reject()  # Escape while deleting does not hide the request
+    assert dialog.isVisible()
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_a_wrong_password_is_said_inside_the_dialog(
+    qtbot: QtBot, language: Language
+) -> None:
+    view = make_view(qtbot, language)
+    dialog = open_delete_dialog(view)
+    dialog.password_edit.setText("wrong")
+    dialog.delete_button.click()
+    view.show_wrong_delete_password()
+    assert dialog.isVisible()
+    assert dialog.wrong_password_text == tr("account.delete_wrong_password", language)
+    assert dialog.password_edit.isEnabled()
+    assert not dialog.busy_label.isVisible()
+    assert dialog.cancel_button.isEnabled()
+
+
+def test_another_error_closes_the_dialog_and_shows_it_in_the_card(
     qtbot: QtBot,
 ) -> None:
     view = make_view(qtbot)
+    dialog = open_delete_dialog(view)
+    dialog.password_edit.setText("abc")
+    dialog.delete_button.click()
+    view.show_account_error(AccountErrorKind.NO_NETWORK)
     assert view.account_card is not None
-    requested: list[bool] = []
-    view.delete_account_requested.connect(lambda: requested.append(True))
-    view.account_card.delete_button.click()
-    box = box_of(view)
-    assert box.text() == tr("account.delete_title", Language.ES)
-    assert box.informativeText() == tr("account.delete_body", Language.ES)
-    default = box.defaultButton()
-    assert isinstance(default, QAbstractButton)
-    assert default.text() == tr("common.cancel", Language.ES)
-    assert default.property("variant") == "primary"
-    press(box, tr("common.cancel", Language.ES))
-    assert requested == []
-    view.account_card.delete_button.click()
-    press(box_of(view), tr("account.delete_confirm", Language.ES))
-    assert requested == [True]
+    assert not dialog.isVisible()
+    assert view.account_card.delete_dialog is None
+    assert view.account_card.error_message.isVisible()
 
 
-def test_busy_state_blocks_both_buttons_and_says_deleting(qtbot: QtBot) -> None:
+def test_the_english_delete_dialog_has_no_spanish(qtbot: QtBot) -> None:
+    view = make_view(qtbot, Language.EN)
+    dialog = open_delete_dialog(view)
+    view.show_wrong_delete_password()
+    texts = [label.text() for label in dialog.findChildren(QLabel)] + [
+        b.text() for b in dialog.findChildren(QAbstractButton)
+    ]
+    assert [text for text in texts if SPANISH_CHARS.search(text)] == []
+
+
+def test_deleting_blocks_the_buttons_and_says_deleting(qtbot: QtBot) -> None:
     view = make_view(qtbot)
     card = view.account_card
     assert card is not None
-    view.set_account_busy(True)
+    view.set_account_busy(AccountBusy.DELETING)
     assert not card.sign_out_button.isEnabled()
     assert not card.delete_button.isEnabled()
-    assert tr("account.deleting", Language.ES) in labels(view)
     assert card.busy_label.isVisible()
-    view.set_account_busy(False)
+    assert card.busy_label.text() == tr("account.deleting", Language.ES)
+    view.set_account_busy(None)
     assert card.sign_out_button.isEnabled()
     assert not card.busy_label.isVisible()
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_signing_out_says_only_signing_out(qtbot: QtBot, language: Language) -> None:
+    view = make_view(qtbot, language)
+    card = view.account_card
+    assert card is not None
+    view.set_account_busy(AccountBusy.SIGNING_OUT)
+    assert not card.sign_out_button.isEnabled()
+    assert card.busy_label.isVisible()
+    assert card.busy_label.text() == tr("account.signing_out", language)
+    shown = [label.text() for label in card.findChildren(QLabel) if label.isVisible()]
+    assert tr("account.deleting", language) not in shown
+
+
+def test_the_busy_text_follows_the_latest_action(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    card = view.account_card
+    assert card is not None
+    view.set_account_busy(AccountBusy.DELETING)
+    view.set_account_busy(None)
+    view.set_account_busy(AccountBusy.SIGNING_OUT)
+    assert card.busy_label.text() == tr("account.signing_out", Language.ES)
+
+
+def test_the_card_offers_the_privacy_notice(qtbot: QtBot) -> None:
+    view = make_view(qtbot)
+    card = view.account_card
+    assert card is not None
+    assert card.privacy_button.text() == tr("auth.privacy_link", Language.ES)
+    card.privacy_button.click()
+    dialog = card.privacy_dialog
+    assert dialog is not None
+    assert dialog.parent() is view.window()
+    dialog.accept()
 
 
 @pytest.mark.parametrize("language", list(Language))

@@ -191,7 +191,7 @@ def test_delete_account_signs_out(qtbot: QtBot, tmp_path: Path) -> None:
     )
     manager = make_manager(client, tmp_path)
     manager.start(make_session())
-    worker = DeleteAccountWorker(client, manager)
+    worker = DeleteAccountWorker(client, manager, "my password")
 
     with qtbot.waitSignal(worker.signals.finished, timeout=5000):
         run(worker)

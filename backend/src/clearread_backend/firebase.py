@@ -5,6 +5,7 @@ never reaches the app, and nothing received or sent is logged.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -29,6 +30,8 @@ logger = logging.getLogger("clearread_backend")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 _UPSTREAM_ERROR = (502, "auth_upstream_error")
+# Only enum-shaped values are logged: anything else could be message text.
+_GRPC_STATUS = re.compile(r"[A-Z_]{1,40}")
 _ERROR_CODES: dict[str, tuple[int, str]] = {
     "EMAIL_EXISTS": (409, "email_exists"),
     "INVALID_EMAIL": (422, "invalid_request"),
@@ -112,6 +115,16 @@ def _firebase_code(response: httpx.Response) -> str:
     return str(message).split(" : ")[0].strip()
 
 
+def _firestore_status(response: httpx.Response) -> str:
+    try:
+        status = response.json()["error"]["status"]
+    except (ValueError, KeyError, TypeError):
+        return ""
+    if isinstance(status, str) and _GRPC_STATUS.fullmatch(status):
+        return status
+    return ""
+
+
 def _raise_for_error(
     response: httpx.Response,
     codes: dict[str, tuple[int, str]] = _ERROR_CODES,
@@ -137,14 +150,27 @@ def json_object(response: httpx.Response) -> dict[str, Any]:
     return data
 
 
-def _has_google(user: dict[str, Any]) -> bool:
+def _google_entry(user: dict[str, Any]) -> dict[str, Any] | None:
     providers = user.get("providerUserInfo")
     if not isinstance(providers, list):
+        return None
+    for item in providers:
+        if isinstance(item, dict) and item.get("providerId") == GOOGLE_PROVIDER_ID:
+            return item
+    return None
+
+
+def _same_email(first: object, second: object) -> bool:
+    if not isinstance(first, str) or not isinstance(second, str):
         return False
-    return any(
-        isinstance(item, dict) and item.get("providerId") == GOOGLE_PROVIDER_ID
-        for item in providers
-    )
+    return bool(first.strip()) and first.strip().lower() == second.strip().lower()
+
+
+def _effective_verified(user: dict[str, Any], google: dict[str, Any] | None) -> bool:
+    """Firebase's flag, or a linked Google account that owns the same email."""
+    if user.get("emailVerified") is True:
+        return True
+    return google is not None and _same_email(google.get("email"), user.get("email"))
 
 
 def _tokens(data: dict[str, Any]) -> Tokens:
@@ -237,12 +263,13 @@ class FirebaseAuthGateway:
         data = await self._call("lookup", {"idToken": id_token})
         try:
             user = data["users"][0]
+            google = _google_entry(user)
             return AccountInfo(
                 uid=user["localId"],
                 email=user.get("email", ""),
-                email_verified=bool(user.get("emailVerified", False)),
+                email_verified=_effective_verified(user, google),
                 display_name=user.get("displayName", ""),
-                google_linked=_has_google(user),
+                google_linked=google is not None,
             )
         except (KeyError, IndexError, TypeError):
             raise ApiError(*_UPSTREAM_ERROR) from None
@@ -305,7 +332,12 @@ class FirestoreGateway:
         if response.status_code == 401:
             raise ApiError(401, "invalid_session")
         if not response.is_success:
-            logger.warning("firestore failure: %s", _UPSTREAM_ERROR[1])
+            logger.warning(
+                "firestore failure: %s http_status=%s firestore_status=%s",
+                _UPSTREAM_ERROR[1],
+                response.status_code,
+                _firestore_status(response) or "none",
+            )
             raise ApiError(*_UPSTREAM_ERROR)
         return response
 

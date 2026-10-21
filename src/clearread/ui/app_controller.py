@@ -5,7 +5,9 @@ session, keeps it in step with the account, and brings the login screen back whe
 person signs out, deletes the account or the account ends the session.
 """
 
+import os
 import shutil
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum
@@ -30,7 +32,7 @@ from clearread.services.profile_sync import SyncStateStore
 from clearread.services.session_manager import SessionManager
 from clearread.services.session_store import Session, StoredSession
 from clearread.services.tts_controller import TTSController
-from clearread.ui.account_state import AccountInfo
+from clearread.ui.account_state import AccountBusy, AccountInfo
 from clearread.ui.google_flow import POLL_INTERVAL_MS, GoogleFlow
 from clearread.ui.login_window import LoginWindow
 from clearread.ui.main_window import MainWindow
@@ -40,6 +42,18 @@ from clearread.workers.account_worker import DeleteAccountWorker, RefreshSession
 
 WINDOW_SIZE = (1280, 800)
 _ENDED_KINDS = (AccountErrorKind.SESSION_REVOKED, AccountErrorKind.INVALID_SESSION)
+
+
+def remove_profile_folder(profile_dir: Path) -> None:
+    """Delete one profile folder; a read-only file must not leave the data behind."""
+
+    def make_writable_and_retry(
+        function: Callable[[str], object], path: str, _error: object
+    ) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        function(path)
+
+    shutil.rmtree(profile_dir, onerror=make_writable_and_retry)
 
 
 class LoginNotice(Enum):
@@ -229,6 +243,9 @@ class AppController(QObject):
         if self._info is not None:
             self._info = replace(self._info, google_linked=True)
             window.set_account(self._info)
+        # Linking can also confirm the email, which only the backend knows.
+        if self._services.network.is_online:
+            self._refresh_account()
 
     def _google_failed(self, kind: AccountErrorKind) -> None:
         window = self.window
@@ -293,21 +310,23 @@ class AppController(QObject):
     def _sign_out(self) -> None:
         if self.window is None or self.sync is None:
             return
-        self.window.set_account_busy(True)
+        self.window.set_account_busy(AccountBusy.SIGNING_OUT)
         self.sync.flush(partial(self._finish_sign_out, self._generation))
 
     def _finish_sign_out(self, generation: int) -> None:
         if generation == self._generation:
             self._end_session(None)
 
-    def _delete_account(self) -> None:
+    def _delete_account(self, password: str) -> None:
         if self.window is None or self.sync is None:
             return
-        self.window.set_account_busy(True)
+        self.window.set_account_busy(AccountBusy.DELETING)
         self.sync.suspend()
         generation = self._generation
         self._services.runner.run(
-            DeleteAccountWorker(self._services.client, self._services.session),
+            DeleteAccountWorker(
+                self._services.client, self._services.session, password
+            ),
             on_finished=partial(self._on_deleted, generation),
             on_failed=partial(self._on_delete_failed, generation),
         )
@@ -322,8 +341,11 @@ class AppController(QObject):
         if kind in _ENDED_KINDS:
             self._on_session_ended()
             return
-        self.window.set_account_busy(False)
-        self.window.show_account_error(kind)
+        self.window.set_account_busy(None)
+        if kind is AccountErrorKind.INVALID_CREDENTIALS:
+            self.window.show_wrong_delete_password()
+        else:
+            self.window.show_account_error(kind)
         self.sync.resume()
 
     def _end_session(
@@ -344,4 +366,4 @@ class AppController(QObject):
             window.close()
             window.deleteLater()
         if remove_profile and profile_dir is not None:
-            shutil.rmtree(profile_dir, ignore_errors=True)
+            remove_profile_folder(profile_dir)

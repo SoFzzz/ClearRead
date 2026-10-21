@@ -27,6 +27,7 @@ class User:
     display_name: str = ""
     email_verified: bool = False
     providers: list[str] = field(default_factory=list)
+    google_email: str | None = None
 
 
 @dataclass
@@ -178,9 +179,15 @@ class FakeFirebase:
             "email": user.email,
             "emailVerified": user.email_verified,
             "displayName": user.display_name,
-            "providerUserInfo": [{"providerId": name} for name in user.providers],
+            "providerUserInfo": [self._provider_entry(user, n) for n in user.providers],
         }
         return httpx.Response(200, json={"users": [info]})
+
+    @staticmethod
+    def _provider_entry(user: User, name: str) -> dict[str, str]:
+        if name == "google.com" and user.google_email is not None:
+            return {"providerId": name, "email": user.google_email}
+        return {"providerId": name}
 
     def _delete_user(self, call: Call) -> httpx.Response:
         user = self._user_of(call.body["idToken"])
@@ -221,6 +228,9 @@ class FakeFirebase:
         if token not in self.id_tokens:
             return httpx.Response(401, json={"error": {"status": "UNAUTHENTICATED"}})
         uid = call.url.path.rsplit("/", 1)[1]
+        if self.id_tokens[token] != uid:
+            # The rules of spec 4.14.7: only the owner may touch profiles/<uid>.
+            return httpx.Response(403, json={"error": {"status": "PERMISSION_DENIED"}})
         if call.method == "GET":
             if uid not in self.documents:
                 return httpx.Response(404, json={"error": {"status": "NOT_FOUND"}})

@@ -47,7 +47,7 @@ from clearread.services.text_formatter import (
     TextFormatter,
 )
 from clearread.services.tts_controller import TTSController, VoiceInfo, choose_voice
-from clearread.ui.account_state import AccountInfo, SyncStatus
+from clearread.ui.account_state import AccountBusy, AccountInfo, SyncStatus
 from clearread.ui.ai_assistant import AIAssistant
 from clearread.ui.dialogs import (
     AccessibleErrorDialog,
@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
     profile_changed = Signal()
     device_preferences_changed = Signal(str, str)  # theme, interface language
     sign_out_requested = Signal()
-    delete_account_requested = Signal()
+    delete_account_requested = Signal(str)  # the password
     google_link_requested = Signal()
     google_cancel_requested = Signal()
     session_check_requested = Signal()  # the assistant was told to sign in again
@@ -701,11 +701,14 @@ class MainWindow(QMainWindow):
     def set_sync_status(self, status: SyncStatus) -> None:
         self.settings_view.set_sync_status(status)
 
-    def set_account_busy(self, busy: bool) -> None:
+    def set_account_busy(self, busy: AccountBusy | None) -> None:
         self.settings_view.set_account_busy(busy)
 
     def show_account_error(self, kind: AccountErrorKind) -> None:
         self.settings_view.show_account_error(kind)
+
+    def show_wrong_delete_password(self) -> None:
+        self.settings_view.show_wrong_delete_password()
 
     def set_google_starting(self, starting: bool) -> None:
         self.settings_view.set_google_starting(starting)

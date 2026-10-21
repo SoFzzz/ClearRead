@@ -11,9 +11,16 @@ import pytest
 from app_fakes import GOOGLE_TEST_POLL_MS, Rig, make_rig
 from backend_fakes import make_account_client, session_json
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut, QShortcutEvent
+from PySide6.QtGui import QAccessible, QKeySequence, QShortcut, QShortcutEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QCheckBox, QLabel, QPushButton, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QWidget,
+)
 from pytestqt.qtbot import QtBot
 
 from clearread.services.account_client import AccountErrorKind
@@ -87,6 +94,7 @@ def fill_register(view: LoginView, password: str = PASSWORD) -> RegisterPage:
     page.name.edit.setText("Ana")
     page.email.edit.setText(EMAIL)
     page.password.edit.setText(password)
+    page.confirm.edit.setText(password)
     page.consent.check.setChecked(True)
     return page
 
@@ -118,7 +126,8 @@ def test_email_check(text: str, valid: bool) -> None:
 def test_name_check() -> None:
     assert is_valid_name("Ana")
     assert not is_valid_name("   ")
-    assert not is_valid_name("x" * 41)
+    assert is_valid_name("x" * 32)
+    assert not is_valid_name("x" * 33)
 
 
 # ---- sign in ----------------------------------------------------------------
@@ -411,7 +420,9 @@ def test_privacy_link_opens_the_notice_in_a_dialog(qtbot: QtBot, rig: Rig) -> No
         ("   ", EMAIL, PASSWORD, "auth.validation.name_required"),
         ("Ana", "ana@", PASSWORD, "auth.validation.email_invalid"),
         ("Ana", EMAIL, "short", "auth.error.password_too_short"),
-        ("Ana", EMAIL, "x" * 129, "auth.validation.password_too_long"),
+        ("Ana", EMAIL, "x" * 33, "auth.validation.password_too_long"),
+        ("x" * 33, EMAIL, PASSWORD, "auth.validation.name_too_long"),
+        ("Ana", "a" * 60 + "@example.com", PASSWORD, "auth.validation.email_too_long"),
     ],
 )
 def test_register_checks_fields_before_sending(
@@ -419,11 +430,20 @@ def test_register_checks_fields_before_sending(
 ) -> None:
     view = make_view(qtbot, rig)
     page = fill_register(view, password)
+    lift_the_limits(page)
     page.name.edit.setText(name)
     page.email.edit.setText(email)
+    page.password.edit.setText(password)
+    page.confirm.edit.setText(password)
     page.primary.click()
     assert shown_messages(view)[-1] == tr(expected_key, Language.ES)
     assert rig.server.calls == []
+
+
+def lift_the_limits(page: RegisterPage) -> None:
+    """The fields stop typing at their limit; this reaches the checks behind them."""
+    for block in (page.name, page.email, page.password, page.confirm):
+        block.edit.setMaxLength(1000)
 
 
 def test_password_help_counts_and_goes_away_at_eight(qtbot: QtBot, rig: Rig) -> None:
@@ -434,10 +454,9 @@ def test_password_help_counts_and_goes_away_at_eight(qtbot: QtBot, rig: Rig) -> 
     assert shown_messages(view) == [tr("auth.password_count", Language.ES, count=6)]
     edit.setText("abcdefgh")
     assert shown_messages(view) == []
-    edit.setText("x" * 129)
-    assert shown_messages(view) == [
-        tr("auth.validation.password_too_long", Language.ES)
-    ]
+    edit.setMaxLength(1000)
+    edit.setText("x" * 33)
+    assert tr("auth.validation.password_too_long", Language.ES) in shown_messages(view)
 
 
 def test_register_sends_the_name_and_emits_the_session(qtbot: QtBot, rig: Rig) -> None:
@@ -591,8 +610,9 @@ def test_tab_order_of_the_sign_in_card(qtbot: QtBot, rig: Rig) -> None:
         page.forgot_button,
         page.primary,
         page.create_button,
+        page.privacy_button,
     ]
-    assert focus_order(view, page.email.edit, page.create_button) == expected
+    assert focus_order(view, page.email.edit, page.privacy_button) == expected
 
 
 def test_tab_order_of_the_create_card(qtbot: QtBot, rig: Rig) -> None:
@@ -606,6 +626,7 @@ def test_tab_order_of_the_create_card(qtbot: QtBot, rig: Rig) -> None:
         page.email.edit,
         page.password.edit,
         page.password_field.toggle,
+        page.confirm.edit,
         page.consent.check,
         page.privacy_button,
         page.primary,
@@ -630,8 +651,256 @@ def test_primary_disabled_style_is_dashed_in_the_stylesheet() -> None:
     assert "dashed" in rule.split("}")[0]
 
 
-def test_the_name_field_stops_at_forty_characters(qtbot: QtBot, rig: Rig) -> None:
+@pytest.mark.parametrize(
+    ("field", "limit"),
+    [("name", 32), ("email", 64), ("password", 32), ("confirm", 32)],
+)
+def test_the_register_fields_stop_at_their_limit(
+    qtbot: QtBot, rig: Rig, field: str, limit: int
+) -> None:
     view = make_view(qtbot, rig)
     view.show_page(LoginPage.REGISTER)
-    view.register_page.name.edit.setText("x" * 60)
-    assert len(view.register_page.name.edit.text()) == 40
+    edit = getattr(view.register_page, field).edit
+    edit.setText("x" * 100)
+    assert len(edit.text()) == limit
+
+
+def test_the_sign_in_fields_stop_at_their_limit(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    page = view.sign_in_page
+    page.email.edit.setText("x" * 100)
+    page.password.edit.setText("x" * 100)
+    assert len(page.email.edit.text()) == 64
+    assert len(page.password.edit.text()) == 32
+
+
+# ---- repeat the password ----------------------------------------------------
+
+
+def test_the_create_card_asks_to_repeat_the_password(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.REGISTER)
+    page = view.register_page
+    assert page.confirm.label.text() == tr("auth.confirm_label", Language.ES)
+    assert page.confirm.edit.accessibleName() == tr("auth.confirm_label", Language.ES)
+    assert page.confirm.edit.echoMode() == QLineEdit.EchoMode.Password
+
+
+def test_differing_passwords_disable_create_and_never_send(
+    qtbot: QtBot, rig: Rig
+) -> None:
+    view = make_view(qtbot, rig)
+    page = fill_register(view)
+    assert page.primary.isEnabled()
+    page.confirm.edit.setText("other-pass")
+    assert not page.primary.isEnabled()
+    assert shown_messages(view) == [
+        tr("auth.validation.password_mismatch", Language.ES)
+    ]
+    page.primary.click()
+    page.name.edit.returnPressed.emit()
+    page.confirm.edit.returnPressed.emit()
+    assert rig.server.calls == []
+
+
+def test_the_mismatch_message_waits_for_the_confirm_field(
+    qtbot: QtBot, rig: Rig
+) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.REGISTER)
+    page = view.register_page
+    page.password.edit.setText("abcdefgh")
+    assert shown_messages(view) == []
+    page.confirm.edit.setText("abc")
+    assert shown_messages(view) == [
+        tr("auth.validation.password_mismatch", Language.ES)
+    ]
+
+
+def test_matching_again_clears_the_message_and_allows_creating(
+    qtbot: QtBot, rig: Rig
+) -> None:
+    view = make_view(qtbot, rig)
+    page = fill_register(view)
+    page.confirm.edit.setText("other-pass")
+    page.confirm.edit.setText(PASSWORD)
+    assert shown_messages(view) == []
+    assert page.primary.isEnabled()
+    with qtbot.waitSignal(view.signed_in, timeout=TIMEOUT_MS):
+        page.primary.click()
+    assert rig.server.count("POST /v1/auth/register") == 1
+
+
+def test_changing_the_password_after_confirming_shows_the_mismatch(
+    qtbot: QtBot, rig: Rig
+) -> None:
+    view = make_view(qtbot, rig)
+    page = fill_register(view)
+    page.password.edit.setText(PASSWORD + "x")
+    assert not page.primary.isEnabled()
+    assert tr("auth.validation.password_mismatch", Language.ES) in shown_messages(view)
+
+
+def test_show_password_reveals_both_fields(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.REGISTER)
+    page = view.register_page
+    page.password_field.toggle.click()
+    assert page.confirm.edit.echoMode() == QLineEdit.EchoMode.Normal
+    page.password_field.toggle.click()
+    assert page.confirm.edit.echoMode() == QLineEdit.EchoMode.Password
+
+
+# ---- email format and the new backend codes ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("email", "key"),
+    [
+        ("ana@", "auth.validation.email_invalid"),
+        ("ana example.com", "auth.validation.email_invalid"),
+        ("ana@example", "auth.validation.email_invalid"),
+    ],
+)
+def test_sign_in_checks_the_email_before_sending(
+    qtbot: QtBot, rig: Rig, email: str, key: str
+) -> None:
+    view = make_view(qtbot, rig)
+    fill_sign_in(view, email=email)
+    view.sign_in_page.primary.click()
+    assert shown_messages(view) == [tr(key, Language.ES)]
+    assert rig.server.calls == []
+
+
+def test_sign_in_trims_the_email_before_sending(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    fill_sign_in(view, email=f"  {EMAIL}  ")
+    sign_in_and_wait(qtbot, view)
+    assert rig.server.count("POST /v1/auth/login") == 1
+
+
+def test_reset_checks_the_email_before_sending(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.RESET)
+    page = view.reset_page
+    page.email.edit.setText("ana@")
+    page.send_button.click()
+    assert shown_messages(view) == [tr("auth.validation.email_invalid", Language.ES)]
+    assert rig.server.calls == []
+
+
+@pytest.mark.parametrize("language", list(Language))
+@pytest.mark.parametrize(
+    ("kind", "field"),
+    [
+        (AccountErrorKind.INVALID_EMAIL, "email"),
+        (AccountErrorKind.EMAIL_TOO_LONG, "email"),
+        (AccountErrorKind.PASSWORD_TOO_LONG, "password"),
+        (AccountErrorKind.NAME_TOO_LONG, "name"),
+    ],
+)
+def test_the_new_backend_codes_show_next_to_their_field(
+    qtbot: QtBot, rig: Rig, language: Language, kind: AccountErrorKind, field: str
+) -> None:
+    view = make_view(qtbot, rig, language)
+    view.show_page(LoginPage.REGISTER)
+    view.register_page.show_error(kind)
+    block = getattr(view.register_page, field)
+    assert block.message.text == tr(f"auth.error.{kind.value}", language)
+
+
+@pytest.mark.parametrize(
+    ("code", "kind"),
+    [
+        ("invalid_email", AccountErrorKind.INVALID_EMAIL),
+        ("email_too_long", AccountErrorKind.EMAIL_TOO_LONG),
+        ("password_too_long", AccountErrorKind.PASSWORD_TOO_LONG),
+        ("name_too_long", AccountErrorKind.NAME_TOO_LONG),
+    ],
+)
+def test_the_new_backend_codes_become_account_errors(
+    qtbot: QtBot, rig: Rig, code: str, kind: AccountErrorKind
+) -> None:
+    rig.server.errors["POST /v1/auth/login"] = (422, code)
+    view = make_view(qtbot, rig)
+    fill_sign_in(view)
+    view.sign_in_page.primary.click()
+    expected = tr(f"auth.error.{kind.value}", Language.ES)
+    qtbot.waitUntil(lambda: expected in shown_messages(view), timeout=TIMEOUT_MS)
+
+
+# ---- privacy notice ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_the_notice_has_no_internal_references(language: Language) -> None:
+    body = tr("auth.privacy_body", language)
+    assert "§" not in body
+    assert "Borrador" not in body
+    assert "Draft" not in body
+
+
+def test_the_sign_in_page_links_to_the_notice(qtbot: QtBot, rig: Rig) -> None:
+    view = make_view(qtbot, rig)
+    page = view.sign_in_page
+    assert page.privacy_button.text() == tr("auth.privacy_link", Language.ES)
+    page.privacy_button.click()
+    assert view.privacy_dialog is not None
+    view.privacy_dialog.accept()
+
+
+def test_the_notice_scrolls_and_is_centered_over_the_window(
+    qtbot: QtBot, rig: Rig
+) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.REGISTER)
+    view.register_page.privacy_button.click()
+    dialog = view.privacy_dialog
+    assert dialog is not None
+    qtbot.waitUntil(dialog.isVisible, timeout=TIMEOUT_MS)
+    assert dialog.parent() is view.window()
+    assert dialog.scroll.widget() is not None
+    owner = view.window().frameGeometry().center()
+    assert abs(dialog.frameGeometry().center().x() - owner.x()) <= 2
+    assert abs(dialog.frameGeometry().center().y() - owner.y()) <= 2
+    dialog.accept()
+
+
+def record_accessibility_events(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    events: list[object] = []
+    monkeypatch.setattr(
+        "clearread.ui.views.login_widgets.QAccessible.updateAccessibility",
+        lambda event: events.append(event.type()),
+    )
+    return events
+
+
+def test_typing_while_the_passwords_differ_never_raises_an_alert(
+    qtbot: QtBot, rig: Rig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    view = make_view(qtbot, rig)
+    view.show_page(LoginPage.REGISTER)
+    page = view.register_page
+    events = record_accessibility_events(monkeypatch)
+    for text in ("a", "ab", "abc", "abcd"):
+        page.password.edit.setText(text)
+    page.confirm.edit.setText("x")
+    for text in ("xy", "xyz", "xyzw"):
+        page.confirm.edit.setText(text)
+    for text in ("abcde", "abcdef", "abcdefg"):
+        page.password.edit.setText(text)
+    assert QAccessible.Event.Alert not in events
+    assert events.count(QAccessible.Event.NameChanged) == 2
+
+
+def test_a_repeated_message_is_announced_once(
+    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    message = InlineMessage()
+    qtbot.addWidget(message)
+    events = record_accessibility_events(monkeypatch)
+    for _ in range(5):
+        message.show_message("same")
+    assert events == [QAccessible.Event.Alert]
+    message.show_message("other")
+    assert events == [QAccessible.Event.Alert] * 2

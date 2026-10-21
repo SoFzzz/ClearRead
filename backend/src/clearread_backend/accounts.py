@@ -10,6 +10,7 @@ from clearread_backend.errors import ApiError
 from clearread_backend.firebase import FirebaseAuthGateway, FirestoreGateway, Tokens
 from clearread_backend.models import (
     PASSWORD_MIN_CHARS,
+    DeleteAccountRequest,
     LoginRequest,
     PasswordResetRequest,
     RefreshRequest,
@@ -80,13 +81,25 @@ def create_accounts_router(
         await auth.send_password_reset(body.email, client_ip(request))
         return Response(status_code=204)
 
+    async def reauthenticate(principal: Principal, password: str) -> Tokens:
+        # Deleting is irreversible: a stolen session token alone must not be enough.
+        if not principal.info.email:
+            raise ApiError(409, "account_without_password")
+        fresh = await auth.sign_in(principal.info.email, password)
+        if fresh.uid != principal.info.uid:
+            raise ApiError(401, "invalid_credentials")
+        return fresh
+
     @router.delete("/v1/account", status_code=204)
     async def delete_account(
+        body: DeleteAccountRequest,
         principal: Annotated[Principal, Depends(current_principal)],
     ) -> Response:
-        await firestore.delete_profile(principal.info.uid, principal.id_token)
-        await auth.delete_user(principal.id_token)
+        fresh = await reauthenticate(principal, body.password)
+        await firestore.delete_profile(principal.info.uid, fresh.id_token)
+        await auth.delete_user(fresh.id_token)
         verifier.forget(principal.id_token)
+        verifier.forget(fresh.id_token)
         return Response(status_code=204)
 
     return router

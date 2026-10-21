@@ -56,7 +56,12 @@ class SessionManager:
             self._identity = None
             self._id_token = ""
             self._expires_at = 0.0
-            self._store.clear()
+            try:
+                self._store.clear()
+            except OSError:
+                # A locked file must not stop the sign-out; the stale session fails
+                # to refresh at the next start and the login screen shows then.
+                pass
 
     def refresh(self) -> Session:
         """Raises AccountError; a revoked refresh token also signs the user out."""
