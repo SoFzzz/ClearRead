@@ -289,6 +289,16 @@ def create_google_router(
             attempt.link_id_token = ""
             attempt.code_verifier = ""
 
+    async def require_verified_email(token: str) -> None:
+        """Linking needs the account's own email confirmed in Firebase."""
+        info = await verifier.verify(token)
+        if not info.firebase_email_verified:
+            # The cache may predate the confirmation click: ask Firebase again.
+            verifier.forget(token)
+            info = await verifier.verify(token)
+        if not info.firebase_email_verified:
+            raise ApiError(403, "email_not_verified")
+
     @router.post("/v1/auth/google/start", dependencies=configured)
     async def start(
         body: StartRequest, authorization: Annotated[str, Header()] = ""
@@ -296,7 +306,7 @@ def create_google_router(
         token = ""
         if body.mode == "link":
             token = bearer_token(authorization)
-            await verifier.verify(token)
+            await require_verified_email(token)
         attempt_id, poll_token = attempts.create(body.mode, token)
         return StartResponse(
             attempt_id=attempt_id, poll_token=poll_token, expires_in=ATTEMPT_TTL_S

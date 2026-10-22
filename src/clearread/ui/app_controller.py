@@ -257,6 +257,9 @@ class AppController(QObject):
             self._on_session_ended()
         else:
             window.show_account_error(kind)
+            if kind is AccountErrorKind.EMAIL_NOT_VERIFIED:
+                # The session may be stale: refresh it so the card tells the truth.
+                self._refresh_account()
 
     def _wire(self, window: MainWindow, sync: SyncController) -> None:
         window.profile_changed.connect(sync.notify_changed)

@@ -133,6 +133,7 @@ def test_the_firestore_fake_enforces_the_owner_only_rule(
 def test_the_google_marker_is_written_to_the_verified_user_only(
     web: TestClient, firebase: FakeFirebase, other: User
 ) -> None:
+    other.email_verified = True
     attempt = start(web, "link", OTHER_HEADERS)
     assert begin(web, attempt).status_code == 302
     assert callback(web, attempt.state, code="code-bea").status_code == 200

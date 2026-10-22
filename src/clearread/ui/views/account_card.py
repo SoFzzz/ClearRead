@@ -154,6 +154,10 @@ class AccountCard(QFrame):
         self.google_label = QLabel(f"✓ {self._t('account.google_linked')}")
         self.google_label.setObjectName("AccountBadge")
         self.google_label.setFixedHeight(BADGE_HEIGHT)
+        self.google_hint = text_label(
+            self._t("account.google_needs_confirmation"), "note"
+        )
+        self.google_hint.hide()
         google_row = QHBoxLayout()
         google_row.addWidget(self.google_button)
         google_row.addWidget(self.google_label)
@@ -183,6 +187,7 @@ class AccountCard(QFrame):
         layout.addWidget(self.busy_label)
         layout.addWidget(self.error_message)
         layout.addLayout(google_row)
+        layout.addWidget(self.google_hint)
         layout.addWidget(buttons)
         layout.addWidget(local_note)
         layout.addWidget(self.privacy_button, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -205,6 +210,9 @@ class AccountCard(QFrame):
             self.badge.setText(f"{mark} {self._t(key)}")
         self.google_button.setVisible(info.google_linked is False)
         self.google_label.setVisible(info.google_linked is True)
+        self.google_hint.setVisible(
+            info.google_linked is False and info.verified is False
+        )
 
     def set_sync_status(self, status: SyncStatus) -> None:
         self._status = status

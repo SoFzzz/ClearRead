@@ -1163,6 +1163,22 @@ CATALOG: dict[str, dict[str, str]] = {
             "your email, then link Google in Settings."
         ),
     },
+    "auth.error.email_not_verified": {
+        "es": (
+            "Para vincular Google, primero confirma tu correo. Abre el mensaje que "
+            "te enviamos al crear tu cuenta (mira también en spam) y haz clic en el "
+            "enlace. Después vuelve aquí e inténtalo otra vez."
+        ),
+        "en": (
+            "To link Google, first confirm your email. Open the message we sent "
+            "when you created your account (check spam too) and click the link. "
+            "Then come back here and try again."
+        ),
+    },
+    "account.google_needs_confirmation": {
+        "es": "Para vincular Google, primero confirma tu correo.",
+        "en": "To link Google, first confirm your email.",
+    },
     "auth.error.google_attempt_not_found": {
         "es": "Se perdió el intento con Google. Inténtalo otra vez.",
         "en": "The Google attempt was lost. Try again.",

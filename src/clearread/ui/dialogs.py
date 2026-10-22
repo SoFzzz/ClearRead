@@ -317,5 +317,7 @@ class PrivacyNoticeDialog(QDialog):
             return
         height = min(PRIVACY_MAX_HEIGHT, max(PRIVACY_MIN_HEIGHT, owner.height() - 80))
         self.resize(DIALOG_WIDTH, height)
-        center = owner.frameGeometry().center()
-        self.move(center.x() - self.width() // 2, center.y() - self.height() // 2)
+        # move() places the outer frame (title bar included), so center that, not the client area.
+        frame = self.frameGeometry()
+        frame.moveCenter(owner.frameGeometry().center())
+        self.move(frame.topLeft())

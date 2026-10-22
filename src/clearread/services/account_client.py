@@ -46,6 +46,7 @@ class AccountErrorKind(Enum):
     GOOGLE_CANCELLED = "google_cancelled"
     GOOGLE_ALREADY_LINKED = "google_already_linked"
     GOOGLE_NOT_LINKED = "google_not_linked"
+    EMAIL_NOT_VERIFIED = "email_not_verified"
     GOOGLE_ATTEMPT_NOT_FOUND = "google_attempt_not_found"
     GOOGLE_ATTEMPT_EXPIRED = "google_attempt_expired"
     GOOGLE_NOT_CONFIGURED = "google_not_configured"
@@ -107,6 +108,7 @@ _CODE_TO_KIND: dict[str, AccountErrorKind] = {
     "google_cancelled": AccountErrorKind.GOOGLE_CANCELLED,
     "google_already_linked": AccountErrorKind.GOOGLE_ALREADY_LINKED,
     "google_not_linked": AccountErrorKind.GOOGLE_NOT_LINKED,
+    "email_not_verified": AccountErrorKind.EMAIL_NOT_VERIFIED,
     "google_attempt_not_found": AccountErrorKind.GOOGLE_ATTEMPT_NOT_FOUND,
     "google_attempt_expired": AccountErrorKind.GOOGLE_ATTEMPT_EXPIRED,
     "google_not_configured": AccountErrorKind.GOOGLE_NOT_CONFIGURED,

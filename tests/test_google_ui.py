@@ -356,13 +356,44 @@ def test_a_link_error_shows_in_the_card_and_closes_the_dialog(
 
 def test_every_google_error_kind_has_a_message_in_both_languages() -> None:
     kinds = [k for k in AccountErrorKind if k.name.startswith("GOOGLE_")]
-    kinds.append(AccountErrorKind.BROWSER_UNAVAILABLE)
+    kinds += [AccountErrorKind.BROWSER_UNAVAILABLE, AccountErrorKind.EMAIL_NOT_VERIFIED]
     for kind in kinds:
         for language in Language:
             assert tr(f"auth.error.{kind.name.lower()}", language)
 
 
-def test_linking_refreshes_the_card_to_confirmed_without_restarting(
+def test_linking_refreshes_the_account_without_restarting(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    controller = make_profile_window(qtbot, controllers, rig, linked=False)
+    card = controller.window.settings_view.account_card  # type: ignore[union-attr]
+    assert card is not None
+    rig.server.session_fields = {"google_linked": True, "email_verified": True}
+    rig.server.google_answers = [LINKED]
+    refreshes = rig.server.count("POST /v1/auth/refresh")
+    card.google_button.click()
+    qtbot.waitUntil(
+        lambda: rig.server.count("POST /v1/auth/refresh") > refreshes,
+        timeout=TIMEOUT_MS,
+    )
+    qtbot.waitUntil(lambda: card.google_label.isVisibleTo(card), timeout=TIMEOUT_MS)
+
+
+def test_a_confirmed_email_links_without_a_hint(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    controller = make_profile_window(qtbot, controllers, rig, linked=False)
+    card = controller.window.settings_view.account_card  # type: ignore[union-attr]
+    assert card is not None
+    assert not card.google_hint.isVisibleTo(card)
+    rig.server.google_answers = [(200, {"status": "pending"})]
+    card.google_button.click()
+    qtbot.waitUntil(lambda: card.google_dialog is not None, timeout=TIMEOUT_MS)
+    assert rig.server.count("POST /v1/auth/google/start") == 1
+    assert rig.browser.paths == ["/v1/auth/google/begin/att-1"]
+
+
+def test_an_email_confirmed_after_the_last_refresh_still_links(
     qtbot: QtBot, controllers: list[AppController], rig: Rig
 ) -> None:
     controller = make_profile_window(qtbot, controllers, rig, linked=False)
@@ -371,12 +402,33 @@ def test_linking_refreshes_the_card_to_confirmed_without_restarting(
     controller.window.set_account(  # type: ignore[union-attr]
         AccountInfo("Ana", "ana@example.com", False, False)
     )
-    assert tr("account.not_verified", Language.ES) in card.badge.text()
-    rig.server.session_fields = {"google_linked": True, "email_verified": True}
-    rig.server.google_answers = [LINKED]
+    assert card.google_hint.isVisibleTo(card)
+    assert card.google_button.isEnabled()
+    rig.server.google_answers = [(200, {"status": "pending"})]
     card.google_button.click()
+    qtbot.waitUntil(lambda: card.google_dialog is not None, timeout=TIMEOUT_MS)
+    assert rig.server.count("POST /v1/auth/google/start") == 1
+    assert card.error_message.text == ""
+    assert rig.browser.paths == ["/v1/auth/google/begin/att-1"]
+
+
+def test_a_stale_session_gets_the_backend_refusal_mapped_and_refreshed(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    controller = make_profile_window(qtbot, controllers, rig, linked=False)
+    card = controller.window.settings_view.account_card  # type: ignore[union-attr]
+    assert card is not None
+    rig.server.errors["POST /v1/auth/google/start"] = (403, "email_not_verified")
+    rig.server.session_fields = {"google_linked": False, "email_verified": False}
+    refreshes = rig.server.count("POST /v1/auth/refresh")
+    card.google_button.click()
+    qtbot.waitUntil(lambda: card.error_message.text != "", timeout=TIMEOUT_MS)
+    assert card.error_message.text == tr("auth.error.email_not_verified", Language.ES)
+    assert rig.server.count("POST /v1/auth/google/start") == 1
+    assert rig.browser.paths == []
+    assert card.google_dialog is None and not controller.google.active
     qtbot.waitUntil(
-        lambda: tr("account.verified", Language.ES) in card.badge.text(),
+        lambda: rig.server.count("POST /v1/auth/refresh") > refreshes,
         timeout=TIMEOUT_MS,
     )
-    assert "POST /v1/auth/refresh" in rig.server.calls
+    qtbot.waitUntil(lambda: card.google_hint.isVisibleTo(card), timeout=TIMEOUT_MS)

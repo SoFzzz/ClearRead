@@ -80,6 +80,8 @@ class AccountInfo:
     email_verified: bool
     display_name: str
     google_linked: bool = False
+    # Firebase's own flag, without the linked-Google shortcut of ``email_verified``.
+    firebase_email_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -270,6 +272,7 @@ class FirebaseAuthGateway:
                 email_verified=_effective_verified(user, google),
                 display_name=user.get("displayName", ""),
                 google_linked=google is not None,
+                firebase_email_verified=user.get("emailVerified") is True,
             )
         except (KeyError, IndexError, TypeError):
             raise ApiError(*_UPSTREAM_ERROR) from None

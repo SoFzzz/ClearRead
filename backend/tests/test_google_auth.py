@@ -51,6 +51,7 @@ def web(
     google: FakeGoogle,
     clock: FakeClock,
 ) -> TestClient:
+    firebase.users[STUDENT].email_verified = True
     return make_client(deepseek, firebase, google, clock)
 
 
@@ -139,6 +140,52 @@ def test_start_link_needs_a_valid_bearer(web: TestClient) -> None:
 
 def test_start_link_with_a_valid_bearer(web: TestClient) -> None:
     start(web, "link", BEARER)
+
+
+def test_start_link_refuses_an_unverified_email_before_any_attempt(
+    web: TestClient, firebase: FakeFirebase, google: FakeGoogle
+) -> None:
+    firebase.users[STUDENT].email_verified = False
+    body = {"mode": "link"}
+    response = web.post("/v1/auth/google/start", json=body, headers=BEARER)
+    assert_error(response, 403, "email_not_verified")
+    assert not google.requests
+    assert not firebase.calls_to("signInWithIdp")
+    firebase.users[STUDENT].email_verified = True
+    start(web, "link", BEARER)
+
+
+def test_start_link_sees_an_email_confirmed_after_the_token_was_cached(
+    web: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.users[STUDENT].email_verified = False
+    body = {"mode": "link"}
+    refused = web.post("/v1/auth/google/start", json=body, headers=BEARER)
+    assert_error(refused, 403, "email_not_verified")
+    # The refusal leaves the token cached as unverified; both lookups are its own.
+    assert len(firebase.calls_to("lookup")) == 2
+    firebase.users[STUDENT].email_verified = True
+    start(web, "link", BEARER)
+    # The cached unverified state was forgotten and rechecked exactly once.
+    assert len(firebase.calls_to("lookup")) == 3
+
+
+def test_start_link_ignores_a_linked_google_with_the_same_email(
+    web: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.users[STUDENT].email_verified = False
+    link_google(firebase, "alice")
+    firebase.users[STUDENT].google_email = STUDENT
+    body = {"mode": "link"}
+    response = web.post("/v1/auth/google/start", json=body, headers=BEARER)
+    assert_error(response, 403, "email_not_verified")
+
+
+def test_start_sign_in_does_not_need_a_verified_email(
+    web: TestClient, firebase: FakeFirebase
+) -> None:
+    firebase.users[STUDENT].email_verified = False
+    start(web, "sign_in")
 
 
 def test_start_rejects_an_unknown_mode(web: TestClient) -> None:

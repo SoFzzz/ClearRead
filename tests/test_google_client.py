@@ -115,6 +115,7 @@ def test_a_bad_attempt_id_never_reaches_the_network(attempt_id: str) -> None:
         (409, "google_cancelled", AccountErrorKind.GOOGLE_CANCELLED),
         (409, "google_already_linked", AccountErrorKind.GOOGLE_ALREADY_LINKED),
         (403, "google_not_linked", AccountErrorKind.GOOGLE_NOT_LINKED),
+        (403, "email_not_verified", AccountErrorKind.EMAIL_NOT_VERIFIED),
         (404, "google_attempt_not_found", AccountErrorKind.GOOGLE_ATTEMPT_NOT_FOUND),
         (410, "google_attempt_expired", AccountErrorKind.GOOGLE_ATTEMPT_EXPIRED),
         (503, "google_not_configured", AccountErrorKind.GOOGLE_NOT_CONFIGURED),
