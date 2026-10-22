@@ -6,7 +6,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import shiboken6
 from app_fakes import UID, Rig, make_rig, save_session
+from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtNetwork import QNetworkInformation
 from PySide6.QtWidgets import QMessageBox
 from pytestqt.qtbot import QtBot
@@ -573,3 +575,34 @@ def test_a_language_restart_keeps_the_session_and_reopens_signed_in(
     assert second.login_window is None
     assert second.window is not None
     assert second.window is not window
+
+
+# ---- dropped windows are destroyed on the GUI thread -------------------------
+
+
+def run_deferred_deletes() -> None:
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def test_sign_out_destroys_the_old_window_without_the_garbage_collector(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    save_session(rig.store)
+    controller = start(controllers, rig)
+    wait_synced(qtbot, controller)
+    window = main_window(controller)
+    open_sign_out(controller)
+    qtbot.waitUntil(lambda: controller.window is None, timeout=TIMEOUT_MS)
+    run_deferred_deletes()
+    assert not shiboken6.isValid(window)
+
+
+def test_signing_in_destroys_the_login_window_without_the_garbage_collector(
+    qtbot: QtBot, controllers: list[AppController], rig: Rig
+) -> None:
+    controller = start(controllers, rig)
+    login = controller.login_window
+    assert login is not None
+    sign_in_through_the_login(qtbot, controller)
+    run_deferred_deletes()
+    assert not shiboken6.isValid(login)
