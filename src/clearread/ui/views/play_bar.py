@@ -26,6 +26,7 @@ from clearread.ui.views.page_bar import (
 PLAY_BAR_HEIGHT = 80
 PLAY_BUTTON_SIZE = (148, 48)
 SPEED_SLIDER_WIDTH = 180
+SPEED_HEADER_GAP = 12
 
 
 class PlayBar(QFrame):
@@ -55,6 +56,8 @@ class PlayBar(QFrame):
 
     def _speed_column(self) -> QVBoxLayout:
         header = QHBoxLayout()
+        # The spacer alone collapses to zero when the slider is narrower than both labels.
+        header.setSpacing(SPEED_HEADER_GAP)
         header.addWidget(self.speed_label)
         header.addStretch(1)
         header.addWidget(self.speed_value_label)

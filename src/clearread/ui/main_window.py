@@ -82,6 +82,8 @@ from clearread.workers.ocr_worker import (
 
 MIN_WINDOW_SIZE = (1024, 700)
 TOP_BAR_HEIGHT = 56
+# Outer height of the top-bar buttons (min-height 40 plus their 2 px border, see theme.py).
+TOP_BAR_CONTROL_HEIGHT = 44
 TITLE_MAX_CHARS = 60
 SAMPLE_RESOURCE = Path("resources") / "samples" / "ejemplo_es.txt"
 
@@ -361,9 +363,6 @@ class MainWindow(QMainWindow):
         topic = self._topics.find_by_name(folder.name) if folder else None
         return topic.id if topic else NO_GROUP
 
-    def _refresh_words(self) -> None:
-        self.words_view.set_entries(self._glossary.entries(), self._topics.groups())
-
     def _build_top_bar(self) -> QFrame:
         bar = QFrame()
         bar.setObjectName("TopBar")
@@ -382,6 +381,7 @@ class MainWindow(QMainWindow):
         self.assistant_button.hide()
         self.offline_badge = QLabel(self._t("ai.offline_badge"))
         self.offline_badge.setObjectName("OfflineBadge")
+        self.offline_badge.setFixedHeight(TOP_BAR_CONTROL_HEIGHT)
         self.offline_badge.hide()
         self.brand_label = QLabel("ClearRead")
         self.brand_label.setObjectName("Brand")
@@ -392,7 +392,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self.back_button)
         row.addWidget(self.brand_label, stretch=1)
         row.addWidget(self.title_label, stretch=1)
-        row.addWidget(self.offline_badge)
+        row.addWidget(self.offline_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(self.assistant_button)
         row.addWidget(self.words_button)
         row.addWidget(self.settings_button)

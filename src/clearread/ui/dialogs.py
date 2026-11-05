@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -48,7 +49,6 @@ class AccessibleErrorDialog(QDialog):
         self.setObjectName("ErrorDialog")
         self.setWindowTitle(tr("dialog.window_title", language))
         self.setModal(True)
-        self.setFixedWidth(DIALOG_WIDTH)
 
         slug = kind.value
         title = QLabel(tr(f"error.{slug}.title", language))
@@ -87,11 +87,14 @@ class AccessibleErrorDialog(QDialog):
         buttons.addWidget(self.understood_button)
 
         layout = QVBoxLayout(self)
+        # Grow past the minimum width when the button labels need more room.
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         layout.setContentsMargins(24, 24, 24, 20)
         layout.setSpacing(16)
         layout.addLayout(header)
         layout.addWidget(self._action_box(slug, tokens, language))
         layout.addLayout(buttons)
+        self.resize(DIALOG_WIDTH, self.sizeHint().height())
         self.understood_button.setFocus()
 
     @staticmethod

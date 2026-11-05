@@ -31,6 +31,9 @@ from clearread.ui.views.reading_view import PlaybackState, ReadingView, ViewMode
 
 TEXT = "El niño leyó una canción.\n\nSegundo párrafo con cinco palabras."
 TIMEOUT_MS = 5000
+SPEED_HEADER_MIN_GAP = 8
+# The smallest window the app allows: the play bar is tightest there.
+MIN_WINDOW_WIDTH = 1024
 
 
 def format_text(theme: ThemeId) -> FormattedDocument:
@@ -564,3 +567,13 @@ def test_the_sheet_adds_nothing_to_the_minimum_width_and_no_horizontal_bar(
     qtbot.waitExposed(widget)
     assert widget.minimumSizeHint().width() == widget.play_bar.minimumSizeHint().width()
     assert not widget.editor.horizontalScrollBar().isVisible()
+
+
+def test_the_speed_label_and_its_value_never_touch(view: ReadingView) -> None:
+    load_reading_font()
+    view.setStyleSheet(build_stylesheet(THEMES[ThemeId.LIGHT]))
+    view.resize(MIN_WINDOW_WIDTH, MIN_WINDOW_WIDTH * 3 // 4)
+    view.show()
+    QApplication.processEvents()
+    gap = view.speed_value_label.geometry().left() - view.speed_label.geometry().right()
+    assert gap >= SPEED_HEADER_MIN_GAP

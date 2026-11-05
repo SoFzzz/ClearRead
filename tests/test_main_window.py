@@ -350,3 +350,16 @@ def test_accepting_the_privacy_notice_is_saved_and_survives_settings_changes(
     window.settings_view.set_speed(200)
     window.settings_view.config_changed.emit(window.settings_view.config)
     assert AppConfig.load(tmp_path / "config").ai_privacy_accepted
+
+
+def test_the_offline_badge_fits_the_top_bar_with_the_button_margins(
+    qtbot: QtBot, tts: TTSController, library: DocumentLibrary, tmp_path: Path
+) -> None:
+    network = NetworkMonitor(None)
+    window, _ = make_ai_window(qtbot, tts, library, tmp_path, network)
+    network.set_reachability(QNetworkInformation.Reachability.Disconnected)
+    badge = window.offline_badge.geometry()
+    button = window.settings_button.geometry()
+    assert badge.top() == button.top()
+    assert badge.height() == button.height()
+    assert badge.bottom() < window.offline_badge.parentWidget().height()
