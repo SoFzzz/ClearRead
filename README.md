@@ -322,7 +322,7 @@ La especificación completa (requisitos, decisiones, sistema de diseño y guías
 3. Si Windows muestra *«Windows protegió su PC»*: **Más información → Ejecutar de todas formas**. Aparece porque el instalador no está firmado digitalmente.
 4. Abre ClearRead desde el Escritorio o el menú Inicio. Para quitarlo: *Configuración → Aplicaciones*. Tus documentos y palabras (`%APPDATA%\ClearRead`) no se borran.
 
-SHA256 del instalador (para comprobar la descarga): `d47bfcc5e527bb165a69a86d36bf3af57ed03e5e7ddb730b8c0c013d42e0cce3`.
+SHA256 del instalador (para comprobar la descarga): `bc34d2791793ac455ecd2bfed44239c3d00dd1b99c75e7c228c0ac422ae89434`.
 
 **Requisitos:** Windows 10/11 de 64 bits. No necesita Python. Hace falta internet para el **primer inicio de sesión** y para el asistente de IA; el resto de la app funciona sin conexión.
 
