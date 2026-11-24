@@ -18,6 +18,10 @@
 </p>
 
 <p align="center">
+  🎬 <a href="https://youtu.be/tI7YFbtS0VQ"><b>Ver el video de demostración</b></a>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/reading-aloud.png" alt="ClearRead leyendo en voz alta: la palabra que suena está resaltada y el texto tiene sílabas de dos colores" width="820">
 </p>
 
